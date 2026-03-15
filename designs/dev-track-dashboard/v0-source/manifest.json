@@ -1,0 +1,27 @@
+{
+  "chatId": "tAF7w6btXik",
+  "featureName": "dev-track-dashboard",
+  "fetchedAt": "2026-03-15T18:40:00.000Z",
+  "sourceUrl": "https://v0.app/chat/dev-track-dashboard-tAF7w6btXik",
+  "versionId": "b_dHQjcAfsPfm",
+  "versionSelectedFrom": 2,
+  "totalFiles": 93,
+  "customFiles": [
+    "components/dashboard-page.tsx",
+    "components/domain-badge.tsx",
+    "components/pr-queue-page.tsx",
+    "components/project-page.tsx",
+    "components/sidebar.tsx",
+    "components/status-badges.tsx",
+    "components/theme-provider.tsx",
+    "components/timeline-page.tsx",
+    "components/workflow-badge.tsx",
+    "lib/mock-data.ts",
+    "app/layout.tsx",
+    "app/page.tsx",
+    "app/projects/[slug]/page.tsx",
+    "app/prs/page.tsx",
+    "app/timeline/page.tsx",
+    "app/globals.css"
+  ]
+}
