@@ -1,0 +1,70 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":disableDependencyDashboard"],
+  "labels": ["dependencies"],
+  "platformAutomerge": true,
+  "schedule": ["before 8am every weekday"],
+  "timezone": "America/New_York",
+  "prHourlyLimit": 4,
+  "prConcurrentLimit": 5,
+  "enabledManagers": ["npm"],
+  "packageRules": [
+    {
+      "description": "Auto-merge non-major updates when CI passes",
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "automerge": true,
+      "automergeType": "pr",
+      "automergeStrategy": "squash"
+    },
+    {
+      "description": "Group all non-major updates into one PR",
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "minor and patch dependencies",
+      "groupSlug": "minor-patch"
+    },
+    {
+      "description": "Major updates get individual PRs for review",
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "labels": ["dependencies", "major"]
+    },
+    {
+      "description": "Prisma packages must stay in sync",
+      "matchPackageNames": ["prisma", "@prisma/client", "@prisma/adapter-pg"],
+      "groupName": "prisma"
+    },
+    {
+      "description": "React ecosystem updates together",
+      "matchPackageNames": ["react", "react-dom", "@types/react", "@types/react-dom"],
+      "groupName": "react"
+    },
+    {
+      "description": "Testing tools update together",
+      "matchPackageNames": [
+        "vitest",
+        "@testing-library/react",
+        "@testing-library/jest-dom",
+        "@testing-library/user-event",
+        "@vitejs/plugin-react",
+        "jsdom"
+      ],
+      "groupName": "testing"
+    },
+    {
+      "description": "Node.js managed via .node-version, not Renovate",
+      "matchDepTypes": ["engines"],
+      "matchPackageNames": ["node"],
+      "enabled": false
+    },
+    {
+      "description": "pnpm managed via corepack/packageManager field",
+      "matchPackageNames": ["pnpm"],
+      "enabled": false
+    }
+  ],
+  "lockFileMaintenance": {
+    "enabled": true,
+    "automerge": true,
+    "schedule": ["before 8am on the first day of the month"]
+  }
+}

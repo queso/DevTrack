@@ -1,0 +1,8 @@
+name: homepage-loads
+description: Homepage renders heading and navigation links
+steps:
+  - visit: /
+expect:
+  - visible: To get started, edit the page.tsx file.
+  - visible: Templates
+  - visible: Documentation

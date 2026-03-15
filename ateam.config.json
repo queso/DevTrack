@@ -1,0 +1,16 @@
+{
+  "packageManager": "pnpm",
+  "checks": {
+    "lint": "pnpm run lint",
+    "unit": "pnpm test",
+    "e2e": "pnpm run test:e2e"
+  },
+  "precheck": ["lint", "unit"],
+  "postcheck": ["lint", "unit", "e2e"],
+  "devServer": {
+    "url": "http://localhost:3000",
+    "start": "pnpm run dev",
+    "restart": "docker compose restart",
+    "managed": false
+  }
+}
