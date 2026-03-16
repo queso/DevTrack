@@ -6,6 +6,8 @@ const envSchema = z.object({
   SITE_URL: z.string().default("http://localhost:3000"),
   CORS_ORIGIN: z.string().default(""),
   RATE_LIMIT_RPM: z.coerce.number().int().positive().default(60),
+  DEVTRACK_API_KEY: z.string().min(1).optional(),
+  GITHUB_WEBHOOK_SECRET: z.string().optional(),
 })
 
 type Env = z.infer<typeof envSchema>

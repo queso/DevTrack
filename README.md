@@ -18,6 +18,86 @@ Built on [context-kit](https://github.com/queso/context-kit):
 - **Deployment:** Docker, Kubernetes (OVH Cloud)
 - **CLI:** Auto-generated from OpenAPI spec via swagger-jack
 
+## Getting Started
+
+### Prerequisites
+
+- Node.js 20+
+- pnpm
+- PostgreSQL 14+
+
+### Setup
+
+1. Install dependencies:
+```bash
+pnpm install
+```
+
+2. Set up the database:
+```bash
+# Create .env.local with your database URL
+DATABASE_URL="postgresql://user:password@localhost:5432/devtrack"
+
+# Run migrations
+pnpm exec prisma migrate deploy
+
+# Generate Prisma client
+pnpm exec prisma generate
+```
+
+3. Configure API authentication:
+```bash
+# Add to .env.local
+DEVTRACK_API_KEY="your-secure-api-key-here"
+```
+
+4. Start the development server:
+```bash
+pnpm run dev
+```
+
+The API will be available at `http://localhost:3000/api/v1`.
+
+### API Documentation
+
+The API is fully documented with an OpenAPI 3.1 spec available at `/api/v1/openapi.json`.
+
+#### Authentication
+
+All API requests require an API key passed via the `Authorization` header:
+
+```bash
+curl -H "Authorization: Bearer $DEVTRACK_API_KEY" \
+  http://localhost:3000/api/v1/projects
+```
+
+#### Example: Register a Project
+
+```bash
+curl -X POST http://localhost:3000/api/v1/projects \
+  -H "Authorization: Bearer $DEVTRACK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "my-project",
+    "workflow": "sdlc",
+    "domain": "aiteam",
+    "owner": "team",
+    "repo_url": "https://github.com/user/my-project",
+    "main_branch": "main"
+  }'
+```
+
+#### Key Endpoints
+
+- **Projects:** `/api/v1/projects` - Register and manage tracked projects
+- **PRDs & Work Items:** `/api/v1/projects/{id}/prds` - Track features and tasks
+- **Content Pipeline:** `/api/v1/projects/{id}/content` - Manage ideas, drafts, and published content
+- **Pull Requests:** `/api/v1/prs` - Monitor PR queue across all projects
+- **Events & Timeline:** `/api/v1/events` - Track activity and create a unified timeline
+- **GitHub Webhooks:** `/api/v1/webhooks/github` - Receive GitHub events
+
+See `prd/001-core-api.md` for complete API specification.
+
 ## Architecture
 
 ```

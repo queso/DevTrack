@@ -6,3 +6,186 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+enum Workflow {
+  sdlc
+  content
+}
+
+enum PrdStatus {
+  queued
+  in_progress
+  completed
+}
+
+enum WorkItemStatus {
+  todo
+  in_progress
+  done
+}
+
+enum ContentItemStatus {
+  idea
+  draft
+  published
+}
+
+enum PullRequestStatus {
+  open
+  closed
+  merged
+  draft
+  review_requested
+  changes_requested
+  approved
+}
+
+enum CheckStatus {
+  pending
+  passing
+  failing
+}
+
+enum EventType {
+  pr_opened
+  pr_merged
+  pr_closed
+  pr_review_requested
+  pr_changes_requested
+  pr_approved
+  branch_created
+  branch_deleted
+  prd_created
+  prd_updated
+  prd_completed
+  work_item_created
+  work_item_completed
+  content_published
+  commit
+}
+
+model Project {
+  id                String    @id @default(uuid())
+  name              String    @unique
+  workflow          Workflow
+  domain            String?
+  owner             String?
+  tags              String[]
+  repoUrl           String?
+  mainBranch        String    @default("main")
+  branchPrefix      String?
+  prdPath           String?
+  testPattern       String?
+  contentPath       String?
+  draftPath         String?
+  deployEnvironment String?
+  deployUrl         String?
+  deployHealthCheck String?
+  lastActivityAt    DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  prds         Prd[]
+  contentItems ContentItem[]
+  branches     Branch[]
+  pullRequests PullRequest[]
+  events       Event[]
+}
+
+model Prd {
+  id         String    @id @default(uuid())
+  projectId  String
+  title      String
+  summary    String?
+  status     PrdStatus @default(queued)
+  sourcePath String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  project      Project       @relation(fields: [projectId], references: [id])
+  workItems    WorkItem[]
+  branches     Branch[]
+  pullRequests PullRequest[]
+  events       Event[]
+}
+
+model WorkItem {
+  id        String         @id @default(uuid())
+  prdId     String
+  title     String
+  status    WorkItemStatus @default(todo)
+  order     Int
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  prd Prd @relation(fields: [prdId], references: [id])
+}
+
+model ContentItem {
+  id          String            @id @default(uuid())
+  projectId   String
+  title       String
+  summary     String?
+  status      ContentItemStatus @default(idea)
+  sourcePath  String?
+  tags        String[]
+  publishedAt DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id])
+}
+
+model Branch {
+  id        String   @id @default(uuid())
+  projectId String
+  prdId     String?
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project      Project       @relation(fields: [projectId], references: [id])
+  prd          Prd?          @relation(fields: [prdId], references: [id])
+  pullRequests PullRequest[]
+}
+
+model PullRequest {
+  id          String            @id @default(uuid())
+  projectId   String
+  branchId    String?
+  prdId       String?
+  githubId    Int
+  number      Int
+  title       String
+  status      PullRequestStatus @default(open)
+  url         String
+  author      String
+  checkStatus CheckStatus?
+  openedAt    DateTime
+  mergedAt    DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  project Project  @relation(fields: [projectId], references: [id])
+  branch  Branch?  @relation(fields: [branchId], references: [id])
+  prd     Prd?     @relation(fields: [prdId], references: [id])
+  events  Event[]
+}
+
+model Event {
+  id            String    @id @default(uuid())
+  projectId     String
+  prdId         String?
+  pullRequestId String?
+  type          EventType
+  title         String
+  metadata      Json      @default("{}")
+  occurredAt    DateTime
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  project     Project      @relation(fields: [projectId], references: [id])
+  prd         Prd?         @relation(fields: [prdId], references: [id])
+  pullRequest PullRequest? @relation(fields: [pullRequestId], references: [id])
+}

@@ -32,7 +32,6 @@ vi.mock("@/lib/logger", () => ({
 
 // Import after mocks are set up
 const { getEnv } = await import("@/lib/env")
-const { getLogger } = await import("@/lib/logger")
 
 describe("middleware exports", () => {
   it("should export middleware function", async () => {

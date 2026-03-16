@@ -102,6 +102,16 @@ export function serverError(message?: string, correlationId?: string): Response 
   })
 }
 
+/**
+ * Creates a 422 Unprocessable Entity response with field-level error details.
+ *
+ * @param fields - Object mapping field names to error messages
+ * @returns Response with status 422
+ */
+export function unprocessableEntity(fields: Record<string, string>): Response {
+  return apiError(422, "UNPROCESSABLE_ENTITY", "Validation failed", { details: fields })
+}
+
 export type ValidationSuccess<T> = { success: true; data: T }
 export type ValidationFailure = { success: false; response: Response }
 export type ValidationResult<T> = ValidationSuccess<T> | ValidationFailure

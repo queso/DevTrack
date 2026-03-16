@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { authenticateRequest } from "@/lib/auth"
 import { getEnv } from "@/lib/env"
 import { getLogger } from "@/lib/logger"
 
@@ -62,6 +63,15 @@ export async function middleware(request: NextRequest) {
 
     // Get or generate correlation ID
     const correlationId = request.headers.get("X-Correlation-Id")?.trim() || crypto.randomUUID()
+
+    // Authenticate /api/v1/* routes (health endpoint is excluded)
+    const pathname = new URL(request.url).pathname
+    if (pathname.startsWith("/api/v1/")) {
+      const authResult = authenticateRequest(request)
+      if (!authResult.success) {
+        return authResult.response
+      }
+    }
 
     // Handle CORS preflight (OPTIONS)
     if (request.method === "OPTIONS") {
