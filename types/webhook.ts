@@ -22,6 +22,7 @@ export interface GitHubPullRequest {
   user: GitHubUser
   head: { ref: string }
   merged_at: string | null
+  created_at: string
 }
 
 export interface GitHubPullRequestPayload {

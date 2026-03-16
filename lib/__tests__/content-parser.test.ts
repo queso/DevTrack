@@ -218,6 +218,20 @@ summary: Some summary
 
       expect(result.isDraft).toBe(false)
     })
+
+    it("does not mark file as draft when both contentPath and draftPath are undefined and frontmatter is not draft", () => {
+      const result = parseContentFile(publishedMarkdown, "some/other/path.md", {})
+
+      expect(result.isDraft).toBe(false)
+    })
+
+    it("does not mark file as draft when only contentPath is set and file is outside contentPath", () => {
+      const result = parseContentFile(publishedMarkdown, "other/article.md", {
+        contentPath: "content/",
+      })
+
+      expect(result.isDraft).toBe(false)
+    })
   })
 
   describe("sourcePath", () => {

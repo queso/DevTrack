@@ -75,7 +75,7 @@ export async function POST(request: Request) {
 
   // Look up project by repo URL (match on the repo full_name)
   const project = await prisma.project.findFirst({
-    where: { repoUrl: { contains: repo } },
+    where: { repoUrl: { endsWith: repo } },
   })
 
   if (!project) {
@@ -126,7 +126,7 @@ async function handlePullRequest(payload: Record<string, unknown>, projectId: st
         status: status as PullRequestStatus,
         url: pr.html_url as string,
         author: (pr.user as { login: string }).login,
-        openedAt: new Date(),
+        openedAt: new Date(pr.created_at as string),
         mergedAt,
       },
       update: {
@@ -276,8 +276,8 @@ async function handlePullRequestReview(payload: Record<string, unknown>, project
         where: { id: existingPr.id },
         data: { status: prStatus },
       })
-    } catch {
-      // Silently swallow — webhook must not fail
+    } catch (error) {
+      getLogger().warn({ projectId, error }, "Failed to update PR record")
     }
   }
 
@@ -297,8 +297,8 @@ async function handlePullRequestReview(payload: Record<string, unknown>, project
           occurredAt: new Date(review.submitted_at as string),
         },
       })
-    } catch {
-      // Silently swallow
+    } catch (error) {
+      getLogger().warn({ projectId, error }, "Failed to create PR review event")
     }
   }
 }
@@ -368,8 +368,8 @@ async function handleCheckSuite(payload: Record<string, unknown>, projectId: str
         where: { id: pr.id },
         data: { checkStatus },
       })
-    } catch {
-      // Silently swallow — webhook must not fail
+    } catch (error) {
+      getLogger().warn({ projectId, error }, "Failed to update PR check status")
     }
   }
 }

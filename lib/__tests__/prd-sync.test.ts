@@ -186,7 +186,7 @@ describe("syncPrds", () => {
       expect(body).toMatchObject({
         title: "Auth Feature",
         summary: "Implement authentication flow",
-        status: "in-progress",
+        status: "in_progress",
         source_path: expect.stringContaining("prd/0001-auth.md"),
       })
     })

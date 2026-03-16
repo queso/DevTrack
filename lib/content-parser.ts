@@ -30,11 +30,10 @@ export function parseContentFile(
     }
   }
 
-  const { draftPath, contentPath } = options
+  const { draftPath } = options
   const isDraft =
     frontmatter?.status === "draft" ||
-    (draftPath != null && filePath.startsWith(draftPath)) ||
-    (contentPath != null && !filePath.startsWith(contentPath))
+    (draftPath != null && filePath.startsWith(draftPath))
 
   return { frontmatter, sourcePath: filePath, isDraft: !!isDraft }
 }

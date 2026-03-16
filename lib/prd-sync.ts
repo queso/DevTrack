@@ -25,11 +25,14 @@ export async function syncPrds(options: PrdSyncOptions): Promise<PrdSyncResult> 
 
       const { frontmatter, workItems } = parsed
 
+      // Normalize status from parser format ("in-progress") to DB enum format ("in_progress")
+      const dbStatus = frontmatter.status === "in-progress" ? "in_progress" : frontmatter.status
+
       // POST to create/update PRD
       const prdPayload = {
         title: frontmatter.title,
         summary: frontmatter.summary,
-        status: frontmatter.status,
+        status: dbStatus,
         source_path: filePath,
       }
 
