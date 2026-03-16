@@ -1,3 +1,4 @@
+import { Prisma } from "@/lib/generated/prisma/client"
 import type { z } from "zod"
 
 export interface ApiErrorResponse {
@@ -215,4 +216,26 @@ export function validateParams<T>(
     success: true,
     data: result.data,
   }
+}
+
+/**
+ * Handles known Prisma constraint errors and returns an appropriate API response.
+ *
+ * @param error - The caught error
+ * @returns A Response for known constraint errors, or null if the error is unrecognized
+ */
+export function handlePrismaError(error: unknown): Response | null {
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (error.code === "P2002") {
+      const target = (error.meta?.target as string[])?.join(", ") ?? "field"
+      return apiError(409, "CONFLICT", `Duplicate value for ${target}`)
+    }
+    if (error.code === "P2025") {
+      return notFound("Record not found")
+    }
+    if (error.code === "P2003") {
+      return badRequest("Referenced record not found")
+    }
+  }
+  return null
 }

@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db"
 import { paginatedResponse, parsePagination, buildPagination } from "@/lib/api/response"
 
 export async function GET(request: Request) {
-  const auth = authenticateRequest(request as never)
+  const auth = authenticateRequest(request)
   if (!auth.success) return auth.response
 
   const url = new URL(request.url)

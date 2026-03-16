@@ -1,5 +1,5 @@
 import { authenticateRequest } from "@/lib/auth"
-import { notFound, badRequest, unprocessableEntity } from "@/lib/api"
+import { notFound, badRequest, unprocessableEntity, handlePrismaError } from "@/lib/api"
 import { prisma } from "@/lib/db"
 import { apiSuccess } from "@/lib/api/response"
 import { updateBranchSchema } from "@/lib/schemas"
@@ -7,7 +7,7 @@ import { updateBranchSchema } from "@/lib/schemas"
 type RouteContext = { params: Promise<{ id: string }> }
 
 export async function GET(request: Request, { params }: RouteContext) {
-  const auth = authenticateRequest(request as never)
+  const auth = authenticateRequest(request)
   if (!auth.success) return auth.response
 
   const { id } = await params
@@ -18,7 +18,7 @@ export async function GET(request: Request, { params }: RouteContext) {
 }
 
 export async function PATCH(request: Request, { params }: RouteContext) {
-  const auth = authenticateRequest(request as never)
+  const auth = authenticateRequest(request)
   if (!auth.success) return auth.response
 
   const { id } = await params
@@ -41,14 +41,20 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   }
 
   const { project_id, prd_id, is_active, ...rest } = parsed.data
-  const branch = await prisma.branch.update({
-    where: { id },
-    data: {
-      ...rest,
-      ...(project_id !== undefined ? { projectId: project_id } : {}),
-      ...(prd_id !== undefined ? { prdId: prd_id } : {}),
-      ...(is_active !== undefined ? { isActive: is_active } : {}),
-    },
-  })
-  return Response.json(apiSuccess(branch))
+  try {
+    const branch = await prisma.branch.update({
+      where: { id },
+      data: {
+        ...rest,
+        ...(project_id !== undefined ? { projectId: project_id } : {}),
+        ...(prd_id !== undefined ? { prdId: prd_id } : {}),
+        ...(is_active !== undefined ? { isActive: is_active } : {}),
+      },
+    })
+    return Response.json(apiSuccess(branch))
+  } catch (error) {
+    const handled = handlePrismaError(error)
+    if (handled) return handled
+    throw error
+  }
 }

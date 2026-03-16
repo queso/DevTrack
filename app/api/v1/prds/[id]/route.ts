@@ -1,5 +1,5 @@
 import { authenticateRequest } from "@/lib/auth"
-import { notFound, badRequest, unprocessableEntity } from "@/lib/api"
+import { notFound, badRequest, unprocessableEntity, handlePrismaError } from "@/lib/api"
 import { prisma } from "@/lib/db"
 import { apiSuccess } from "@/lib/api/response"
 import { updatePrdSchema } from "@/lib/schemas"
@@ -7,7 +7,7 @@ import { updatePrdSchema } from "@/lib/schemas"
 type RouteContext = { params: Promise<{ id: string }> }
 
 export async function GET(request: Request, { params }: RouteContext) {
-  const auth = authenticateRequest(request as never)
+  const auth = authenticateRequest(request)
   if (!auth.success) return auth.response
 
   const { id } = await params
@@ -21,7 +21,7 @@ export async function GET(request: Request, { params }: RouteContext) {
 }
 
 export async function PATCH(request: Request, { params }: RouteContext) {
-  const auth = authenticateRequest(request as never)
+  const auth = authenticateRequest(request)
   if (!auth.success) return auth.response
 
   const { id } = await params
@@ -44,13 +44,19 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   }
 
   const { project_id, source_path, ...rest } = parsed.data
-  const prd = await prisma.prd.update({
-    where: { id },
-    data: {
-      ...rest,
-      ...(project_id !== undefined ? { projectId: project_id } : {}),
-      ...(source_path !== undefined ? { sourcePath: source_path } : {}),
-    },
-  })
-  return Response.json(apiSuccess(prd))
+  try {
+    const prd = await prisma.prd.update({
+      where: { id },
+      data: {
+        ...rest,
+        ...(project_id !== undefined ? { projectId: project_id } : {}),
+        ...(source_path !== undefined ? { sourcePath: source_path } : {}),
+      },
+    })
+    return Response.json(apiSuccess(prd))
+  } catch (error) {
+    const handled = handlePrismaError(error)
+    if (handled) return handled
+    throw error
+  }
 }

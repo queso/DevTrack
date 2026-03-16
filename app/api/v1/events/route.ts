@@ -1,11 +1,12 @@
 import { authenticateRequest } from "@/lib/auth"
-import { badRequest, unprocessableEntity } from "@/lib/api"
+import { badRequest, unprocessableEntity, handlePrismaError } from "@/lib/api"
+import type { EventType } from "@/lib/generated/prisma/client"
 import { prisma } from "@/lib/db"
 import { apiSuccess, paginatedResponse, parsePagination, buildPagination } from "@/lib/api/response"
 import { createEventSchema } from "@/lib/schemas"
 
 export async function GET(request: Request) {
-  const auth = authenticateRequest(request as never)
+  const auth = authenticateRequest(request)
   if (!auth.success) return auth.response
 
   const url = new URL(request.url)
@@ -19,7 +20,7 @@ export async function GET(request: Request) {
 
   const where = {
     ...(projectId ? { projectId } : {}),
-    ...(type ? { type: type as never } : {}),
+    ...(type ? { type: type as EventType } : {}),
     ...(from || to ? {
       occurredAt: {
         ...(from ? { gte: new Date(from) } : {}),
@@ -37,7 +38,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const auth = authenticateRequest(request as never)
+  const auth = authenticateRequest(request)
   if (!auth.success) return auth.response
 
   let body: unknown
@@ -56,14 +57,25 @@ export async function POST(request: Request) {
   }
 
   const { project_id, prd_id, pull_request_id, occurred_at, ...rest } = parsed.data
-  const event = await prisma.event.create({
-    data: {
-      ...rest,
-      projectId: project_id,
-      prdId: prd_id ?? null,
-      pullRequestId: pull_request_id ?? null,
-      occurredAt: new Date(occurred_at),
-    },
-  })
-  return Response.json(apiSuccess(event), { status: 201 })
+  const occurredAtDate = new Date(occurred_at)
+  if (Number.isNaN(occurredAtDate.getTime())) {
+    return badRequest("Invalid occurred_at timestamp")
+  }
+
+  try {
+    const event = await prisma.event.create({
+      data: {
+        ...rest,
+        projectId: project_id,
+        prdId: prd_id ?? null,
+        pullRequestId: pull_request_id ?? null,
+        occurredAt: occurredAtDate,
+      },
+    })
+    return Response.json(apiSuccess(event), { status: 201 })
+  } catch (error) {
+    const handled = handlePrismaError(error)
+    if (handled) return handled
+    throw error
+  }
 }

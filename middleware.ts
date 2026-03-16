@@ -13,6 +13,7 @@ export const config = {
 // In-memory rate limiting (use Redis in production for distributed rate limiting)
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>()
 const RATE_LIMIT_WINDOW_MS = 60000 // 60 seconds
+const RATE_LIMIT_MAP_MAX_SIZE = 10000
 
 function getClientIp(request: NextRequest): string {
   const forwardedFor = request.headers.get("X-Forwarded-For")
@@ -22,7 +23,23 @@ function getClientIp(request: NextRequest): string {
   return "unknown"
 }
 
+function cleanupStaleEntries(): void {
+  if (rateLimitMap.size > RATE_LIMIT_MAP_MAX_SIZE) {
+    rateLimitMap.clear()
+    return
+  }
+
+  const now = Date.now()
+  for (const [key, record] of rateLimitMap) {
+    if (now >= record.resetTime) {
+      rateLimitMap.delete(key)
+    }
+  }
+}
+
 function checkRateLimit(ip: string, limit: number): boolean {
+  cleanupStaleEntries()
+
   const now = Date.now()
   const record = rateLimitMap.get(ip)
 

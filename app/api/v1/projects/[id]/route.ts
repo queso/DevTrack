@@ -1,5 +1,5 @@
 import { authenticateRequest } from "@/lib/auth"
-import { notFound, unprocessableEntity, badRequest } from "@/lib/api"
+import { notFound, unprocessableEntity, badRequest, handlePrismaError } from "@/lib/api"
 import { prisma } from "@/lib/db"
 import { apiSuccess } from "@/lib/api/response"
 import { updateProjectSchema } from "@/lib/schemas"
@@ -7,7 +7,7 @@ import { updateProjectSchema } from "@/lib/schemas"
 type RouteContext = { params: Promise<{ id: string }> }
 
 export async function GET(request: Request, { params }: RouteContext) {
-  const auth = authenticateRequest(request as never)
+  const auth = authenticateRequest(request)
   if (!auth.success) return auth.response
 
   const { id } = await params
@@ -18,7 +18,7 @@ export async function GET(request: Request, { params }: RouteContext) {
 }
 
 export async function PATCH(request: Request, { params }: RouteContext) {
-  const auth = authenticateRequest(request as never)
+  const auth = authenticateRequest(request)
   if (!auth.success) return auth.response
 
   const { id } = await params
@@ -43,36 +43,47 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   const { repo_url, main_branch, branch_prefix, prd_path, test_pattern, content_path,
     draft_path, deploy_environment, deploy_url, deploy_health_check, ...rest } = parsed.data
 
-  const project = await prisma.project.update({
-    where: { id },
-    data: {
-      ...rest,
-      ...(repo_url !== undefined ? { repoUrl: repo_url } : {}),
-      ...(main_branch !== undefined ? { mainBranch: main_branch } : {}),
-      ...(branch_prefix !== undefined ? { branchPrefix: branch_prefix } : {}),
-      ...(prd_path !== undefined ? { prdPath: prd_path } : {}),
-      ...(test_pattern !== undefined ? { testPattern: test_pattern } : {}),
-      ...(content_path !== undefined ? { contentPath: content_path } : {}),
-      ...(draft_path !== undefined ? { draftPath: draft_path } : {}),
-      ...(deploy_environment !== undefined ? { deployEnvironment: deploy_environment } : {}),
-      ...(deploy_url !== undefined ? { deployUrl: deploy_url } : {}),
-      ...(deploy_health_check !== undefined ? { deployHealthCheck: deploy_health_check } : {}),
-      lastActivityAt: new Date(),
-    },
-  })
+  try {
+    const project = await prisma.project.update({
+      where: { id },
+      data: {
+        ...rest,
+        ...(repo_url !== undefined ? { repoUrl: repo_url } : {}),
+        ...(main_branch !== undefined ? { mainBranch: main_branch } : {}),
+        ...(branch_prefix !== undefined ? { branchPrefix: branch_prefix } : {}),
+        ...(prd_path !== undefined ? { prdPath: prd_path } : {}),
+        ...(test_pattern !== undefined ? { testPattern: test_pattern } : {}),
+        ...(content_path !== undefined ? { contentPath: content_path } : {}),
+        ...(draft_path !== undefined ? { draftPath: draft_path } : {}),
+        ...(deploy_environment !== undefined ? { deployEnvironment: deploy_environment } : {}),
+        ...(deploy_url !== undefined ? { deployUrl: deploy_url } : {}),
+        ...(deploy_health_check !== undefined ? { deployHealthCheck: deploy_health_check } : {}),
+        lastActivityAt: new Date(),
+      },
+    })
 
-  return Response.json(apiSuccess(project))
+    return Response.json(apiSuccess(project))
+  } catch (error) {
+    const handled = handlePrismaError(error)
+    if (handled) return handled
+    throw error
+  }
 }
 
 export async function DELETE(request: Request, { params }: RouteContext) {
-  const auth = authenticateRequest(request as never)
+  const auth = authenticateRequest(request)
   if (!auth.success) return auth.response
 
   const { id } = await params
   const existing = await prisma.project.findUnique({ where: { id } })
   if (!existing) return notFound("Project not found")
 
-  await prisma.project.delete({ where: { id } })
-
-  return new Response(null, { status: 204 })
+  try {
+    await prisma.project.delete({ where: { id } })
+    return new Response(null, { status: 204 })
+  } catch (error) {
+    const handled = handlePrismaError(error)
+    if (handled) return handled
+    throw error
+  }
 }

@@ -1,5 +1,5 @@
 import { authenticateRequest } from "@/lib/auth"
-import { notFound, badRequest, unprocessableEntity } from "@/lib/api"
+import { notFound, badRequest, unprocessableEntity, handlePrismaError } from "@/lib/api"
 import { prisma } from "@/lib/db"
 import { apiSuccess, paginatedResponse, parsePagination, buildPagination } from "@/lib/api/response"
 import { createPrSchema } from "@/lib/schemas"
@@ -7,7 +7,7 @@ import { createPrSchema } from "@/lib/schemas"
 type RouteContext = { params: Promise<{ id: string }> }
 
 export async function GET(request: Request, { params }: RouteContext) {
-  const auth = authenticateRequest(request as never)
+  const auth = authenticateRequest(request)
   if (!auth.success) return auth.response
 
   const { id } = await params
@@ -28,7 +28,7 @@ export async function GET(request: Request, { params }: RouteContext) {
 }
 
 export async function POST(request: Request, { params }: RouteContext) {
-  const auth = authenticateRequest(request as never)
+  const auth = authenticateRequest(request)
   if (!auth.success) return auth.response
 
   const { id } = await params
@@ -51,17 +51,23 @@ export async function POST(request: Request, { params }: RouteContext) {
   }
 
   const { project_id, branch_id, prd_id, github_id, check_status, opened_at, merged_at, ...rest } = parsed.data
-  const pr = await prisma.pullRequest.create({
-    data: {
-      ...rest,
-      projectId: project_id,
-      branchId: branch_id ?? null,
-      prdId: prd_id ?? null,
-      githubId: github_id,
-      checkStatus: check_status ?? null,
-      openedAt: new Date(opened_at),
-      mergedAt: merged_at ? new Date(merged_at) : null,
-    },
-  })
-  return Response.json(apiSuccess(pr), { status: 201 })
+  try {
+    const pr = await prisma.pullRequest.create({
+      data: {
+        ...rest,
+        projectId: project_id,
+        branchId: branch_id ?? null,
+        prdId: prd_id ?? null,
+        githubId: github_id,
+        checkStatus: check_status ?? null,
+        openedAt: new Date(opened_at),
+        mergedAt: merged_at ? new Date(merged_at) : null,
+      },
+    })
+    return Response.json(apiSuccess(pr), { status: 201 })
+  } catch (error) {
+    const handled = handlePrismaError(error)
+    if (handled) return handled
+    throw error
+  }
 }

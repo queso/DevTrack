@@ -1,5 +1,5 @@
 import { authenticateRequest } from "@/lib/auth"
-import { notFound, badRequest, unprocessableEntity } from "@/lib/api"
+import { notFound, badRequest, unprocessableEntity, handlePrismaError } from "@/lib/api"
 import { prisma } from "@/lib/db"
 import { apiSuccess } from "@/lib/api/response"
 import { updateWorkItemSchema } from "@/lib/schemas"
@@ -7,7 +7,7 @@ import { updateWorkItemSchema } from "@/lib/schemas"
 type RouteContext = { params: Promise<{ id: string }> }
 
 export async function PATCH(request: Request, { params }: RouteContext) {
-  const auth = authenticateRequest(request as never)
+  const auth = authenticateRequest(request)
   if (!auth.success) return auth.response
 
   const { id } = await params
@@ -30,12 +30,18 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   }
 
   const { prd_id, ...rest } = parsed.data
-  const workItem = await prisma.workItem.update({
-    where: { id },
-    data: {
-      ...rest,
-      ...(prd_id !== undefined ? { prdId: prd_id } : {}),
-    },
-  })
-  return Response.json(apiSuccess(workItem))
+  try {
+    const workItem = await prisma.workItem.update({
+      where: { id },
+      data: {
+        ...rest,
+        ...(prd_id !== undefined ? { prdId: prd_id } : {}),
+      },
+    })
+    return Response.json(apiSuccess(workItem))
+  } catch (error) {
+    const handled = handlePrismaError(error)
+    if (handled) return handled
+    throw error
+  }
 }

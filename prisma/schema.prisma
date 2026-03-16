@@ -148,6 +148,8 @@ model Branch {
   project      Project       @relation(fields: [projectId], references: [id])
   prd          Prd?          @relation(fields: [prdId], references: [id])
   pullRequests PullRequest[]
+
+  @@unique([projectId, name])
 }
 
 model PullRequest {
@@ -171,6 +173,8 @@ model PullRequest {
   branch  Branch?  @relation(fields: [branchId], references: [id])
   prd     Prd?     @relation(fields: [prdId], references: [id])
   events  Event[]
+
+  @@unique([projectId, githubId])
 }
 
 model Event {

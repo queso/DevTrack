@@ -1,11 +1,11 @@
 import { authenticateRequest } from "@/lib/auth"
-import { badRequest, unprocessableEntity } from "@/lib/api"
+import { badRequest, unprocessableEntity, handlePrismaError } from "@/lib/api"
 import { prisma } from "@/lib/db"
 import { apiSuccess, paginatedResponse, parsePagination, buildPagination } from "@/lib/api/response"
 import { createProjectSchema } from "@/lib/schemas"
 
 export async function GET(request: Request) {
-  const auth = authenticateRequest(request as never)
+  const auth = authenticateRequest(request)
   if (!auth.success) return auth.response
 
   const url = new URL(request.url)
@@ -31,7 +31,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const auth = authenticateRequest(request as never)
+  const auth = authenticateRequest(request)
   if (!auth.success) return auth.response
 
   let body: unknown
@@ -53,21 +53,27 @@ export async function POST(request: Request) {
   const { repo_url, main_branch, branch_prefix, prd_path, test_pattern, content_path,
     draft_path, deploy_environment, deploy_url, deploy_health_check, ...rest } = parsed.data
 
-  const project = await prisma.project.create({
-    data: {
-      ...rest,
-      repoUrl: repo_url,
-      mainBranch: main_branch,
-      branchPrefix: branch_prefix,
-      prdPath: prd_path,
-      testPattern: test_pattern,
-      contentPath: content_path,
-      draftPath: draft_path,
-      deployEnvironment: deploy_environment,
-      deployUrl: deploy_url,
-      deployHealthCheck: deploy_health_check,
-    },
-  })
+  try {
+    const project = await prisma.project.create({
+      data: {
+        ...rest,
+        repoUrl: repo_url,
+        mainBranch: main_branch,
+        branchPrefix: branch_prefix,
+        prdPath: prd_path,
+        testPattern: test_pattern,
+        contentPath: content_path,
+        draftPath: draft_path,
+        deployEnvironment: deploy_environment,
+        deployUrl: deploy_url,
+        deployHealthCheck: deploy_health_check,
+      },
+    })
 
-  return Response.json(apiSuccess(project), { status: 201 })
+    return Response.json(apiSuccess(project), { status: 201 })
+  } catch (error) {
+    const handled = handlePrismaError(error)
+    if (handled) return handled
+    throw error
+  }
 }

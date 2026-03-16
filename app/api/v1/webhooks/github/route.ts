@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto"
-import { badRequest, unauthorized } from "@/lib/api"
+import type { EventType, PullRequestStatus } from "@/lib/generated/prisma/client"
+import { badRequest, unauthorized, handlePrismaError } from "@/lib/api"
 import { prisma } from "@/lib/db"
 import { getEnv } from "@/lib/env"
 import { getLogger } from "@/lib/logger"
@@ -8,7 +9,8 @@ async function verifySignature(body: string, signature: string, secret: string):
   const expected = `sha256=${createHmac("sha256", secret).update(body).digest("hex")}`
   try {
     return timingSafeEqual(Buffer.from(signature), Buffer.from(expected))
-  } catch {
+  } catch (error) {
+    getLogger().warn({ error: String(error), sigLen: signature.length, expectedLen: expected.length }, "Webhook signature verification error")
     return false
   }
 }
@@ -103,25 +105,36 @@ async function handlePullRequest(payload: Record<string, unknown>, projectId: st
   const githubId = pr.id as number
   const status = mapPrStatus(pr.state as string, merged)
 
-  await prisma.pullRequest.upsert({
-    where: { id: String(githubId) },
-    create: {
-      id: String(githubId),
-      projectId,
-      githubId,
-      number: pr.number as number,
-      title: pr.title as string,
-      status: status as never,
-      url: pr.html_url as string,
-      author: (pr.user as { login: string }).login,
-      openedAt: new Date(),
-      mergedAt: merged ? new Date(pr.merged_at as string) : null,
-    },
-    update: {
-      status: status as never,
-      mergedAt: merged ? new Date(pr.merged_at as string) : null,
-    },
-  })
+  let mergedAt: Date | null = null
+  if (merged) {
+    const parsedDate = new Date(pr.merged_at as string)
+    mergedAt = Number.isNaN(parsedDate.getTime()) ? null : parsedDate
+  }
+
+  try {
+    await prisma.pullRequest.upsert({
+      where: { projectId_githubId: { projectId, githubId } },
+      create: {
+        projectId,
+        githubId,
+        number: pr.number as number,
+        title: pr.title as string,
+        status: status as PullRequestStatus,
+        url: pr.html_url as string,
+        author: (pr.user as { login: string }).login,
+        openedAt: new Date(),
+        mergedAt,
+      },
+      update: {
+        status: status as PullRequestStatus,
+        mergedAt,
+      },
+    })
+  } catch (error) {
+    const handled = handlePrismaError(error)
+    if (handled) return
+    throw error
+  }
 
   const eventType = mapPrAction(action, merged)
   const eventKey = `${eventType}:${githubId}`
@@ -131,15 +144,21 @@ async function handlePullRequest(payload: Record<string, unknown>, projectId: st
   })
 
   if (!existing) {
-    await prisma.event.create({
-      data: {
-        projectId,
-        type: eventType as never,
-        title: `PR #${pr.number as number}: ${pr.title as string}`,
-        metadata: { key: eventKey, github_id: githubId, action },
-        occurredAt: new Date(),
-      },
-    })
+    try {
+      await prisma.event.create({
+        data: {
+          projectId,
+          type: eventType as EventType,
+          title: `PR #${pr.number as number}: ${pr.title as string}`,
+          metadata: { key: eventKey, github_id: githubId, action },
+          occurredAt: new Date(),
+        },
+      })
+    } catch (error) {
+      const handled = handlePrismaError(error)
+      if (handled) return
+      throw error
+    }
   }
 }
 
@@ -155,15 +174,21 @@ async function handlePush(payload: Record<string, unknown>, projectId: string) {
     })
 
     if (!existing) {
-      await prisma.event.create({
-        data: {
-          projectId,
-          type: "commit",
-          title: `${branch}: ${commit.message}`,
-          metadata: { key: eventKey, commit_id: commit.id },
-          occurredAt: new Date(),
-        },
-      })
+      try {
+        await prisma.event.create({
+          data: {
+            projectId,
+            type: "commit",
+            title: `${branch}: ${commit.message}`,
+            metadata: { key: eventKey, commit_id: commit.id },
+            occurredAt: new Date(),
+          },
+        })
+      } catch (error) {
+        const handled = handlePrismaError(error)
+        if (handled) return
+        throw error
+      }
     }
   }
 }
@@ -174,16 +199,21 @@ async function handleCreate(payload: Record<string, unknown>, projectId: string)
 
   const name = payload.ref as string
 
-  await prisma.branch.upsert({
-    where: { id: `${projectId}:${name}` },
-    create: {
-      id: `${projectId}:${name}`,
-      projectId,
-      name,
-      isActive: true,
-    },
-    update: { isActive: true },
-  })
+  try {
+    await prisma.branch.upsert({
+      where: { projectId_name: { projectId, name } },
+      create: {
+        projectId,
+        name,
+        isActive: true,
+      },
+      update: { isActive: true },
+    })
+  } catch (error) {
+    const handled = handlePrismaError(error)
+    if (handled) return
+    throw error
+  }
 
   const eventKey = `branch_created:${projectId}:${name}`
   const existing = await prisma.event.findFirst({
@@ -191,15 +221,21 @@ async function handleCreate(payload: Record<string, unknown>, projectId: string)
   })
 
   if (!existing) {
-    await prisma.event.create({
-      data: {
-        projectId,
-        type: "branch_created",
-        title: `Branch created: ${name}`,
-        metadata: { key: eventKey, branch: name },
-        occurredAt: new Date(),
-      },
-    })
+    try {
+      await prisma.event.create({
+        data: {
+          projectId,
+          type: "branch_created",
+          title: `Branch created: ${name}`,
+          metadata: { key: eventKey, branch: name },
+          occurredAt: new Date(),
+        },
+      })
+    } catch (error) {
+      const handled = handlePrismaError(error)
+      if (handled) return
+      throw error
+    }
   }
 }
 
@@ -209,22 +245,31 @@ async function handleDelete(payload: Record<string, unknown>, projectId: string)
 
   const name = payload.ref as string
 
-  const branch = await prisma.branch.findFirst({ where: { projectId, name } })
-  if (branch) {
+  try {
     await prisma.branch.upsert({
-      where: { id: branch.id },
+      where: { projectId_name: { projectId, name } },
       create: { projectId, name, isActive: false },
       update: { isActive: false },
     })
+  } catch (error) {
+    const handled = handlePrismaError(error)
+    if (handled) return
+    throw error
   }
 
-  await prisma.event.create({
-    data: {
-      projectId,
-      type: "branch_deleted",
-      title: `Branch deleted: ${name}`,
-      metadata: { branch: name },
-      occurredAt: new Date(),
-    },
-  })
+  try {
+    await prisma.event.create({
+      data: {
+        projectId,
+        type: "branch_deleted",
+        title: `Branch deleted: ${name}`,
+        metadata: { branch: name },
+        occurredAt: new Date(),
+      },
+    })
+  } catch (error) {
+    const handled = handlePrismaError(error)
+    if (handled) return
+    throw error
+  }
 }

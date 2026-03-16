@@ -1,5 +1,5 @@
 import { authenticateRequest } from "@/lib/auth"
-import { notFound, badRequest, unprocessableEntity } from "@/lib/api"
+import { notFound, badRequest, unprocessableEntity, handlePrismaError } from "@/lib/api"
 import { prisma } from "@/lib/db"
 import { apiSuccess, paginatedResponse, parsePagination, buildPagination } from "@/lib/api/response"
 import { createContentSchema } from "@/lib/schemas"
@@ -7,7 +7,7 @@ import { createContentSchema } from "@/lib/schemas"
 type RouteContext = { params: Promise<{ id: string }> }
 
 export async function GET(request: Request, { params }: RouteContext) {
-  const auth = authenticateRequest(request as never)
+  const auth = authenticateRequest(request)
   if (!auth.success) return auth.response
 
   const { id } = await params
@@ -33,7 +33,7 @@ export async function GET(request: Request, { params }: RouteContext) {
 }
 
 export async function POST(request: Request, { params }: RouteContext) {
-  const auth = authenticateRequest(request as never)
+  const auth = authenticateRequest(request)
   if (!auth.success) return auth.response
 
   const { id } = await params
@@ -56,13 +56,19 @@ export async function POST(request: Request, { params }: RouteContext) {
   }
 
   const { project_id, source_path, published_at, ...rest } = parsed.data
-  const item = await prisma.contentItem.create({
-    data: {
-      ...rest,
-      projectId: project_id,
-      sourcePath: source_path ?? null,
-      publishedAt: published_at ? new Date(published_at) : null,
-    },
-  })
-  return Response.json(apiSuccess(item), { status: 201 })
+  try {
+    const item = await prisma.contentItem.create({
+      data: {
+        ...rest,
+        projectId: project_id,
+        sourcePath: source_path ?? null,
+        publishedAt: published_at ? new Date(published_at) : null,
+      },
+    })
+    return Response.json(apiSuccess(item), { status: 201 })
+  } catch (error) {
+    const handled = handlePrismaError(error)
+    if (handled) return handled
+    throw error
+  }
 }

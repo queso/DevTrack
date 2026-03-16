@@ -58,6 +58,7 @@ const eventTypeEnum = z.enum([
   "work_item_created",
   "work_item_completed",
   "content_published",
+  "commit",
 ])
 
 // ---------------------------------------------------------------------------

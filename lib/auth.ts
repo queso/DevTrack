@@ -1,5 +1,4 @@
 import { timingSafeEqual } from "node:crypto"
-import type { NextRequest } from "next/server"
 import { unauthorized } from "@/lib/api"
 import type { ValidationResult } from "@/lib/api"
 import { getEnv } from "@/lib/env"
@@ -16,7 +15,7 @@ function timingSafeCompare(a: string, b: string): boolean {
   return timingSafeEqual(bufA, bufB)
 }
 
-export function authenticateRequest(request: NextRequest): ValidationResult<{ authenticated: true }> {
+export function authenticateRequest(request: Request): ValidationResult<{ authenticated: true }> {
   const logger = getLogger()
   const authHeader = request.headers.get("Authorization")
 

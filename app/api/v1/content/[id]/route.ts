@@ -1,5 +1,5 @@
 import { authenticateRequest } from "@/lib/auth"
-import { notFound, badRequest, unprocessableEntity } from "@/lib/api"
+import { notFound, badRequest, unprocessableEntity, handlePrismaError } from "@/lib/api"
 import { prisma } from "@/lib/db"
 import { apiSuccess } from "@/lib/api/response"
 import { updateContentSchema } from "@/lib/schemas"
@@ -13,7 +13,7 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
 }
 
 export async function GET(request: Request, { params }: RouteContext) {
-  const auth = authenticateRequest(request as never)
+  const auth = authenticateRequest(request)
   if (!auth.success) return auth.response
 
   const { id } = await params
@@ -24,7 +24,7 @@ export async function GET(request: Request, { params }: RouteContext) {
 }
 
 export async function PATCH(request: Request, { params }: RouteContext) {
-  const auth = authenticateRequest(request as never)
+  const auth = authenticateRequest(request)
   if (!auth.success) return auth.response
 
   const { id } = await params
@@ -67,18 +67,30 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     updateData.publishedAt = new Date()
   }
 
-  const item = await prisma.contentItem.update({ where: { id }, data: updateData })
-  return Response.json(apiSuccess(item))
+  try {
+    const item = await prisma.contentItem.update({ where: { id }, data: updateData })
+    return Response.json(apiSuccess(item))
+  } catch (error) {
+    const handled = handlePrismaError(error)
+    if (handled) return handled
+    throw error
+  }
 }
 
 export async function DELETE(request: Request, { params }: RouteContext) {
-  const auth = authenticateRequest(request as never)
+  const auth = authenticateRequest(request)
   if (!auth.success) return auth.response
 
   const { id } = await params
   const existing = await prisma.contentItem.findUnique({ where: { id } })
   if (!existing) return notFound("Content item not found")
 
-  await prisma.contentItem.delete({ where: { id } })
-  return new Response(null, { status: 204 })
+  try {
+    await prisma.contentItem.delete({ where: { id } })
+    return new Response(null, { status: 204 })
+  } catch (error) {
+    const handled = handlePrismaError(error)
+    if (handled) return handled
+    throw error
+  }
 }

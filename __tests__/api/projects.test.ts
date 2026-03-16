@@ -116,3 +116,29 @@ describe("GET /api/v1/projects/:id", () => {
     expect(body).toHaveProperty("error")
   })
 })
+
+describe("DELETE /api/v1/projects/:id", () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it("should delete a project and return 204", async () => {
+    const project = { id: "uuid-1", name: "Project A", workflow: "sdlc", createdAt: new Date(), updatedAt: new Date() }
+    mockPrisma.project.findUnique.mockResolvedValue(project)
+    mockPrisma.project.delete.mockResolvedValue(project)
+
+    const { DELETE } = await import("@/app/api/v1/projects/[id]/route")
+    const request = new Request("http://localhost/api/v1/projects/uuid-1", { method: "DELETE" })
+    const response = await DELETE(request, { params: Promise.resolve({ id: "uuid-1" }) })
+
+    expect(response.status).toBe(204)
+  })
+
+  it("should return 404 when project does not exist", async () => {
+    mockPrisma.project.findUnique.mockResolvedValue(null)
+
+    const { DELETE } = await import("@/app/api/v1/projects/[id]/route")
+    const request = new Request("http://localhost/api/v1/projects/nonexistent-id", { method: "DELETE" })
+    const response = await DELETE(request, { params: Promise.resolve({ id: "nonexistent-id" }) })
+
+    expect(response.status).toBe(404)
+  })
+})
