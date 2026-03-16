@@ -2,8 +2,8 @@
 
 import { useState, useMemo } from "react"
 import Link from "next/link"
-import { Search, GitPullRequest, AlertCircle, ExternalLink } from "lucide-react"
-import { PROJECTS, type Project, type Domain, type WorkflowType, getRelativeTime } from "@/lib/mock-data"
+import { Search, AlertCircle, } from "lucide-react"
+import { PROJECTS, type Project, type Domain, type WorkflowType, } from "@/lib/mock-data"
 import { DomainBadge } from "@/components/domain-badge"
 import { WorkflowBadge } from "@/components/workflow-badge"
 import { cn } from "@/lib/utils"

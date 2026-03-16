@@ -2,8 +2,8 @@
 
 import { useState, useMemo } from "react"
 import Link from "next/link"
-import { ExternalLink, GitPullRequest, ArrowUpDown, MessageSquareWarning } from "lucide-react"
-import { ALL_PRS, PROJECTS, getProject, getPRAge, type Domain } from "@/lib/mock-data"
+import { ExternalLink, ArrowUpDown, MessageSquareWarning } from "lucide-react"
+import { ALL_PRS, getProject, getPRAge, type Domain } from "@/lib/mock-data"
 import { DomainBadge } from "@/components/features/dashboard/domain-badge"
 import { PRStatusBadge, CheckStatusBadge } from "@/components/features/dashboard/status-badges"
 import { cn } from "@/lib/utils"
@@ -67,6 +67,7 @@ export default function PRQueuePage() {
       {/* Filters */}
       <div className="flex items-center gap-2 flex-wrap">
         <button
+          type="button"
           onClick={() => setDomainFilter("all")}
           className={cn(
             "px-2.5 py-1 rounded text-xs font-medium transition-colors",
@@ -77,6 +78,7 @@ export default function PRQueuePage() {
         </button>
         {DOMAINS.map((d) => (
           <button
+            type="button"
             key={d}
             onClick={() => setDomainFilter(d)}
             className={cn(
@@ -114,7 +116,7 @@ export default function PRQueuePage() {
               </tr>
             </thead>
             <tbody>
-              {sorted.map((pr, i) => {
+              {sorted.map((pr) => {
                 const project = getProject(pr.projectSlug)
                 const age = getPRAge(pr.createdAt)
                 return (
@@ -180,7 +182,7 @@ function SortTh({
   label,
   sortKey,
   current,
-  asc,
+  asc: _asc,
   onSort,
 }: {
   label: string
@@ -193,6 +195,7 @@ function SortTh({
   return (
     <th className="px-4 py-2.5 text-left">
       <button
+        type="button"
         onClick={() => onSort(sortKey)}
         className={cn(
           "flex items-center gap-1 text-xs font-semibold uppercase tracking-wider transition-colors",

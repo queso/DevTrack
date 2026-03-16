@@ -188,5 +188,5 @@
 
 .animate-pulse-glow {
   animation: pulse-glow 2.5s ease-in-out infinite;
-  border-color: oklch(0.72 0.2 145 / 0.6) !important;
+  border-color: oklch(0.72 0.2 145 / 0.6);
 }

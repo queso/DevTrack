@@ -2,8 +2,8 @@
 
 import { useState, useMemo } from "react"
 import Link from "next/link"
-import { Search, GitPullRequest, AlertCircle, ExternalLink } from "lucide-react"
-import { PROJECTS, type Project, type Domain, type WorkflowType, getRelativeTime } from "@/lib/mock-data"
+import { Search } from "lucide-react"
+import { PROJECTS, type Project, type Domain, type WorkflowType } from "@/lib/mock-data"
 import { DomainBadge } from "@/components/features/dashboard/domain-badge"
 import { WorkflowBadge } from "@/components/features/dashboard/workflow-badge"
 import { cn } from "@/lib/utils"
@@ -115,6 +115,7 @@ export default function DashboardPage() {
             <span>Sort:</span>
             {(["attention", "activity", "name"] as SortOption[]).map((s) => (
               <button
+                type="button"
                 key={s}
                 onClick={() => setSort(s)}
                 className={cn(
@@ -154,6 +155,7 @@ function FilterChip({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       className={cn(
         "px-2.5 py-1 rounded text-xs font-medium transition-colors",

@@ -2,8 +2,8 @@
 
 import { useState, useMemo } from "react"
 import Link from "next/link"
-import { ExternalLink, GitPullRequest, ArrowUpDown, MessageSquareWarning } from "lucide-react"
-import { ALL_PRS, PROJECTS, getProject, getPRAge, type Domain } from "@/lib/mock-data"
+import { ExternalLink, ArrowUpDown, MessageSquareWarning } from "lucide-react"
+import { ALL_PRS, getProject, getPRAge, type Domain } from "@/lib/mock-data"
 import { DomainBadge } from "@/components/domain-badge"
 import { PRStatusBadge, CheckStatusBadge } from "@/components/status-badges"
 import { cn } from "@/lib/utils"
@@ -114,7 +114,7 @@ export default function PRQueuePage() {
               </tr>
             </thead>
             <tbody>
-              {sorted.map((pr, i) => {
+              {sorted.map((pr, _i) => {
                 const project = getProject(pr.projectSlug)
                 const age = getPRAge(pr.createdAt)
                 return (

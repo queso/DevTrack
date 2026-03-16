@@ -8,7 +8,7 @@ import {
   FileText, Rocket, Globe, PenLine, Circle, Filter, CalendarIcon
 } from "lucide-react"
 import {
-  TIMELINE_EVENTS, PROJECTS, getRelativeTime,
+  TIMELINE_EVENTS, PROJECTS, 
   type Domain, type EventType
 } from "@/lib/mock-data"
 import { DomainBadge } from "@/components/features/dashboard/domain-badge"
@@ -127,7 +127,7 @@ export default function TimelinePage() {
     for (const e of filtered) {
       const key = getDayKey(e.timestamp)
       if (!map.has(key)) map.set(key, [])
-      map.get(key)!.push(e)
+      map.get(key)?.push(e)
     }
     return map
   }, [filtered])
@@ -175,6 +175,7 @@ export default function TimelinePage() {
         <div className="flex items-center gap-2 flex-wrap">
           {(["today", "yesterday", "week", "all"] as QuickRange[]).map((r) => (
             <button
+              type="button"
               key={r}
               onClick={() => handleQuickRangeChange(r)}
               className={cn(

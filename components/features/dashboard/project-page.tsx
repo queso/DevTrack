@@ -100,8 +100,8 @@ export default function ProjectPage({ slug }: { slug: string }) {
 }
 
 function SDLCView({ project, events }: { project: ReturnType<typeof getProject> & {}; events: TimelineEvent[] }) {
-  if (!project) return null
   const [shippedOpen, setShippedOpen] = useState(false)
+  if (!project) return null
 
   const doneItems = project.activePRD?.workItems.filter((w) => w.status === "done").length ?? 0
   const totalItems = project.activePRD?.workItems.length ?? 0
@@ -208,6 +208,7 @@ function SDLCView({ project, events }: { project: ReturnType<typeof getProject> 
           {/* Shipped */}
           <div className="rounded-lg border border-border p-4">
             <button
+              type="button"
               className="w-full flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3"
               onClick={() => setShippedOpen(!shippedOpen)}
             >
@@ -241,8 +242,8 @@ function SDLCView({ project, events }: { project: ReturnType<typeof getProject> 
 }
 
 function ContentView({ project, events }: { project: ReturnType<typeof getProject> & {}; events: TimelineEvent[] }) {
-  if (!project) return null
   const [publishedOpen, setPublishedOpen] = useState(false)
+  if (!project) return null
 
   return (
     <div className="flex flex-col gap-6">
@@ -288,6 +289,7 @@ function ContentView({ project, events }: { project: ReturnType<typeof getProjec
           {/* Published */}
           <div className="rounded-lg border border-border p-4">
             <button
+              type="button"
               className="w-full flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3"
               onClick={() => setPublishedOpen(!publishedOpen)}
             >
@@ -361,6 +363,7 @@ function ActivityTimeline({ events }: { events: TimelineEvent[] }) {
       <div className="flex items-center gap-1.5 flex-wrap mb-4">
         {eventTypes.map((type) => (
           <button
+            type="button"
             key={type}
             onClick={() => setEventTypeFilter(type)}
             className={cn(

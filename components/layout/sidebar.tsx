@@ -4,7 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { LayoutDashboard, Clock, GitPullRequest, Settings, Terminal } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { PROJECTS, getDomainColor } from "@/lib/mock-data"
+import { PROJECTS, } from "@/lib/mock-data"
 import { ALL_PRS } from "@/lib/mock-data"
 
 const DOMAIN_ORDER = ["arcanelayer", "aiteam", "joshowensdev", "infrastructure", "wendyowensbooks"] as const
