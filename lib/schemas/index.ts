@@ -59,6 +59,12 @@ const eventTypeEnum = z.enum([
   "work_item_completed",
   "content_published",
   "commit",
+  "push",
+  "session_start",
+  "session_end",
+  "pr_reviewed",
+  "content_updated",
+  "prd_synced",
 ])
 
 // ---------------------------------------------------------------------------

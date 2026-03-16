@@ -93,6 +93,10 @@ export async function POST(request: Request) {
     await handleCreate(payload, project.id)
   } else if (eventType === "delete") {
     await handleDelete(payload, project.id)
+  } else if (eventType === "pull_request_review") {
+    await handlePullRequestReview(payload, project.id)
+  } else if (eventType === "check_suite") {
+    await handleCheckSuite(payload, project.id)
   }
 
   return Response.json({ ok: true })
@@ -239,6 +243,66 @@ async function handleCreate(payload: Record<string, unknown>, projectId: string)
   }
 }
 
+async function handlePullRequestReview(payload: Record<string, unknown>, projectId: string) {
+  const action = payload.action as string
+  if (action !== "submitted") return
+
+  const review = payload.review as Record<string, unknown>
+  const pr = payload.pull_request as Record<string, unknown>
+  const reviewState = review.state as string
+  const githubId = pr.id as number
+
+  const existingPr = await prisma.pullRequest.findFirst({
+    where: { projectId, githubId },
+  })
+
+  if (!existingPr) return
+
+  // Map review state to PR status and event type
+  let prStatus: PullRequestStatus | null = null
+  let eventType: EventType = "pr_reviewed"
+
+  if (reviewState === "approved") {
+    prStatus = "approved"
+    eventType = "pr_approved"
+  } else if (reviewState === "changes_requested") {
+    prStatus = "changes_requested"
+    eventType = "pr_changes_requested"
+  }
+
+  if (prStatus) {
+    try {
+      await prisma.pullRequest.update({
+        where: { id: existingPr.id },
+        data: { status: prStatus },
+      })
+    } catch {
+      // Silently swallow — webhook must not fail
+    }
+  }
+
+  const eventKey = `${eventType}:${review.id as number}`
+  const existing = await prisma.event.findFirst({
+    where: { projectId, metadata: { path: ["key"], equals: eventKey } },
+  })
+
+  if (!existing) {
+    try {
+      await prisma.event.create({
+        data: {
+          projectId,
+          type: eventType,
+          title: `PR #${pr.number as number} reviewed by ${(review.user as { login: string }).login}`,
+          metadata: { key: eventKey, review_id: review.id, state: reviewState },
+          occurredAt: new Date(review.submitted_at as string),
+        },
+      })
+    } catch {
+      // Silently swallow
+    }
+  }
+}
+
 async function handleDelete(payload: Record<string, unknown>, projectId: string) {
   const refType = payload.ref_type as string
   if (refType !== "branch") return
@@ -271,5 +335,41 @@ async function handleDelete(payload: Record<string, unknown>, projectId: string)
     const handled = handlePrismaError(error)
     if (handled) return
     throw error
+  }
+}
+
+async function handleCheckSuite(payload: Record<string, unknown>, projectId: string) {
+  const action = payload.action as string
+  if (action !== "completed") return
+
+  const suite = payload.check_suite as Record<string, unknown>
+  const conclusion = suite.conclusion as string | null
+  const headBranch = suite.head_branch as string
+
+  const pr = await prisma.pullRequest.findFirst({
+    where: {
+      projectId,
+      branch: { name: headBranch },
+    },
+  })
+
+  if (!pr) return
+
+  let checkStatus: "passing" | "failing" | null = null
+  if (conclusion === "success") {
+    checkStatus = "passing"
+  } else if (conclusion === "failure" || conclusion === "timed_out" || conclusion === "action_required") {
+    checkStatus = "failing"
+  }
+
+  if (checkStatus) {
+    try {
+      await prisma.pullRequest.update({
+        where: { id: pr.id },
+        data: { checkStatus },
+      })
+    } catch {
+      // Silently swallow — webhook must not fail
+    }
   }
 }

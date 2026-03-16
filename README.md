@@ -98,6 +98,47 @@ curl -X POST http://localhost:3000/api/v1/projects \
 
 See `prd/001-core-api.md` for complete API specification.
 
+## Repository Integration
+
+DevTrack integrates with your repositories through three mechanisms:
+
+### Project Manifest
+
+Each repository declares itself to DevTrack via a `project.yaml` file at the repo root:
+
+```yaml
+name: "my-project"
+workflow: sdlc
+domain: my-domain
+owner: your-name
+main_branch: main
+prd_path: "prd/"
+test_pattern: "**/*.test.ts"
+```
+
+The manifest defines the project's workflow type (SDLC or content), structure, and integration points.
+
+### Claude Code Hooks
+
+DevTrack installs hooks in `.claude/settings.json` that fire on development events:
+
+- **post-commit**: Records commit activity
+- **post-push**: Records push events
+- **pre-session**: Marks project as active
+- **post-session**: Records session duration
+
+Hooks are installed via `devtrack register` or `devtrack hooks install`.
+
+### GitHub Webhooks
+
+GitHub events are received at `/api/v1/webhooks/github`:
+
+- Pull request lifecycle (opened, reviewed, merged, closed)
+- Push events and branch tracking
+- CI check suite completion
+
+Configure webhooks in GitHub repository settings or via `devtrack register --setup-webhook`.
+
 ## Architecture
 
 ```

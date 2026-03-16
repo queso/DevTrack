@@ -48,3 +48,43 @@ export interface GitHubDeletePayload {
   ref_type: "branch" | "tag"
   repository: GitHubRepository
 }
+
+export type GitHubReviewState = "approved" | "changes_requested" | "commented" | "dismissed"
+
+export interface GitHubReview {
+  id: number
+  state: GitHubReviewState
+  user: GitHubUser
+  body: string | null
+  submitted_at: string
+}
+
+export interface GitHubPullRequestReviewPayload {
+  action: "submitted" | "edited" | "dismissed"
+  review: GitHubReview
+  pull_request: GitHubPullRequest
+  repository: GitHubRepository
+}
+
+export type GitHubCheckSuiteConclusion =
+  | "success"
+  | "failure"
+  | "neutral"
+  | "cancelled"
+  | "skipped"
+  | "timed_out"
+  | "action_required"
+  | null
+
+export interface GitHubCheckSuite {
+  id: number
+  head_branch: string
+  conclusion: GitHubCheckSuiteConclusion
+  status: string
+}
+
+export interface GitHubCheckSuitePayload {
+  action: "completed" | "requested" | "rerequested"
+  check_suite: GitHubCheckSuite
+  repository: GitHubRepository
+}

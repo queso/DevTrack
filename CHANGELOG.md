@@ -7,6 +7,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-03-16
+
+### Added
+
+#### Project Manifest & Configuration
+- YAML-based project manifest schema (project.yaml) with Zod validation (#WI-587)
+- Support for SDLC and content workflows with required and optional fields (#WI-587)
+- Type definitions for manifest configuration (#WI-588)
+- CLI configuration loader for reading ~/.devtrack/config.yaml (#WI-595)
+
+#### PRD Parser & Sync
+- PRD file parser extracting frontmatter (title, summary, status) and work items from markdown (#WI-589)
+- Checkbox-based work item detection in PRD files (#WI-589)
+- PRD type definitions for parsed frontmatter and work items (#WI-591)
+- PRD sync service POSTing parsed PRDs and work items to API (#WI-590)
+
+#### Claude Code Hooks
+- Hook installer creating shell scripts for post-commit, post-push, pre-session, post-session events (#WI-592)
+- .claude/settings.json integration with hook event routing (#WI-592)
+- Hook type definitions for installation options and results (#WI-593)
+- Hook logger for structured event logging (#WI-594)
+
+#### Content Pipeline Integration
+- Content file parser extracting frontmatter from markdown content files (#WI-597)
+- Content sync service POSTing parsed content to API (#WI-598)
+- Content type definitions for parser and sync (#WI-597, #WI-598)
+
+#### GitHub Webhook Handler
+- POST /api/v1/webhooks/github endpoint with HMAC-SHA256 signature verification (#WI-599)
+- Pull request event handling (opened, closed, reopened, merged) (#WI-599)
+- Pull request review event handling with status mapping (#WI-599)
+- Push event handling for branch tracking (#WI-599)
+- Branch creation/deletion event handling (#WI-599)
+- Check suite completion event handling for CI status (#WI-599)
+- Project matching via repo URL from webhook payload (#WI-599)
+
+### Implementation Details
+
+- All parsers use industry-standard libraries: gray-matter for frontmatter, yaml for YAML parsing
+- Hook installation creates executable shell scripts with proper shebangs
+- GitHub webhook signature verification uses timing-safe comparison to prevent timing attacks
+- Event type mapping translates GitHub actions to DevTrack event types
+- Comprehensive error handling with meaningful error messages
+
+### Testing
+
+- 197 additional unit tests covering manifest parsing, PRD parsing, hook installation, content parsing, and webhook handling
+- Test coverage includes validation errors, edge cases, and webhook signature verification
+- All tests passing with Vitest (449/450, 1 skipped)
+
+### Code Quality
+
+- Biome linter: 0 errors, fully formatted codebase
+- TypeScript strict mode enforced
+- All new modules have complete type definitions
+- Error paths fully tested
+
 ## [0.1.0] - 2026-03-15
 
 ### Added
