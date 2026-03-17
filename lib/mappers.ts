@@ -1,6 +1,5 @@
 import type { WorkItem as ApiWorkItem, Prd } from "@/types/prd"
-import type { PullRequest as ApiPullRequest } from "@/types/pull-request"
-import type { Event as ApiEvent } from "@/types/event"
+import type { ApiPullRequest, ApiEvent, ApiProject } from "@/types/api-responses"
 import type {
   WorkItem as UiWorkItem,
   PRD as UiPRD,
@@ -61,7 +60,7 @@ export function mapPR(pr: ApiPullRequest, projectSlug: string): UiPullRequest {
     createdAt: toISOString(pr.opened_at),
     url: pr.url,
     author: pr.author,
-    unresolvedComments: 0,
+    unresolvedComments: pr.unresolved_comments ?? 0,
   }
 }
 
@@ -123,35 +122,6 @@ interface ApiPrdWithItems extends Prd {
   workItems: ApiWorkItem[]
 }
 
-interface ContentItem {
-  id: string
-  project_id: string
-  title: string
-  summary?: string | null
-  status: "idea" | "draft" | "review" | "scheduled" | "published"
-  source_path?: string | null
-  tags?: string[]
-  published_at?: Date | null
-  created_at: Date
-  updated_at: Date
-}
-
-interface ApiProject {
-  id: string
-  name: string
-  workflow: "sdlc" | "content"
-  domain: string | null
-  tags: string[]
-  repoUrl: string | null
-  deployUrl?: string | null
-  lastActivityAt: Date | null
-  prds: ApiPrdWithItems[]
-  pullRequests: ApiPullRequest[]
-  createdAt: Date
-  updatedAt: Date
-  contentItems?: ContentItem[]
-}
-
 function mapPRD(prd: ApiPrdWithItems, uiStatus: UiPRD["status"]): UiPRD {
   return {
     id: prd.id,
@@ -163,7 +133,8 @@ function mapPRD(prd: ApiPrdWithItems, uiStatus: UiPRD["status"]): UiPRD {
 }
 
 function computeActionNeeded(project: ApiProject): boolean {
-  if (!project.lastActivityAt || Date.now() - project.lastActivityAt.getTime() >= WEEK) {
+  const lastActivityAt = toDate(project.lastActivityAt)
+  if (!lastActivityAt || Date.now() - lastActivityAt.getTime() >= WEEK) {
     return true
   }
   for (const pr of project.pullRequests) {
@@ -195,9 +166,6 @@ function buildSdlcSummaryLine(project: ApiProject, lastActivityAt: Date | null):
   if (activePrd) {
     const total = activePrd.workItems.length
     const done = activePrd.workItems.filter((wi) => wi.status === "done").length
-    if (total > 0 && done === total) {
-      return `${activePrd.title} — ${done}/${total} items done`
-    }
     if (total > 0) {
       return `${activePrd.title} — ${done}/${total} items done`
     }

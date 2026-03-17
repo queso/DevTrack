@@ -15,15 +15,9 @@ import {
   EmptyState,
 } from "@/components/features/dashboard/loading-states"
 import { cn } from "@/lib/utils"
+import { DOMAIN_ORDER, DOMAIN_LABELS } from "@/lib/constants"
 
-const DOMAINS: Domain[] = ["arcanelayer", "aiteam", "joshowensdev", "infrastructure", "wendyowensbooks"]
-const DOMAIN_LABELS: Record<Domain, string> = {
-  arcanelayer: "Arcane Layer",
-  aiteam: "AI Team",
-  joshowensdev: "joshowens.dev",
-  infrastructure: "Infrastructure",
-  wendyowensbooks: "Wendy Owens Books",
-}
+const DOMAINS: Domain[] = [...DOMAIN_ORDER]
 
 type SortOption = "activity" | "name" | "attention"
 type FilterDomain = Domain | "all"
@@ -48,7 +42,7 @@ export default function DashboardPage() {
 
   const projects: Project[] = useMemo(() => {
     if (!rawData) return []
-    return rawData.map((p) => mapProject(p as Parameters<typeof mapProject>[0]))
+    return rawData.map((p) => mapProject(p))
   }, [rawData])
 
   const filtered = useMemo(() => {

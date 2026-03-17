@@ -29,15 +29,22 @@ export default function Sidebar() {
   const { data: prsRaw } = usePRs()
 
   const projects = (projectsRaw ?? []) as Project[]
-  const openPRCount = (prsRaw ?? []).length
+  const openPRCount = (prsRaw ?? []).filter(
+    (pr) => pr.status === "open" || pr.status === "draft"
+  ).length
 
-  // Determine initial collapsed state from localStorage or viewport
-  const [collapsed, setCollapsed] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false
+  // Default to expanded; apply localStorage/viewport preference after mount to avoid hydration mismatch
+  const [collapsed, setCollapsed] = useState<boolean>(false)
+
+  // Apply localStorage/viewport preference after mount to avoid hydration mismatch
+  useEffect(() => {
     const stored = window.localStorage.getItem(STORAGE_KEY)
-    if (stored !== null) return stored === "true"
-    return window.innerWidth < MD_BREAKPOINT
-  })
+    if (stored !== null) {
+      setCollapsed(stored === "true")
+    } else {
+      setCollapsed(window.innerWidth < MD_BREAKPOINT)
+    }
+  }, [])
 
   // Handle resize events
   useEffect(() => {

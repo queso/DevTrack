@@ -58,7 +58,7 @@ export function ProjectPageClient({ slug }: ProjectPageClientProps) {
   const accumulatedRef = useRef<{
     page: number
     eventType: string | undefined
-    events: unknown[]
+    events: import("@/types/api-responses").ApiEvent[]
   }>({ page: 1, eventType: undefined, events: [] })
 
   const {
@@ -69,7 +69,7 @@ export function ProjectPageClient({ slug }: ProjectPageClientProps) {
 
   // Only fetch timeline once we have the real project id. Passing null to
   // useTimeline defers the fetch (SWR skips null keys).
-  const projectId = (rawProject as { id?: string } | undefined)?.id ?? null
+  const projectId = rawProject?.id ?? null
 
   const {
     data: rawTimeline,
@@ -140,21 +140,21 @@ export function ProjectPageClient({ slug }: ProjectPageClientProps) {
   if (!rawProject) return null
 
   // Map project data
-  const project = mapProject(rawProject as Parameters<typeof mapProject>[0])
+  const project = mapProject(rawProject)
 
   // Map timeline events — use accumulated list so "Load more" appends rather than replaces.
   const timelineEvents = accumulatedEvents.map((e) =>
-    mapTimelineEvent(e as Parameters<typeof mapTimelineEvent>[0], slug)
+    mapTimelineEvent(e, slug)
   )
 
   // Map pull requests from raw project
-  const rawPRs = (rawProject as { pullRequests?: unknown[] }).pullRequests ?? []
+  const rawPRs = rawProject.pullRequests ?? []
   const pullRequests = rawPRs.map((pr) =>
-    mapPR(pr as Parameters<typeof mapPR>[0], slug)
+    mapPR(pr, slug)
   )
 
   // Content items from raw project
-  const rawContentItems = (rawProject as { contentItems?: { id: string; title: string; status: string; summary?: string; published_at?: Date | null }[] }).contentItems ?? []
+  const rawContentItems = rawProject.contentItems ?? []
   const drafts = rawContentItems.filter((ci) => ci.status === "draft" || ci.status === "review")
   const ideas = rawContentItems.filter((ci) => ci.status === "idea")
   const published = rawContentItems.filter((ci) => ci.status === "published")

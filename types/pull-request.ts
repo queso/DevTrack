@@ -21,6 +21,7 @@ export interface PullRequest {
   url: string
   author: string
   check_status?: CheckStatus | null
+  unresolved_comments?: number | null
   opened_at: Date
   merged_at?: Date | null
   created_at: Date

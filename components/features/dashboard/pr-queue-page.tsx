@@ -10,7 +10,7 @@ import { PRRowSkeleton, ErrorState, EmptyState } from "@/components/features/das
 import { usePRs } from "@/lib/hooks"
 import { mapPR } from "@/lib/mappers"
 import { cn } from "@/lib/utils"
-import type { PullRequest as ApiPullRequest } from "@/types/pull-request"
+import { DOMAIN_ORDER, DOMAIN_LABELS } from "@/lib/constants"
 
 type SortKey = "age" | "project" | "status"
 
@@ -23,14 +23,7 @@ const STATUS_ORDER: Record<string, number> = {
   merged: 5,
 }
 
-const DOMAINS: Domain[] = ["arcanelayer", "aiteam", "joshowensdev", "infrastructure", "wendyowensbooks"]
-const DOMAIN_LABELS: Record<Domain, string> = {
-  arcanelayer: "Arcane Layer",
-  aiteam: "AI Team",
-  joshowensdev: "joshowens.dev",
-  infrastructure: "Infrastructure",
-  wendyowensbooks: "Wendy Owens Books",
-}
+const DOMAINS: Domain[] = [...DOMAIN_ORDER]
 
 export default function PRQueuePage() {
   const router = useRouter()
@@ -73,7 +66,7 @@ export default function PRQueuePage() {
 
   const mappedPRs = useMemo(() => {
     if (!rawData) return []
-    return (rawData as ApiPullRequest[]).map((pr) =>
+    return rawData.map((pr) =>
       mapPR(pr, pr.project_id ?? "")
     )
   }, [rawData])

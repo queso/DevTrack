@@ -2,13 +2,14 @@
 
 import useSWR, { type KeyedMutator, type SWRConfiguration } from "swr"
 import type { ApiEnvelope, PaginationMeta } from "@/types/api"
+import type { ApiProject, ApiPullRequest, ApiEvent } from "@/types/api-responses"
 
 // ---------------------------------------------------------------------------
 // Fetcher
 // ---------------------------------------------------------------------------
 
 export function createApiFetcher() {
-  const apiKey = process.env.DEVTRACK_API_KEY
+  const apiKey = process.env.DEVTRACK_API_KEY ?? process.env.NEXT_PUBLIC_DEVTRACK_API_KEY
 
   return async function apiFetcher(url: string): Promise<unknown> {
     const headers: Record<string, string> = {}
@@ -19,7 +20,7 @@ export function createApiFetcher() {
     const res = await fetch(url, { headers })
 
     if (!res.ok) {
-      const error = new Error(`HTTP ${res.status}`) as Error & { status: number }
+      const error = new Error(`Failed to fetch ${url}: HTTP ${res.status}`) as Error & { status: number }
       error.status = res.status
       throw error
     }
@@ -128,7 +129,7 @@ const _envelopeFetcher = (() => {
     const res = await fetch(url, { headers })
 
     if (!res.ok) {
-      const error = new Error(`HTTP ${res.status}`) as Error & { status: number }
+      const error = new Error(`Failed to fetch ${url}: HTTP ${res.status}`) as Error & { status: number }
       error.status = res.status
       throw error
     }
@@ -163,29 +164,29 @@ function useEnvelopeSWR<T>(
 export function useProjects(
   opts?: PaginationOpts,
   swrOpts?: SWRConfiguration,
-): HookResult<unknown[]> {
-  return useEnvelopeSWR<unknown[]>(getProjectsKey(opts), swrOpts)
+): HookResult<ApiProject[]> {
+  return useEnvelopeSWR<ApiProject[]>(getProjectsKey(opts), swrOpts)
 }
 
 export function useProject(
   slug: string | null | undefined,
   swrOpts?: SWRConfiguration,
-): HookResult<unknown> {
-  return useEnvelopeSWR<unknown>(getProjectKey(slug), swrOpts)
+): HookResult<ApiProject> {
+  return useEnvelopeSWR<ApiProject>(getProjectKey(slug), swrOpts)
 }
 
 export function usePRs(
   opts?: FilterOpts,
   swrOpts?: SWRConfiguration,
-): HookResult<unknown[]> {
-  return useEnvelopeSWR<unknown[]>(getPRsKey(opts), swrOpts)
+): HookResult<ApiPullRequest[]> {
+  return useEnvelopeSWR<ApiPullRequest[]>(getPRsKey(opts), swrOpts)
 }
 
 export function useTimeline(
   opts?: FilterOpts,
   swrOpts?: SWRConfiguration,
-): HookResult<unknown[]> {
-  return useEnvelopeSWR<unknown[]>(getTimelineKey(opts), swrOpts)
+): HookResult<ApiEvent[]> {
+  return useEnvelopeSWR<ApiEvent[]>(getTimelineKey(opts), swrOpts)
 }
 
 export function useActivity(

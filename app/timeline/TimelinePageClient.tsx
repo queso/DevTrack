@@ -4,13 +4,13 @@ import { useState, useMemo } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useTimeline, useProjects } from "@/lib/hooks"
 import { mapTimelineEvent } from "@/lib/mappers"
-import type { Event as ApiEvent } from "@/types/event"
 import type { Domain, EventType } from "@/lib/mock-data"
 import {
   TimelineEntrySkeleton,
   EmptyState,
 } from "@/components/features/dashboard/loading-states"
 import { cn } from "@/lib/utils"
+import { DOMAIN_ORDER, DOMAIN_LABELS } from "@/lib/constants"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -60,14 +60,7 @@ function buildUrl(
 // Constants
 // ---------------------------------------------------------------------------
 
-const DOMAINS: Domain[] = ["arcanelayer", "aiteam", "joshowensdev", "infrastructure", "wendyowensbooks"]
-const DOMAIN_LABELS: Record<Domain, string> = {
-  arcanelayer: "Arcane Layer",
-  aiteam: "AI Team",
-  joshowensdev: "joshowens.dev",
-  infrastructure: "Infrastructure",
-  wendyowensbooks: "Wendy Owens Books",
-}
+const DOMAINS: Domain[] = [...DOMAIN_ORDER]
 
 const ALL_EVENT_TYPES: EventType[] = [
   "commit",
@@ -121,13 +114,13 @@ export default function TimelinePageClient() {
   // Map projects
   const projects = useMemo(() => {
     if (!rawProjects) return []
-    return rawProjects as Array<{ id: string; name: string; domain: string | null; workflow: string }>
+    return rawProjects
   }, [rawProjects])
 
   // Map events using mapTimelineEvent
   const events = useMemo(() => {
     if (!rawEvents) return []
-    return (rawEvents as ApiEvent[]).map((e) => {
+    return rawEvents.map((e) => {
       const project = projects.find((p) => p.id === e.projectId)
       return mapTimelineEvent(e, project?.name ?? e.projectId)
     })
