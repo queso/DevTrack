@@ -93,6 +93,7 @@ export interface Project {
   published?: PublishedPost[]
   // For dashboard summary
   summaryLine: string
+  actionNeeded?: boolean
 }
 
 const now = new Date()

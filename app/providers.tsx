@@ -37,6 +37,7 @@ export function Providers({ children, sseConfig }: ProvidersProps) {
           fetcher: (url: string) => fetcher(url, { "X-Correlation-Id": correlationId }),
           revalidateOnFocus: false,
           dedupingInterval: 2000,
+          refreshInterval: 30_000,
         }}
       >
         {children}

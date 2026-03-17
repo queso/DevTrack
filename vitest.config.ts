@@ -14,6 +14,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": resolve(__dirname, "."),
+      "reactive-swr/testing": resolve(__dirname, "node_modules/reactive-swr/src/testing/index.ts"),
       "reactive-swr": resolve(__dirname, "node_modules/reactive-swr/src/index.ts"),
     },
   },

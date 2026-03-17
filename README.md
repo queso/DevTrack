@@ -56,6 +56,7 @@ DEVTRACK_API_KEY="your-secure-api-key-here"
 pnpm run dev
 ```
 
+The dashboard will be available at `http://localhost:3000`.
 The API will be available at `http://localhost:3000/api/v1`.
 
 ### API Documentation

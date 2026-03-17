@@ -2,10 +2,18 @@
 
 import { useState, useMemo } from "react"
 import Link from "next/link"
-import { Search } from "lucide-react"
-import { PROJECTS, type Project, type Domain, type WorkflowType } from "@/lib/mock-data"
+import { useRouter, useSearchParams } from "next/navigation"
+import { Search, AlertCircle } from "lucide-react"
+import { useProjects } from "@/lib/hooks"
+import { mapProject } from "@/lib/mappers"
+import type { Project, Domain, WorkflowType } from "@/lib/mock-data"
 import { DomainBadge } from "@/components/features/dashboard/domain-badge"
 import { WorkflowBadge } from "@/components/features/dashboard/workflow-badge"
+import {
+  ProjectCardSkeleton,
+  ErrorState,
+  EmptyState,
+} from "@/components/features/dashboard/loading-states"
 import { cn } from "@/lib/utils"
 
 const DOMAINS: Domain[] = ["arcanelayer", "aiteam", "joshowensdev", "infrastructure", "wendyowensbooks"]
@@ -22,46 +30,103 @@ type FilterDomain = Domain | "all"
 type FilterWorkflow = WorkflowType | "all"
 
 export default function DashboardPage() {
-  const [search, setSearch] = useState("")
-  const [domainFilter, setDomainFilter] = useState<FilterDomain>("all")
-  const [workflowFilter, setWorkflowFilter] = useState<FilterWorkflow>("all")
-  const [sort, setSort] = useState<SortOption>("attention")
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const { data: rawData, isLoading, error, mutate } = useProjects()
+
+  // Initialize state from URL params
+  const [search, setSearch] = useState(() => searchParams.get("q") ?? "")
+  const [domainFilter, setDomainFilter] = useState<FilterDomain>(
+    () => (searchParams.get("domain") ?? "all") as FilterDomain,
+  )
+  const [workflowFilter, setWorkflowFilter] = useState<FilterWorkflow>(
+    () => (searchParams.get("workflow") ?? "all") as FilterWorkflow,
+  )
+  const [sort, setSort] = useState<SortOption>(
+    () => (searchParams.get("sort") ?? "attention") as SortOption,
+  )
+
+  const projects: Project[] = useMemo(() => {
+    if (!rawData) return []
+    return rawData.map((p) => mapProject(p as Parameters<typeof mapProject>[0]))
+  }, [rawData])
 
   const filtered = useMemo(() => {
-    let projects = [...PROJECTS]
+    let result = [...projects]
 
     if (search) {
       const q = search.toLowerCase()
-      projects = projects.filter(
+      result = result.filter(
         (p) =>
           p.name.toLowerCase().includes(q) ||
           p.tags.some((t) => t.toLowerCase().includes(q)) ||
-          p.summaryLine.toLowerCase().includes(q)
+          p.summaryLine.toLowerCase().includes(q),
       )
     }
 
-    if (domainFilter !== "all") projects = projects.filter((p) => p.domain === domainFilter)
-    if (workflowFilter !== "all") projects = projects.filter((p) => p.workflow === workflowFilter)
+    if (domainFilter !== "all") result = result.filter((p) => p.domain === domainFilter)
+    if (workflowFilter !== "all") result = result.filter((p) => p.workflow === workflowFilter)
 
     const activityOrder = { "active-now": 0, today: 1, "this-week": 2, stale: 3 }
     if (sort === "activity") {
-      projects.sort((a, b) => activityOrder[a.activityLevel] - activityOrder[b.activityLevel])
+      result.sort((a, b) => activityOrder[a.activityLevel] - activityOrder[b.activityLevel])
     } else if (sort === "name") {
-      projects.sort((a, b) => a.name.localeCompare(b.name))
+      result.sort((a, b) => a.name.localeCompare(b.name))
     } else {
-      // attention first: open PRs, stale, then by activity
-      projects.sort((a, b) => {
+      result.sort((a, b) => {
         const aScore = (a.openPRCount > 0 ? 0 : 2) + activityOrder[a.activityLevel] * 0.1
         const bScore = (b.openPRCount > 0 ? 0 : 2) + activityOrder[b.activityLevel] * 0.1
         return aScore - bScore
       })
     }
 
-    return projects
-  }, [search, domainFilter, workflowFilter, sort])
+    return result
+  }, [projects, search, domainFilter, workflowFilter, sort])
 
-  const totalPRs = PROJECTS.reduce((sum, p) => sum + p.openPRCount, 0)
-  const needsAttention = PROJECTS.filter((p) => p.openPRCount > 0 || p.activityLevel === "stale").length
+  function buildUrl(overrides: Record<string, string | null>) {
+    const params = new URLSearchParams()
+    const current = { q: search || null, domain: domainFilter === "all" ? null : domainFilter, workflow: workflowFilter === "all" ? null : workflowFilter, sort: sort === "attention" ? null : sort }
+    const merged = { ...current, ...overrides }
+    for (const [k, v] of Object.entries(merged)) {
+      if (v !== null && v !== undefined) params.set(k, v)
+    }
+    const qs = params.toString()
+    return qs ? `/?${qs}` : "/?"
+  }
+
+  function handleDomainFilter(value: FilterDomain) {
+    setDomainFilter(value)
+    router.replace(buildUrl({ domain: value === "all" ? null : value }))
+  }
+
+  function handleWorkflowFilter(value: FilterWorkflow) {
+    setWorkflowFilter(value)
+    router.replace(buildUrl({ workflow: value === "all" ? null : value }))
+  }
+
+  function handleSort(value: SortOption) {
+    setSort(value)
+    router.replace(buildUrl({ sort: value === "attention" ? null : value }))
+  }
+
+  function handleSearch(value: string) {
+    setSearch(value)
+    router.replace(buildUrl({ q: value || null }))
+  }
+
+  const totalPRs = projects.reduce((sum, p) => sum + p.openPRCount, 0)
+  const needsAttention = projects.filter((p) => p.openPRCount > 0 || p.activityLevel === "stale").length
+
+  if (error) {
+    return (
+      <div className="flex flex-col gap-6 p-6">
+        <ErrorState
+          message={error.message}
+          onRetry={() => mutate()}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -69,7 +134,7 @@ export default function DashboardPage() {
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold tracking-tight text-balance">Dashboard</h1>
         <p className="text-sm text-muted-foreground">
-          {PROJECTS.length} projects &mdash;&nbsp;
+          {projects.length} projects &mdash;&nbsp;
           <span className="text-amber-400">{needsAttention} need attention</span>
           &nbsp;&mdash;&nbsp;
           <span className="text-sky-400">{totalPRs} PRs open</span>
@@ -80,21 +145,37 @@ export default function DashboardPage() {
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-2 flex-wrap">
           {/* Domain filter chips */}
-          <FilterChip label="All Domains" active={domainFilter === "all"} onClick={() => setDomainFilter("all")} />
+          <FilterChip
+            label="All Domains"
+            active={domainFilter === "all"}
+            onClick={() => handleDomainFilter("all")}
+          />
           {DOMAINS.map((d) => (
             <FilterChip
               key={d}
               label={DOMAIN_LABELS[d]}
               active={domainFilter === d}
-              onClick={() => setDomainFilter(d)}
+              onClick={() => handleDomainFilter(d)}
             />
           ))}
 
           <div className="w-px h-4 bg-border mx-1" />
 
-          <FilterChip label="All Types" active={workflowFilter === "all"} onClick={() => setWorkflowFilter("all")} />
-          <FilterChip label="SDLC" active={workflowFilter === "sdlc"} onClick={() => setWorkflowFilter("sdlc")} />
-          <FilterChip label="Content" active={workflowFilter === "content"} onClick={() => setWorkflowFilter("content")} />
+          <FilterChip
+            label="All Types"
+            active={workflowFilter === "all"}
+            onClick={() => handleWorkflowFilter("all")}
+          />
+          <FilterChip
+            label="SDLC"
+            active={workflowFilter === "sdlc"}
+            onClick={() => handleWorkflowFilter("sdlc")}
+          />
+          <FilterChip
+            label="Content"
+            active={workflowFilter === "content"}
+            onClick={() => handleWorkflowFilter("content")}
+          />
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">
@@ -105,7 +186,7 @@ export default function DashboardPage() {
               type="text"
               placeholder="Search projects..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => handleSearch(e.target.value)}
               className="pl-8 pr-3 py-1.5 rounded bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring w-52"
             />
           </div>
@@ -117,10 +198,10 @@ export default function DashboardPage() {
               <button
                 type="button"
                 key={s}
-                onClick={() => setSort(s)}
+                onClick={() => handleSort(s)}
                 className={cn(
                   "px-2.5 py-1 rounded text-xs transition-colors",
-                  sort === s ? "bg-secondary text-foreground" : "hover:text-foreground"
+                  sort === s ? "bg-secondary text-foreground" : "hover:text-foreground",
                 )}
               >
                 {s === "attention" ? "Needs attention" : s === "activity" ? "Last activity" : "Name"}
@@ -131,8 +212,15 @@ export default function DashboardPage() {
       </div>
 
       {/* Project Grid */}
-      {filtered.length === 0 ? (
-        <div className="text-center py-16 text-muted-foreground text-sm">No projects match your filters.</div>
+      {isLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: skeleton placeholders
+            <ProjectCardSkeleton key={i} />
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
+        <EmptyState message="No projects match your filters." />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtered.map((project) => (
@@ -159,7 +247,7 @@ function FilterChip({
       onClick={onClick}
       className={cn(
         "px-2.5 py-1 rounded text-xs font-medium transition-colors",
-        active ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+        active ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-secondary/50",
       )}
     >
       {label}
@@ -213,8 +301,7 @@ function ProjectCard({ project }: { project: Project }) {
       {project.activePRD && totalItems > 0 && (
         <div className="mb-3">
           <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1">
-            <span className="truncate">{project.activePRD.title}</span>
-            <span className="shrink-0 ml-2">{doneItems}/{totalItems}</span>
+            <span className="shrink-0 ml-auto">{doneItems}/{totalItems}</span>
           </div>
           <div className="h-1 rounded-full bg-muted overflow-hidden">
             <div

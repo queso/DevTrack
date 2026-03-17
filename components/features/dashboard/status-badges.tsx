@@ -5,9 +5,9 @@ export type CheckStatus = "passing" | "failing" | "pending"
 
 const PR_STATUS_CONFIG: Record<PRStatus, { label: string; className: string }> = {
   draft: { label: "Draft", className: "text-muted-foreground bg-muted/60" },
-  open: { label: "Open", className: "text-sky-400 bg-sky-400/10" },
+  open: { label: "Active", className: "text-sky-400 bg-sky-400/10" },
   reviewed: { label: "In Review", className: "text-amber-400 bg-amber-400/10" },
-  "changes-requested": { label: "Changes Req.", className: "text-red-400 bg-red-400/10" },
+  "changes-requested": { label: "Rev. Needed", className: "text-red-400 bg-red-400/10" },
   approved: { label: "Approved", className: "text-emerald-400 bg-emerald-400/10" },
   merged: { label: "Merged", className: "text-purple-400 bg-purple-400/10" },
 }

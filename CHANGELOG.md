@@ -7,6 +7,69 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-03-17
+
+### Added
+
+#### Dashboard UI - SWR Integration
+- Centralized SWR data fetching hooks for projects, PRDs, PRs, events, and branches (#WI-628)
+- Consistent cache key generation across all data types (#WI-628)
+- Stale-while-revalidate caching with configurable intervals (#WI-628)
+
+#### Data Transformation Layer
+- API-to-UI mapper functions converting flat Prisma models to rich UI types (#WI-630)
+- Project enrichment with PR counts, domain grouping, and status computation (#WI-630)
+- PR aging color coding (green <1 day, yellow 1-3 days, red >3 days) (#WI-630)
+
+#### Loading & Error States
+- Reusable loading state skeletons for dashboard, project, and timeline pages (#WI-629)
+- Empty state components with contextual messaging (#WI-629)
+- Error boundary handling with retry capabilities (#WI-629)
+
+#### Dashboard Page
+- Live-wired dashboard with real-time project cards (#WI-632)
+- Project filtering by domain, workflow type, and custom search (#WI-632)
+- Sorting by name, updated date, PR count, and activity (#WI-632)
+
+#### Sidebar Navigation
+- Projects organized by domain with collapsible grouping (#WI-631)
+- Real-time PR count badge for each project (#WI-631)
+- Current project highlighting with active state styling (#WI-631)
+
+#### Project Summary Page
+- Full project detail view with metadata and status (#WI-633)
+- Timeline pagination showing recent project events (#WI-633)
+- Links to PRDs, content, and pull requests (#WI-633)
+
+#### PR Queue Page
+- Unified list of all open pull requests across projects (#WI-634)
+- Age-based color coding for PR freshness (#WI-634)
+- Sorting and filtering by project, age, and status (#WI-634)
+
+#### Timeline Page
+- Cross-project activity feed with day-based grouping (#WI-635)
+- Event filtering by project, domain, and event type (#WI-635)
+- Date range filtering for historical browsing (#WI-635)
+
+#### Real-Time Updates via reactiveSWR
+- Server-Sent Events (SSE) provider for real-time cache invalidation (#WI-636)
+- Automatic SSE polling with 30-second fallback for connection loss (#WI-636)
+- Smart cache revalidation on push/merge events (#WI-636)
+
+### Testing
+
+- 914 tests passing across 42 test files
+- Comprehensive test coverage for hooks, mappers, and page components
+- E2E tests for dashboard, project, PR queue, and timeline pages
+- Loading and error state testing
+
+### Code Quality
+
+- Biome linter: 0 errors, fully formatted codebase
+- TypeScript strict mode enforced
+- All UI components properly typed with Zod validation
+- Proper error handling and fallbacks throughout
+
 ## [0.2.0] - 2026-03-16
 
 ### Added
