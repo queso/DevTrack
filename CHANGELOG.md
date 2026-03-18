@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-03-18
+
+### Added
+
+#### CLI Tool - swagger-jack Generated Commands
+- 34 auto-generated Cobra CLI commands from OpenAPI spec via swagger-jack (#PRD-004)
+- Commands covering 10 API resources: projects, PRDs, work items, content, PRs, branches, events, webhooks, and more (#PRD-004)
+- Automatic command generation with typed parameters and help text from API spec (#PRD-004)
+
+#### Manifest Helpers
+- ReadManifest function for parsing project.yaml files with Zod validation (#PRD-004)
+- FindManifest function for recursive manifest discovery from current directory (#PRD-004)
+- ResolveProjectID function for mapping local manifests to API project IDs (#PRD-004)
+- URL normalization for GitHub repo matching (#PRD-004)
+
+#### CLI Convenience Commands
+- `devtrack register` — Register repository with DevTrack using local manifest (#PRD-004)
+- `devtrack status` — Display project status (PRDs, PRs, recent events) (#PRD-004)
+- `devtrack dashboard` — Cross-project overview with activity classification (#PRD-004)
+- `devtrack event` — Record events with type validation and hyphen-to-underscore mapping (#PRD-004)
+- `devtrack prs` — List open pull requests across projects with filtering (#PRD-004)
+- `devtrack sync` — Trigger server-side pull request synchronization (#PRD-004)
+- `devtrack ideas` — Manage content ideas (list/add) (#PRD-004)
+- `devtrack hooks install` — Install git hooks calling devtrack event for activity tracking (#PRD-004)
+- `devtrack hooks uninstall` — Clean removal of hooks preserving custom hook logic (#PRD-004)
+
+#### OpenAPI Specification
+- Formalized OpenAPI 3.1 spec at `specs/openapi.yaml` documenting all API endpoints (#PRD-004)
+- Complete request/response schemas and validation rules (#PRD-004)
+
+### Testing
+
+- 19 manifest helper tests covering file reading, manifest discovery, and project ID resolution
+- 63 total Go tests across CLI commands and internal packages
+- All tests passing with standard Go testing tools
+
+### Code Quality
+
+- Full TypeScript integration with auto-generated Go code
+- Zod validation for manifest parsing
+- Comprehensive error handling with user-friendly messages
+- Clean separation of auto-generated and hand-written commands
+
 ## [0.3.0] - 2026-03-17
 
 ### Added

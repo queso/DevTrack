@@ -127,7 +127,6 @@ function setupHooks({
 // Import Sidebar after mocks are set up
 // ---------------------------------------------------------------------------
 
-// biome-ignore lint: dynamic import after mock setup
 import * as SidebarModule from "@/components/layout/sidebar"
 
 // ---------------------------------------------------------------------------

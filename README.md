@@ -99,6 +99,70 @@ curl -X POST http://localhost:3000/api/v1/projects \
 
 See `prd/001-core-api.md` for complete API specification.
 
+## CLI Tool
+
+The DevTrack CLI provides command-line access to all API features plus convenience commands for common workflows.
+
+### Installation
+
+The CLI is built from the OpenAPI spec using swagger-jack:
+
+```bash
+# Build the CLI
+go build -o devtrack ./cli
+
+# Install to your PATH
+go install ./cli
+```
+
+### Quick Start
+
+Register your project and view its status:
+
+```bash
+# Register the current repo with DevTrack
+devtrack register
+
+# View project status
+devtrack status
+
+# Show cross-project dashboard
+devtrack dashboard
+```
+
+### Key Commands
+
+**Project Management:**
+- `devtrack register` — Register a repository
+- `devtrack projects list` — List all registered projects
+- `devtrack projects get` — Get project details
+- `devtrack status` — Show status of current project
+
+**PRDs & Work Items:**
+- `devtrack prds list` — List PRDs for a project
+- `devtrack prds create` — Create/sync a PRD
+- `devtrack work-items list` — List work items for a PRD
+
+**Pull Requests:**
+- `devtrack prs` — List open PRs across all projects
+- `devtrack pr-sync` — Trigger PR synchronization
+
+**Activity Tracking:**
+- `devtrack event` — Record an event with type validation
+- `devtrack hooks install` — Install git hooks for automatic tracking
+- `devtrack hooks uninstall` — Remove installed hooks
+
+**Content Pipeline:**
+- `devtrack ideas list` — List content ideas
+- `devtrack ideas add` — Add a new idea
+
+For all available commands and options:
+
+```bash
+devtrack help
+devtrack [command] help
+```
+
 ## Repository Integration
 
 DevTrack integrates with your repositories through three mechanisms:

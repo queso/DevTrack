@@ -1,0 +1,1650 @@
+openapi: 3.0.3
+info:
+  title: DevTrack API
+  version: 1.0.0
+  description: >
+    Mission control for multi-repo development. Track SDLC state, content
+    pipelines, and PR queues across all your projects.
+
+servers:
+  - url: /api/v1
+    description: Current server
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: Health
+  - name: Projects
+  - name: PRDs
+  - name: WorkItems
+  - name: Content
+  - name: PullRequests
+  - name: Branches
+  - name: Events
+  - name: Webhooks
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: "API key authentication via Authorization: Bearer <key>"
+
+  schemas:
+    # -------------------------------------------------------------------------
+    # Primitives / shared
+    # -------------------------------------------------------------------------
+    ErrorResponse:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+          description: Error code
+        message:
+          type: string
+          description: Human-readable error message
+        correlationId:
+          type: string
+        details:
+          type: object
+
+    PaginationMeta:
+      type: object
+      required: [total, page, per_page]
+      properties:
+        total:
+          type: integer
+        page:
+          type: integer
+        per_page:
+          type: integer
+
+    EnvelopeResponse:
+      type: object
+      required: [data]
+      properties:
+        data: {}
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+
+    # -------------------------------------------------------------------------
+    # Enums
+    # -------------------------------------------------------------------------
+    Workflow:
+      type: string
+      enum: [sdlc, content]
+
+    PrdStatus:
+      type: string
+      enum: [queued, in_progress, completed]
+
+    WorkItemStatus:
+      type: string
+      enum: [todo, in_progress, done]
+
+    ContentItemStatus:
+      type: string
+      enum: [idea, draft, published]
+
+    PullRequestStatus:
+      type: string
+      enum:
+        - open
+        - closed
+        - merged
+        - draft
+        - review_requested
+        - changes_requested
+        - approved
+
+    CheckStatus:
+      type: string
+      enum: [pending, passing, failing]
+
+    EventType:
+      type: string
+      enum:
+        - pr_opened
+        - pr_merged
+        - pr_closed
+        - pr_review_requested
+        - pr_changes_requested
+        - pr_approved
+        - pr_reviewed
+        - branch_created
+        - branch_deleted
+        - prd_created
+        - prd_updated
+        - prd_completed
+        - prd_synced
+        - work_item_created
+        - work_item_completed
+        - content_published
+        - content_updated
+        - commit
+        - push
+        - session_start
+        - session_end
+
+    # -------------------------------------------------------------------------
+    # Project
+    # -------------------------------------------------------------------------
+    CreateProject:
+      type: object
+      required: [name, workflow]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        workflow:
+          $ref: '#/components/schemas/Workflow'
+        domain:
+          type: string
+        owner:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+          default: []
+        repo_url:
+          type: string
+          format: uri
+        main_branch:
+          type: string
+          default: main
+        branch_prefix:
+          type: string
+        prd_path:
+          type: string
+        test_pattern:
+          type: string
+        content_path:
+          type: string
+        draft_path:
+          type: string
+        deploy_environment:
+          type: string
+        deploy_url:
+          type: string
+          format: uri
+        deploy_health_check:
+          type: string
+
+    UpdateProject:
+      allOf:
+        - $ref: '#/components/schemas/CreateProject'
+      description: All fields optional for partial update
+
+    Project:
+      allOf:
+        - $ref: '#/components/schemas/CreateProject'
+        - type: object
+          required: [id, created_at, updated_at]
+          properties:
+            id:
+              type: string
+              format: uuid
+            last_activity_at:
+              type: string
+              format: date-time
+              nullable: true
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+
+    # -------------------------------------------------------------------------
+    # PRD
+    # -------------------------------------------------------------------------
+    CreatePrd:
+      type: object
+      required: [project_id, title]
+      properties:
+        project_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          minLength: 1
+        summary:
+          type: string
+        status:
+          $ref: '#/components/schemas/PrdStatus'
+          default: queued
+        source_path:
+          type: string
+
+    UpdatePrd:
+      allOf:
+        - $ref: '#/components/schemas/CreatePrd'
+      description: All fields optional for partial update
+
+    Prd:
+      allOf:
+        - $ref: '#/components/schemas/CreatePrd'
+        - type: object
+          required: [id, created_at, updated_at]
+          properties:
+            id:
+              type: string
+              format: uuid
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+
+    PrdWithWorkItems:
+      allOf:
+        - $ref: '#/components/schemas/Prd'
+        - type: object
+          properties:
+            workItems:
+              type: array
+              items:
+                $ref: '#/components/schemas/WorkItem'
+
+    # -------------------------------------------------------------------------
+    # WorkItem
+    # -------------------------------------------------------------------------
+    CreateWorkItem:
+      type: object
+      required: [prd_id, title, order]
+      properties:
+        prd_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          minLength: 1
+        status:
+          $ref: '#/components/schemas/WorkItemStatus'
+          default: todo
+        order:
+          type: integer
+          minimum: 0
+
+    UpdateWorkItem:
+      allOf:
+        - $ref: '#/components/schemas/CreateWorkItem'
+      description: All fields optional for partial update
+
+    WorkItem:
+      allOf:
+        - $ref: '#/components/schemas/CreateWorkItem'
+        - type: object
+          required: [id, created_at, updated_at]
+          properties:
+            id:
+              type: string
+              format: uuid
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+
+    # -------------------------------------------------------------------------
+    # ContentItem
+    # -------------------------------------------------------------------------
+    CreateContent:
+      type: object
+      required: [project_id, title]
+      properties:
+        project_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          minLength: 1
+        summary:
+          type: string
+          nullable: true
+        status:
+          $ref: '#/components/schemas/ContentItemStatus'
+          default: idea
+        source_path:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+          default: []
+        published_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    UpdateContent:
+      allOf:
+        - $ref: '#/components/schemas/CreateContent'
+      description: All fields optional for partial update
+
+    ContentItem:
+      allOf:
+        - $ref: '#/components/schemas/CreateContent'
+        - type: object
+          required: [id, created_at, updated_at]
+          properties:
+            id:
+              type: string
+              format: uuid
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+
+    # -------------------------------------------------------------------------
+    # Branch
+    # -------------------------------------------------------------------------
+    CreateBranch:
+      type: object
+      required: [project_id, name]
+      properties:
+        project_id:
+          type: string
+          format: uuid
+        prd_id:
+          type: string
+          format: uuid
+          nullable: true
+        name:
+          type: string
+          minLength: 1
+        is_active:
+          type: boolean
+          default: true
+
+    UpdateBranch:
+      allOf:
+        - $ref: '#/components/schemas/CreateBranch'
+      description: All fields optional for partial update
+
+    Branch:
+      allOf:
+        - $ref: '#/components/schemas/CreateBranch'
+        - type: object
+          required: [id, created_at, updated_at]
+          properties:
+            id:
+              type: string
+              format: uuid
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+
+    # -------------------------------------------------------------------------
+    # PullRequest
+    # -------------------------------------------------------------------------
+    CreatePullRequest:
+      type: object
+      required: [project_id, github_id, number, title, url, author, opened_at]
+      properties:
+        project_id:
+          type: string
+          format: uuid
+        branch_id:
+          type: string
+          format: uuid
+          nullable: true
+        prd_id:
+          type: string
+          format: uuid
+          nullable: true
+        github_id:
+          type: integer
+        number:
+          type: integer
+        title:
+          type: string
+          minLength: 1
+        status:
+          $ref: '#/components/schemas/PullRequestStatus'
+          default: open
+        url:
+          type: string
+          format: uri
+        author:
+          type: string
+          minLength: 1
+        check_status:
+          $ref: '#/components/schemas/CheckStatus'
+          nullable: true
+        opened_at:
+          type: string
+          format: date-time
+        merged_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    UpdatePullRequest:
+      allOf:
+        - $ref: '#/components/schemas/CreatePullRequest'
+      description: All fields optional for partial update
+
+    PullRequest:
+      allOf:
+        - $ref: '#/components/schemas/CreatePullRequest'
+        - type: object
+          required: [id, created_at, updated_at]
+          properties:
+            id:
+              type: string
+              format: uuid
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+
+    # -------------------------------------------------------------------------
+    # Event
+    # -------------------------------------------------------------------------
+    CreateEvent:
+      type: object
+      required: [project_id, type, title, occurred_at]
+      properties:
+        project_id:
+          type: string
+          format: uuid
+        prd_id:
+          type: string
+          format: uuid
+          nullable: true
+        pull_request_id:
+          type: string
+          format: uuid
+          nullable: true
+        type:
+          $ref: '#/components/schemas/EventType'
+        title:
+          type: string
+          minLength: 1
+        metadata:
+          type: object
+          default: {}
+        occurred_at:
+          type: string
+          format: date-time
+
+    Event:
+      allOf:
+        - $ref: '#/components/schemas/CreateEvent'
+        - type: object
+          required: [id, created_at, updated_at]
+          properties:
+            id:
+              type: string
+              format: uuid
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
+
+    EventSummary:
+      type: object
+      required: [total, by_type, recent]
+      properties:
+        total:
+          type: integer
+        by_type:
+          type: object
+          additionalProperties:
+            type: integer
+        recent:
+          type: array
+          items:
+            $ref: '#/components/schemas/Event'
+
+# =============================================================================
+# Paths
+# =============================================================================
+paths:
+  # ---------------------------------------------------------------------------
+  # Health
+  # ---------------------------------------------------------------------------
+  /api/health:
+    get:
+      operationId: getHealth
+      summary: Health check
+      tags: [Health]
+      security: []
+      responses:
+        '200':
+          description: Service healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+
+  # ---------------------------------------------------------------------------
+  # Projects
+  # ---------------------------------------------------------------------------
+  /projects:
+    get:
+      operationId: listProjects
+      summary: List all projects
+      tags: [Projects]
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: domain
+          in: query
+          schema:
+            type: string
+        - name: workflow
+          in: query
+          schema:
+            $ref: '#/components/schemas/Workflow'
+        - name: tags
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+      responses:
+        '200':
+          description: Paginated project list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: createProject
+      summary: Create a project
+      tags: [Projects]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProject'
+      responses:
+        '201':
+          description: Created project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /projects/{id}:
+    get:
+      operationId: getProject
+      summary: Get a project
+      tags: [Projects]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      operationId: updateProject
+      summary: Update a project
+      tags: [Projects]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProject'
+      responses:
+        '200':
+          description: Updated project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deleteProject
+      summary: Delete a project
+      tags: [Projects]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Deleted
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /projects/{id}/status:
+    get:
+      operationId: getProjectStatus
+      summary: Get project status summary
+      tags: [Projects]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Project status summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ---------------------------------------------------------------------------
+  # PRDs
+  # ---------------------------------------------------------------------------
+  /prds:
+    get:
+      operationId: listPrds
+      summary: List all PRDs
+      tags: [PRDs]
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        '200':
+          description: PRD list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /projects/{id}/prds:
+    get:
+      operationId: listProjectPrds
+      summary: List PRDs for a project
+      tags: [PRDs]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        '200':
+          description: PRD list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: createPrd
+      summary: Create a PRD
+      tags: [PRDs]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePrd'
+      responses:
+        '201':
+          description: Created PRD
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /prds/{id}:
+    get:
+      operationId: getPrd
+      summary: Get a PRD with work items
+      tags: [PRDs]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: PRD with work items
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      operationId: updatePrd
+      summary: Update a PRD
+      tags: [PRDs]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePrd'
+      responses:
+        '200':
+          description: Updated PRD
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ---------------------------------------------------------------------------
+  # WorkItems
+  # ---------------------------------------------------------------------------
+  /prds/{id}/work-items:
+    get:
+      operationId: listWorkItems
+      summary: List work items for a PRD
+      tags: [WorkItems]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Work items
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: createWorkItem
+      summary: Create a work item
+      tags: [WorkItems]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWorkItem'
+      responses:
+        '201':
+          description: Created work item
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+        '404':
+          description: PRD not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /work-items/{id}:
+    patch:
+      operationId: updateWorkItem
+      summary: Update a work item
+      tags: [WorkItems]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWorkItem'
+      responses:
+        '200':
+          description: Updated work item
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ---------------------------------------------------------------------------
+  # Content
+  # ---------------------------------------------------------------------------
+  /projects/{id}/content:
+    get:
+      operationId: listContent
+      summary: List content items for a project
+      tags: [Content]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/ContentItemStatus'
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        '200':
+          description: Content list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: createContent
+      summary: Create a content item
+      tags: [Content]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateContent'
+      responses:
+        '201':
+          description: Created content item
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /content/{id}:
+    get:
+      operationId: getContent
+      summary: Get a content item
+      tags: [Content]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Content item
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      operationId: updateContent
+      summary: Update a content item (supports promotion)
+      tags: [Content]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateContent'
+      responses:
+        '200':
+          description: Updated content item
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Invalid status transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deleteContent
+      summary: Delete a content item
+      tags: [Content]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Deleted
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ---------------------------------------------------------------------------
+  # Pull Requests
+  # ---------------------------------------------------------------------------
+  /prs:
+    get:
+      operationId: listPullRequests
+      summary: List all pull requests (PR queue)
+      tags: [PullRequests]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/PullRequestStatus'
+        - name: project_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: author
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        '200':
+          description: PR list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /prs/{id}:
+    get:
+      operationId: getPullRequest
+      summary: Get a pull request
+      tags: [PullRequests]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Pull request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      operationId: updatePullRequest
+      summary: Update a pull request
+      tags: [PullRequests]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePullRequest'
+      responses:
+        '200':
+          description: Updated PR
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /projects/{id}/prs:
+    get:
+      operationId: listProjectPullRequests
+      summary: List pull requests for a project
+      tags: [PullRequests]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        '200':
+          description: PR list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: syncPullRequest
+      summary: Sync a pull request from GitHub
+      tags: [PullRequests]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePullRequest'
+      responses:
+        '201':
+          description: Synced PR
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ---------------------------------------------------------------------------
+  # Branches
+  # ---------------------------------------------------------------------------
+  /branches/{id}:
+    get:
+      operationId: getBranch
+      summary: Get a branch
+      tags: [Branches]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Branch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      operationId: updateBranch
+      summary: Update a branch
+      tags: [Branches]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBranch'
+      responses:
+        '200':
+          description: Updated branch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /projects/{id}/branches:
+    get:
+      operationId: listProjectBranches
+      summary: List branches for a project
+      tags: [Branches]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: is_active
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Branch list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: createBranch
+      summary: Register a branch
+      tags: [Branches]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBranch'
+      responses:
+        '201':
+          description: Created branch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ---------------------------------------------------------------------------
+  # Events
+  # ---------------------------------------------------------------------------
+  /events:
+    get:
+      operationId: listEvents
+      summary: List events (cross-project timeline)
+      tags: [Events]
+      parameters:
+        - name: project_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: domain
+          in: query
+          schema:
+            type: string
+        - name: type
+          in: query
+          schema:
+            $ref: '#/components/schemas/EventType'
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        '200':
+          description: Event list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      operationId: createEvent
+      summary: Record an event
+      tags: [Events]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEvent'
+      responses:
+        '201':
+          description: Created event
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /events/summary:
+    get:
+      operationId: getEventSummary
+      summary: Get daily event summary grouped by project
+      tags: [Events]
+      parameters:
+        - name: date
+          in: query
+          description: Target date (defaults to today)
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Event summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /projects/{id}/events:
+    get:
+      operationId: listProjectEvents
+      summary: List events for a project
+      tags: [Events]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        '200':
+          description: Event list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeResponse'
+        '404':
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ---------------------------------------------------------------------------
+  # Webhooks
+  # ---------------------------------------------------------------------------
+  /webhooks/github:
+    post:
+      operationId: githubWebhook
+      summary: Receive GitHub webhook events
+      tags: [Webhooks]
+      security: []
+      parameters:
+        - name: X-GitHub-Event
+          in: header
+          required: true
+          schema:
+            type: string
+        - name: X-Hub-Signature-256
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Webhook processed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+        '401':
+          description: Invalid signature
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
