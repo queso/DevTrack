@@ -170,6 +170,7 @@ func removeDevtrackBlock(content string) string {
 		}
 		if strings.Contains(line, devtrackBlockEnd) {
 			inBlock = false
+			blockLines = nil
 			continue
 		}
 		if inBlock {

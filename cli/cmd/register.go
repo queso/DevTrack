@@ -13,6 +13,7 @@ import (
 
 	"devtrack/internal"
 	"devtrack/internal/client"
+	"devtrack/internal/response"
 
 	"github.com/spf13/cobra"
 )
@@ -36,33 +37,27 @@ func (a *apiProjectClient) ListProjects() ([]internal.ProjectSummary, error) {
 		return nil, err
 	}
 
-	// The API returns a paginated response: {"data": [...], "pagination": {...}}
-	// Try both shapes: array at top-level and wrapped in "data".
-	var raw map[string]json.RawMessage
-	if err := json.Unmarshal(resp, &raw); err == nil {
-		if dataRaw, ok := raw["data"]; ok {
-			var projects []internal.ProjectSummary
-			if err := json.Unmarshal(dataRaw, &projects); err != nil {
-				return nil, fmt.Errorf("parse projects list: %w", err)
-			}
-			return projects, nil
-		}
-	}
-
-	// Fallback: top-level array.
 	var projects []internal.ProjectSummary
-	if err := json.Unmarshal(resp, &projects); err != nil {
+	if err := response.UnmarshalPaginated(resp, &projects); err != nil {
 		return nil, fmt.Errorf("parse projects list: %w", err)
 	}
 	return projects, nil
 }
 
 func (a *apiProjectClient) CreateProject(body map[string]interface{}) ([]byte, error) {
-	return a.c.Do("POST", "/projects", map[string]string{}, map[string]string{}, body)
+	resp, err := a.c.Do("POST", "/projects", map[string]string{}, map[string]string{}, body)
+	if err != nil {
+		return nil, fmt.Errorf("create project: %w", err)
+	}
+	return resp, nil
 }
 
 func (a *apiProjectClient) UpdateProject(id string, body map[string]interface{}) ([]byte, error) {
-	return a.c.Do("PATCH", "/projects/{id}", map[string]string{"id": id}, map[string]string{}, body)
+	resp, err := a.c.Do("PATCH", "/projects/{id}", map[string]string{"id": id}, map[string]string{}, body)
+	if err != nil {
+		return nil, fmt.Errorf("update project: %w", err)
+	}
+	return resp, nil
 }
 
 // runRegister is the testable core of the register command. It reads the manifest
@@ -79,22 +74,12 @@ func runRegister(manifestPath string, api ProjectAPI, quiet bool, out io.Writer)
 		return fmt.Errorf("list projects from API: %w", err)
 	}
 
-	existingID := findProjectByName(projects, manifest.Name)
+	existingID := internal.FindProjectIDByName(projects, manifest.Name)
 
 	if existingID != "" {
 		return updateExistingProject(api, existingID, manifest, quiet, out)
 	}
 	return createNewProject(api, manifest, quiet, out)
-}
-
-// findProjectByName returns the ID of the first project matching name, or empty string.
-func findProjectByName(projects []internal.ProjectSummary, name string) string {
-	for _, p := range projects {
-		if p.Name == name {
-			return p.ID
-		}
-	}
-	return ""
 }
 
 // manifestToBody converts a Manifest into the request body map for the API.

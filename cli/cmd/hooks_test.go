@@ -302,6 +302,61 @@ func TestInstallHooks_AppendsToExistingHook(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// removeDevtrackBlock tests
+// ---------------------------------------------------------------------------
+
+// TestRemoveDevtrackBlock_MultipleBlocks verifies that a file containing two
+// devtrack blocks (e.g. from two separate install/uninstall cycles that left
+// behind a duplicate) has both blocks removed cleanly and that blockLines is
+// not leaked between block boundaries.
+func TestRemoveDevtrackBlock_MultipleBlocks(t *testing.T) {
+	content := "#!/bin/sh\n" +
+		devtrackBlockStart + "\n" +
+		"devtrack event --type post-commit --message \"post-commit hook fired\" 2>/dev/null || true\n" +
+		devtrackBlockEnd + "\n" +
+		"# custom line between blocks\n" +
+		devtrackBlockStart + "\n" +
+		"devtrack event --type pre-push --message \"pre-push hook fired\" 2>/dev/null || true\n" +
+		devtrackBlockEnd + "\n" +
+		"echo done\n"
+
+	result := removeDevtrackBlock(content)
+
+	if strings.Contains(result, devtrackBlockStart) {
+		t.Error("result still contains devtrack start marker after removal")
+	}
+	if strings.Contains(result, devtrackBlockEnd) {
+		t.Error("result still contains devtrack end marker after removal")
+	}
+	if strings.Contains(result, "devtrack event") {
+		t.Error("result still contains devtrack event invocation after removal")
+	}
+	// Content outside the blocks must be preserved.
+	if !strings.Contains(result, "custom line between blocks") {
+		t.Error("removeDevtrackBlock removed content that was between two blocks")
+	}
+	if !strings.Contains(result, "echo done") {
+		t.Error("removeDevtrackBlock removed content that was after the last block")
+	}
+}
+
+// TestRemoveDevtrackBlock_UnclosedBlock verifies that when the end marker is
+// missing the captured lines are restored rather than silently dropped, and
+// that clearing blockLines on a proper close does not affect the unclosed
+// fallback path.
+func TestRemoveDevtrackBlock_UnclosedBlockRestoresLines(t *testing.T) {
+	content := "#!/bin/sh\n" +
+		devtrackBlockStart + "\n" +
+		"important content\n"
+
+	result := removeDevtrackBlock(content)
+
+	if !strings.Contains(result, "important content") {
+		t.Error("removeDevtrackBlock dropped lines from an unclosed block — they should be restored")
+	}
+}
+
+// ---------------------------------------------------------------------------
 // min helper (Go 1.21 has min builtin, but keep explicit for clarity)
 // ---------------------------------------------------------------------------
 

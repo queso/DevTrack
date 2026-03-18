@@ -6,7 +6,6 @@ package cmd
 // swagger-jack:custom:end
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"math"
@@ -14,6 +13,7 @@ import (
 	"time"
 
 	"devtrack/internal/client"
+	"devtrack/internal/response"
 
 	"github.com/spf13/cobra"
 )
@@ -49,21 +49,8 @@ func (a *apiPRClient) ListPullRequests(status string) ([]PRSummary, error) {
 		return nil, fmt.Errorf("list pull requests: %w", err)
 	}
 
-	// The API may return a paginated envelope {"data": [...]} or a top-level array.
-	var raw map[string]json.RawMessage
-	if err := json.Unmarshal(resp, &raw); err == nil {
-		if dataRaw, ok := raw["data"]; ok {
-			var prs []PRSummary
-			if err := json.Unmarshal(dataRaw, &prs); err != nil {
-				return nil, fmt.Errorf("parse pull requests list: %w", err)
-			}
-			return prs, nil
-		}
-	}
-
-	// Fallback: top-level array.
 	var prs []PRSummary
-	if err := json.Unmarshal(resp, &prs); err != nil {
+	if err := response.UnmarshalPaginated(resp, &prs); err != nil {
 		return nil, fmt.Errorf("parse pull requests list: %w", err)
 	}
 	return prs, nil

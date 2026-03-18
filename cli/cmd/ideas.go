@@ -15,6 +15,7 @@ import (
 
 	"devtrack/internal"
 	"devtrack/internal/client"
+	"devtrack/internal/response"
 
 	"github.com/spf13/cobra"
 )
@@ -48,20 +49,8 @@ func (a *apiIdeasClient) ListProjects() ([]internal.ProjectSummary, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	var raw map[string]json.RawMessage
-	if err := json.Unmarshal(resp, &raw); err == nil {
-		if dataRaw, ok := raw["data"]; ok {
-			var projects []internal.ProjectSummary
-			if err := json.Unmarshal(dataRaw, &projects); err != nil {
-				return nil, fmt.Errorf("parse projects list: %w", err)
-			}
-			return projects, nil
-		}
-	}
-
 	var projects []internal.ProjectSummary
-	if err := json.Unmarshal(resp, &projects); err != nil {
+	if err := response.UnmarshalPaginated(resp, &projects); err != nil {
 		return nil, fmt.Errorf("parse projects list: %w", err)
 	}
 	return projects, nil
@@ -72,20 +61,8 @@ func (a *apiIdeasClient) ListIdeas(projectID string) ([]IdeaSummary, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	var raw map[string]json.RawMessage
-	if err := json.Unmarshal(resp, &raw); err == nil {
-		if dataRaw, ok := raw["data"]; ok {
-			var ideas []IdeaSummary
-			if err := json.Unmarshal(dataRaw, &ideas); err != nil {
-				return nil, fmt.Errorf("parse ideas list: %w", err)
-			}
-			return ideas, nil
-		}
-	}
-
 	var ideas []IdeaSummary
-	if err := json.Unmarshal(resp, &ideas); err != nil {
+	if err := response.UnmarshalPaginated(resp, &ideas); err != nil {
 		return nil, fmt.Errorf("parse ideas list: %w", err)
 	}
 	return ideas, nil
@@ -108,13 +85,11 @@ func resolveProjectIDFromManifest(manifestPath string, api IdeasAPI) (string, er
 		return "", fmt.Errorf("list projects from API: %w", err)
 	}
 
-	for _, p := range projects {
-		if p.Name == manifest.Name {
-			return p.ID, nil
-		}
+	id := internal.FindProjectIDByName(projects, manifest.Name)
+	if id == "" {
+		return "", fmt.Errorf("project %q not found — run 'devtrack register' to register it first", manifest.Name)
 	}
-
-	return "", fmt.Errorf("project %q not found — run 'devtrack register' to register it first", manifest.Name)
+	return id, nil
 }
 
 // runIdeasList fetches and displays ideas for the project identified by the

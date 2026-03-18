@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -132,10 +133,105 @@ type apiDashboardClient struct {
 	c *client.Client
 }
 
+// dashboardProjectRecord is the minimal shape of a project returned by
+// GET /projects.
+type dashboardProjectRecord struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// dashboardStatusRecord mirrors what GET /projects/{id}/status returns inside
+// the data envelope.
+type dashboardStatusRecord struct {
+	ActivePRDCount int        `json:"active_prd_count"`
+	LastActivityAt *time.Time `json:"last_activity_at"`
+}
+
+// dashboardPRDRecord is the minimal PRD record returned by
+// GET /projects/{id}/prds.
+type dashboardPRDRecord struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
+}
+
+// dashboardUnmarshalWrapped tries to decode JSON in paginated {"data": [...]}
+// form first, then falls back to a direct top-level value.
+func dashboardUnmarshalWrapped(data []byte, target interface{}) error {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err == nil {
+		if dataRaw, ok := raw["data"]; ok {
+			return json.Unmarshal(dataRaw, target)
+		}
+	}
+	return json.Unmarshal(data, target)
+}
+
+// ListDashboardProjects calls the DevTrack API to build the full dashboard
+// project list. For each project it:
+//  1. Fetches GET /projects to get all project IDs and names.
+//  2. Fetches GET /projects/{id}/status per project to get last_activity_at
+//     and the count of active PRDs.
+//  3. When active_prd_count > 0, fetches GET /projects/{id}/prds?per_page=1
+//     to retrieve the title of the most recent active PRD.
 func (a *apiDashboardClient) ListDashboardProjects() ([]DashboardProject, error) {
-	// Real implementation would call the API and aggregate data.
-	// For now this is a placeholder that returns an empty list.
-	return []DashboardProject{}, nil
+	// Step 1: list all projects.
+	resp, err := a.c.Do("GET", "/projects", map[string]string{}, map[string]string{"per_page": "1000"}, nil)
+	if err != nil {
+		return nil, fmt.Errorf("list projects: %w", err)
+	}
+
+	var projects []dashboardProjectRecord
+	if err := dashboardUnmarshalWrapped(resp, &projects); err != nil {
+		return nil, fmt.Errorf("parse projects list: %w", err)
+	}
+
+	result := make([]DashboardProject, 0, len(projects))
+
+	for _, p := range projects {
+		// Step 2: fetch status for this project.
+		statusResp, err := a.c.Do("GET", "/projects/{id}/status", map[string]string{"id": p.ID}, map[string]string{}, nil)
+		if err != nil {
+			return nil, fmt.Errorf("get status for project %q: %w", p.ID, err)
+		}
+
+		var status dashboardStatusRecord
+		if err := dashboardUnmarshalWrapped(statusResp, &status); err != nil {
+			return nil, fmt.Errorf("parse status for project %q: %w", p.ID, err)
+		}
+
+		dp := DashboardProject{
+			Project: internal.ProjectSummary{
+				ID:   p.ID,
+				Name: p.Name,
+			},
+		}
+
+		// Map last_activity_at — zero time when the API returns null.
+		if status.LastActivityAt != nil {
+			dp.LastActivity = *status.LastActivityAt
+		}
+
+		// Step 3: when there are active PRDs, retrieve the title of the first one.
+		if status.ActivePRDCount > 0 {
+			prdsResp, err := a.c.Do("GET", "/projects/{id}/prds", map[string]string{"id": p.ID}, map[string]string{"per_page": "1"}, nil)
+			if err != nil {
+				return nil, fmt.Errorf("get PRDs for project %q: %w", p.ID, err)
+			}
+
+			var prds []dashboardPRDRecord
+			if err := dashboardUnmarshalWrapped(prdsResp, &prds); err != nil {
+				return nil, fmt.Errorf("parse PRDs for project %q: %w", p.ID, err)
+			}
+
+			if len(prds) > 0 {
+				dp.ActivePRD = prds[0].Title
+			}
+		}
+
+		result = append(result, dp)
+	}
+
+	return result, nil
 }
 
 // dashboardCmd is the cobra command for `devtrack dashboard`.

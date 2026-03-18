@@ -91,6 +91,18 @@ func normalizeRepoURL(u string) string {
 	return u
 }
 
+// FindProjectIDByName returns the ID of the first project in projects whose
+// Name field matches name exactly. It returns an empty string when no match
+// is found. Matching is case-sensitive.
+func FindProjectIDByName(projects []ProjectSummary, name string) string {
+	for _, p := range projects {
+		if p.Name == name {
+			return p.ID
+		}
+	}
+	return ""
+}
+
 // ResolveProjectID finds the project UUID that matches the given manifest by
 // comparing the manifest name and repo URL against projects returned by the
 // API. Name match is preferred; repo URL match is the fallback.

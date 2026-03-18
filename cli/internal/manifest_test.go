@@ -429,9 +429,9 @@ func TestResolveProjectID_MatchByRepoURLWithTrailingSlash(t *testing.T) {
 		},
 	}
 	manifest := &Manifest{
-		Name:    "different-name",
+		Name:     "different-name",
 		Workflow: "sdlc",
-		RepoURL: "https://github.com/example/my-project",
+		RepoURL:  "https://github.com/example/my-project",
 	}
 
 	id, err := ResolveProjectID(lister, manifest)
@@ -440,5 +440,65 @@ func TestResolveProjectID_MatchByRepoURLWithTrailingSlash(t *testing.T) {
 	}
 	if id != "uuid-1" {
 		t.Errorf("got %q, want %q", id, "uuid-1")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// FindProjectIDByName tests
+// ---------------------------------------------------------------------------
+
+func TestFindProjectIDByName_Found(t *testing.T) {
+	projects := []ProjectSummary{
+		{ID: "aaa", Name: "alpha"},
+		{ID: "bbb", Name: "beta"},
+		{ID: "ccc", Name: "gamma"},
+	}
+
+	got := FindProjectIDByName(projects, "beta")
+	if got != "bbb" {
+		t.Errorf("FindProjectIDByName(%q) = %q, want %q", "beta", got, "bbb")
+	}
+}
+
+func TestFindProjectIDByName_FirstMatch(t *testing.T) {
+	// When duplicates exist the first match must be returned.
+	projects := []ProjectSummary{
+		{ID: "first", Name: "duplicate"},
+		{ID: "second", Name: "duplicate"},
+	}
+
+	got := FindProjectIDByName(projects, "duplicate")
+	if got != "first" {
+		t.Errorf("FindProjectIDByName with duplicates = %q, want %q", got, "first")
+	}
+}
+
+func TestFindProjectIDByName_NotFound(t *testing.T) {
+	projects := []ProjectSummary{
+		{ID: "aaa", Name: "alpha"},
+	}
+
+	got := FindProjectIDByName(projects, "missing")
+	if got != "" {
+		t.Errorf("FindProjectIDByName for missing name = %q, want empty string", got)
+	}
+}
+
+func TestFindProjectIDByName_EmptySlice(t *testing.T) {
+	got := FindProjectIDByName([]ProjectSummary{}, "anything")
+	if got != "" {
+		t.Errorf("FindProjectIDByName on empty slice = %q, want empty string", got)
+	}
+}
+
+func TestFindProjectIDByName_CaseSensitive(t *testing.T) {
+	// Name matching must be exact (case-sensitive).
+	projects := []ProjectSummary{
+		{ID: "aaa", Name: "Alpha"},
+	}
+
+	got := FindProjectIDByName(projects, "alpha")
+	if got != "" {
+		t.Errorf("FindProjectIDByName case mismatch = %q, want empty string", got)
 	}
 }

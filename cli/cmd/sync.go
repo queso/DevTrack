@@ -14,6 +14,7 @@ import (
 
 	"devtrack/internal"
 	"devtrack/internal/client"
+	"devtrack/internal/response"
 
 	"github.com/spf13/cobra"
 )
@@ -40,22 +41,8 @@ func (a *apiSyncClient) ListProjects() ([]internal.ProjectSummary, error) {
 		return nil, err
 	}
 
-	// The API returns a paginated response: {"data": [...], "pagination": {...}}
-	// Try both shapes: wrapped in "data" or top-level array.
-	var raw map[string]json.RawMessage
-	if err := json.Unmarshal(resp, &raw); err == nil {
-		if dataRaw, ok := raw["data"]; ok {
-			var projects []internal.ProjectSummary
-			if err := json.Unmarshal(dataRaw, &projects); err != nil {
-				return nil, fmt.Errorf("parse projects list: %w", err)
-			}
-			return projects, nil
-		}
-	}
-
-	// Fallback: top-level array.
 	var projects []internal.ProjectSummary
-	if err := json.Unmarshal(resp, &projects); err != nil {
+	if err := response.UnmarshalPaginated(resp, &projects); err != nil {
 		return nil, fmt.Errorf("parse projects list: %w", err)
 	}
 	return projects, nil

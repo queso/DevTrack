@@ -7,13 +7,13 @@ package cmd
 // swagger-jack:custom:end
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 
 	"devtrack/internal"
 	"devtrack/internal/client"
+	"devtrack/internal/response"
 
 	"github.com/spf13/cobra"
 )
@@ -67,7 +67,7 @@ func (a *apiStatusClient) ListProjects() ([]StatusProjectSummary, error) {
 		return nil, err
 	}
 	var projects []StatusProjectSummary
-	if err := unmarshalWrappedOrDirect(resp, &projects); err != nil {
+	if err := response.UnmarshalPaginated(resp, &projects); err != nil {
 		return nil, fmt.Errorf("parse projects list: %w", err)
 	}
 	return projects, nil
@@ -79,7 +79,7 @@ func (a *apiStatusClient) ListProjectPRDs(projectID string) ([]StatusPRD, error)
 		return nil, err
 	}
 	var prds []StatusPRD
-	if err := unmarshalWrappedOrDirect(resp, &prds); err != nil {
+	if err := response.UnmarshalPaginated(resp, &prds); err != nil {
 		return nil, fmt.Errorf("parse PRDs: %w", err)
 	}
 	return prds, nil
@@ -91,7 +91,7 @@ func (a *apiStatusClient) ListProjectPullRequests(projectID string) ([]StatusPR,
 		return nil, err
 	}
 	var prs []StatusPR
-	if err := unmarshalWrappedOrDirect(resp, &prs); err != nil {
+	if err := response.UnmarshalPaginated(resp, &prs); err != nil {
 		return nil, fmt.Errorf("parse pull requests: %w", err)
 	}
 	return prs, nil
@@ -103,22 +103,10 @@ func (a *apiStatusClient) ListProjectEvents(projectID string, limit int) ([]Stat
 		return nil, err
 	}
 	var events []StatusEvent
-	if err := unmarshalWrappedOrDirect(resp, &events); err != nil {
+	if err := response.UnmarshalPaginated(resp, &events); err != nil {
 		return nil, fmt.Errorf("parse events: %w", err)
 	}
 	return events, nil
-}
-
-// unmarshalWrappedOrDirect tries to decode JSON in paginated {"data": [...]}
-// form first, then falls back to a direct top-level array.
-func unmarshalWrappedOrDirect(data []byte, target interface{}) error {
-	var raw map[string]json.RawMessage
-	if err := json.Unmarshal(data, &raw); err == nil {
-		if dataRaw, ok := raw["data"]; ok {
-			return json.Unmarshal(dataRaw, target)
-		}
-	}
-	return json.Unmarshal(data, target)
 }
 
 // runStatus is the testable core of the status command. It reads the manifest
