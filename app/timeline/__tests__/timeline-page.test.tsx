@@ -168,6 +168,7 @@ async function importTimelinePage() {
 // ---------------------------------------------------------------------------
 
 beforeEach(() => {
+  vi.useFakeTimers({ shouldAdvanceTime: true, now: NOW })
   mockSearchParams = new URLSearchParams()
   mockPush.mockReset()
   mockReplace.mockReset()
@@ -182,6 +183,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  vi.useRealTimers()
   vi.resetModules()
 })
 

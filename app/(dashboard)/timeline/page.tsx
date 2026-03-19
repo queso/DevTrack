@@ -1,5 +1,5 @@
-import TimelinePage from "@/components/features/dashboard/timeline-page"
+import TimelinePageClient from "@/app/timeline/TimelinePageClient"
 
 export default function Timeline() {
-  return <TimelinePage />
+  return <TimelinePageClient />
 }
