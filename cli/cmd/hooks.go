@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -203,39 +204,301 @@ func isOnlyBoilerplate(content string) bool {
 }
 
 // ---------------------------------------------------------------------------
+// Claude Code hooks
+// ---------------------------------------------------------------------------
+
+// claudeCodeHookMarker is the string we look for to identify devtrack-managed
+// hooks inside ~/.claude/settings.json.
+const claudeCodeHookMarker = "devtrack event"
+
+// claudeCodeHookDef describes a single Claude Code hook entry.
+type claudeCodeHookDef struct {
+	Event   string
+	Matcher string
+	Command string
+}
+
+// claudeCodeHooks is the set of hooks we install into Claude Code settings.
+var claudeCodeHooks = []claudeCodeHookDef{
+	{
+		Event:   "PostToolUse",
+		Matcher: "Bash",
+		Command: `devtrack event --type commit --project-yaml "$(git rev-parse --show-toplevel)/project.yaml" --quiet 2>/dev/null || true`,
+	},
+	{
+		Event:   "SessionStart",
+		Matcher: "",
+		Command: `devtrack event --type session-start --project-yaml "$(git rev-parse --show-toplevel)/project.yaml" --quiet 2>/dev/null || true`,
+	},
+	{
+		Event:   "Stop",
+		Matcher: "",
+		Command: `devtrack event --type session-end --project-yaml "$(git rev-parse --show-toplevel)/project.yaml" --quiet 2>/dev/null || true`,
+	},
+}
+
+// defaultClaudeSettingsPath returns ~/.claude/settings.json.
+func defaultClaudeSettingsPath() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return filepath.Join("~", ".claude", "settings.json")
+	}
+	return filepath.Join(home, ".claude", "settings.json")
+}
+
+// installClaudeCodeHooks adds devtrack hooks to the Claude Code settings file.
+func installClaudeCodeHooks(settingsPath string, quiet bool) error {
+	data, err := os.ReadFile(settingsPath)
+	if os.IsNotExist(err) {
+		data = []byte("{}")
+	} else if err != nil {
+		return fmt.Errorf("read claude settings: %w", err)
+	}
+
+	var settings map[string]interface{}
+	if err := json.Unmarshal(data, &settings); err != nil {
+		return fmt.Errorf("parse claude settings: %w", err)
+	}
+
+	hooksRaw, ok := settings["hooks"]
+	if !ok {
+		hooksRaw = map[string]interface{}{}
+	}
+	hooks, ok := hooksRaw.(map[string]interface{})
+	if !ok {
+		hooks = map[string]interface{}{}
+	}
+
+	for _, def := range claudeCodeHooks {
+		eventKey := def.Event
+
+		var existing []interface{}
+		if arr, ok := hooks[eventKey]; ok {
+			if typedArr, ok := arr.([]interface{}); ok {
+				existing = typedArr
+			}
+		}
+
+		// Check if devtrack hook already exists
+		alreadyInstalled := false
+		for _, entry := range existing {
+			if entryMap, ok := entry.(map[string]interface{}); ok {
+				if cmd, ok := entryMap["command"].(string); ok {
+					if strings.Contains(cmd, claudeCodeHookMarker) {
+						alreadyInstalled = true
+						break
+					}
+				}
+			}
+		}
+
+		if alreadyInstalled {
+			if !quiet {
+				fmt.Printf("Claude Code hook already installed: %s\n", eventKey)
+			}
+			continue
+		}
+
+		newEntry := map[string]interface{}{
+			"type":    "command",
+			"command": def.Command,
+		}
+		if def.Matcher != "" {
+			newEntry["matcher"] = def.Matcher
+		}
+
+		existing = append(existing, newEntry)
+		hooks[eventKey] = existing
+
+		if !quiet {
+			fmt.Printf("Installed Claude Code hook: %s\n", eventKey)
+		}
+	}
+
+	settings["hooks"] = hooks
+
+	// Create directory if needed
+	dir := filepath.Dir(settingsPath)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return fmt.Errorf("create claude settings dir: %w", err)
+	}
+
+	out, err := json.MarshalIndent(settings, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal claude settings: %w", err)
+	}
+
+	if err := os.WriteFile(settingsPath, append(out, '\n'), 0o644); err != nil {
+		return fmt.Errorf("write claude settings: %w", err)
+	}
+
+	return nil
+}
+
+// uninstallClaudeCodeHooks removes devtrack hooks from Claude Code settings.
+func uninstallClaudeCodeHooks(settingsPath string, quiet bool) error {
+	data, err := os.ReadFile(settingsPath)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("read claude settings: %w", err)
+	}
+
+	var settings map[string]interface{}
+	if err := json.Unmarshal(data, &settings); err != nil {
+		return fmt.Errorf("parse claude settings: %w", err)
+	}
+
+	hooksRaw, ok := settings["hooks"]
+	if !ok {
+		return nil
+	}
+	hooks, ok := hooksRaw.(map[string]interface{})
+	if !ok {
+		return nil
+	}
+
+	for _, def := range claudeCodeHooks {
+		eventKey := def.Event
+		arr, ok := hooks[eventKey]
+		if !ok {
+			continue
+		}
+		typedArr, ok := arr.([]interface{})
+		if !ok {
+			continue
+		}
+
+		var filtered []interface{}
+		for _, entry := range typedArr {
+			if entryMap, ok := entry.(map[string]interface{}); ok {
+				if cmd, ok := entryMap["command"].(string); ok {
+					if strings.Contains(cmd, claudeCodeHookMarker) {
+						continue
+					}
+				}
+			}
+			filtered = append(filtered, entry)
+		}
+
+		if len(filtered) == 0 {
+			delete(hooks, eventKey)
+		} else {
+			hooks[eventKey] = filtered
+		}
+
+		if !quiet {
+			fmt.Printf("Uninstalled Claude Code hook: %s\n", eventKey)
+		}
+	}
+
+	// Remove hooks key if empty
+	if len(hooks) == 0 {
+		delete(settings, "hooks")
+	} else {
+		settings["hooks"] = hooks
+	}
+
+	out, err := json.MarshalIndent(settings, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal claude settings: %w", err)
+	}
+
+	if err := os.WriteFile(settingsPath, append(out, '\n'), 0o644); err != nil {
+		return fmt.Errorf("write claude settings: %w", err)
+	}
+
+	return nil
+}
+
+// ---------------------------------------------------------------------------
 // Cobra commands
 // ---------------------------------------------------------------------------
 
 var hooksCmd = &cobra.Command{
 	Use:   "hooks",
-	Short: "Manage devtrack git hooks",
+	Short: "Manage devtrack hooks",
 }
 
 var hooksInstallCmd = &cobra.Command{
 	Use:   "install",
-	Short: "Install devtrack git hooks in the current repository",
+	Short: "Install devtrack hooks",
+	Long:  "Install devtrack hooks. By default installs both git hooks and Claude Code hooks. Use --git or --claude-code to install only one type.",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		quiet, _ := cmd.Root().PersistentFlags().GetBool("quiet")
-		repoRoot, err := findGitRoot()
-		if err != nil {
-			return err
+		gitOnly, _ := cmd.Flags().GetBool("git")
+		claudeOnly, _ := cmd.Flags().GetBool("claude-code")
+
+		// Default: install both
+		installGit := !claudeOnly || gitOnly
+		installClaude := !gitOnly || claudeOnly
+
+		// If both flags set, install both
+		if gitOnly && claudeOnly {
+			installGit = true
+			installClaude = true
 		}
-		return installHooks(repoRoot, quiet)
+
+		if installGit {
+			repoRoot, err := findGitRoot()
+			if err != nil {
+				return err
+			}
+			if err := installHooks(repoRoot, quiet); err != nil {
+				return err
+			}
+		}
+
+		if installClaude {
+			settingsPath := defaultClaudeSettingsPath()
+			if err := installClaudeCodeHooks(settingsPath, quiet); err != nil {
+				return err
+			}
+		}
+
+		return nil
 	},
 }
 
 var hooksUninstallCmd = &cobra.Command{
 	Use:   "uninstall",
-	Short: "Remove devtrack git hooks from the current repository",
+	Short: "Remove devtrack hooks",
+	Long:  "Remove devtrack hooks. By default removes both git hooks and Claude Code hooks. Use --git or --claude-code to remove only one type.",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		quiet, _ := cmd.Root().PersistentFlags().GetBool("quiet")
-		repoRoot, err := findGitRoot()
-		if err != nil {
-			return err
+		gitOnly, _ := cmd.Flags().GetBool("git")
+		claudeOnly, _ := cmd.Flags().GetBool("claude-code")
+
+		// Default: uninstall both
+		uninstallGit := !claudeOnly || gitOnly
+		uninstallClaude := !gitOnly || claudeOnly
+
+		if gitOnly && claudeOnly {
+			uninstallGit = true
+			uninstallClaude = true
 		}
-		return uninstallHooks(repoRoot, quiet)
+
+		if uninstallGit {
+			repoRoot, err := findGitRoot()
+			if err != nil {
+				return err
+			}
+			if err := uninstallHooks(repoRoot, quiet); err != nil {
+				return err
+			}
+		}
+
+		if uninstallClaude {
+			settingsPath := defaultClaudeSettingsPath()
+			if err := uninstallClaudeCodeHooks(settingsPath, quiet); err != nil {
+				return err
+			}
+		}
+
+		return nil
 	},
 }
 
@@ -263,5 +526,9 @@ func init() {
 	rootCmd.AddCommand(hooksCmd)
 	hooksCmd.AddCommand(hooksInstallCmd)
 	hooksCmd.AddCommand(hooksUninstallCmd)
+	hooksInstallCmd.Flags().Bool("git", false, "Install git hooks only")
+	hooksInstallCmd.Flags().Bool("claude-code", false, "Install Claude Code hooks only")
+	hooksUninstallCmd.Flags().Bool("git", false, "Uninstall git hooks only")
+	hooksUninstallCmd.Flags().Bool("claude-code", false, "Uninstall Claude Code hooks only")
 	rootCmd.PersistentFlags().Bool("quiet", false, "Suppress non-error output")
 }

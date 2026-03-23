@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -353,6 +354,303 @@ func TestRemoveDevtrackBlock_UnclosedBlockRestoresLines(t *testing.T) {
 
 	if !strings.Contains(result, "important content") {
 		t.Error("removeDevtrackBlock dropped lines from an unclosed block — they should be restored")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Claude Code hooks tests
+// ---------------------------------------------------------------------------
+
+func TestInstallClaudeCodeHooks_CreatesSettingsFile(t *testing.T) {
+	dir := t.TempDir()
+	settingsPath := filepath.Join(dir, ".claude", "settings.json")
+
+	if err := installClaudeCodeHooks(settingsPath, true); err != nil {
+		t.Fatalf("installClaudeCodeHooks: %v", err)
+	}
+
+	if _, err := os.Stat(settingsPath); os.IsNotExist(err) {
+		t.Fatal("settings.json was not created")
+	}
+
+	data, err := os.ReadFile(settingsPath)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+
+	var settings map[string]interface{}
+	if err := json.Unmarshal(data, &settings); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+
+	hooks, ok := settings["hooks"].(map[string]interface{})
+	if !ok {
+		t.Fatal("settings.json missing hooks key")
+	}
+
+	// Should have all 3 event types
+	for _, event := range []string{"PostToolUse", "SessionStart", "Stop"} {
+		if _, ok := hooks[event]; !ok {
+			t.Errorf("missing hook event: %s", event)
+		}
+	}
+}
+
+func TestInstallClaudeCodeHooks_MergesWithExisting(t *testing.T) {
+	dir := t.TempDir()
+	settingsPath := filepath.Join(dir, "settings.json")
+
+	existing := `{
+  "hooks": {
+    "PostToolUse": [
+      {"type": "command", "matcher": "Write", "command": "other-tool check"}
+    ]
+  },
+  "permissions": {"allow": ["Read"]}
+}`
+	if err := os.WriteFile(settingsPath, []byte(existing), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := installClaudeCodeHooks(settingsPath, true); err != nil {
+		t.Fatalf("installClaudeCodeHooks: %v", err)
+	}
+
+	data, err := os.ReadFile(settingsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var settings map[string]interface{}
+	if err := json.Unmarshal(data, &settings); err != nil {
+		t.Fatal(err)
+	}
+
+	// Other tool's hook should still be present
+	hooks := settings["hooks"].(map[string]interface{})
+	postToolUse := hooks["PostToolUse"].([]interface{})
+	if len(postToolUse) < 2 {
+		t.Errorf("expected at least 2 PostToolUse hooks, got %d", len(postToolUse))
+	}
+
+	// permissions should be preserved
+	if _, ok := settings["permissions"]; !ok {
+		t.Error("permissions key was dropped during install")
+	}
+}
+
+func TestInstallClaudeCodeHooks_Idempotent(t *testing.T) {
+	dir := t.TempDir()
+	settingsPath := filepath.Join(dir, "settings.json")
+
+	if err := installClaudeCodeHooks(settingsPath, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := installClaudeCodeHooks(settingsPath, true); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(settingsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var settings map[string]interface{}
+	json.Unmarshal(data, &settings)
+	hooks := settings["hooks"].(map[string]interface{})
+
+	for _, event := range []string{"PostToolUse", "SessionStart", "Stop"} {
+		arr := hooks[event].([]interface{})
+		devtrackCount := 0
+		for _, entry := range arr {
+			if m, ok := entry.(map[string]interface{}); ok {
+				if cmd, ok := m["command"].(string); ok && strings.Contains(cmd, claudeCodeHookMarker) {
+					devtrackCount++
+				}
+			}
+		}
+		if devtrackCount != 1 {
+			t.Errorf("event %s: expected 1 devtrack hook, got %d", event, devtrackCount)
+		}
+	}
+}
+
+func TestInstallClaudeCodeHooks_PreservesNonHookSettings(t *testing.T) {
+	dir := t.TempDir()
+	settingsPath := filepath.Join(dir, "settings.json")
+
+	existing := `{"allowedTools": ["Bash", "Read"], "permissions": {"allow": ["Glob"]}}`
+	os.WriteFile(settingsPath, []byte(existing), 0o644)
+
+	if err := installClaudeCodeHooks(settingsPath, true); err != nil {
+		t.Fatal(err)
+	}
+
+	data, _ := os.ReadFile(settingsPath)
+	var settings map[string]interface{}
+	json.Unmarshal(data, &settings)
+
+	if _, ok := settings["allowedTools"]; !ok {
+		t.Error("allowedTools was dropped")
+	}
+	if _, ok := settings["permissions"]; !ok {
+		t.Error("permissions was dropped")
+	}
+}
+
+func TestInstallClaudeCodeHooks_RegistersAllEvents(t *testing.T) {
+	dir := t.TempDir()
+	settingsPath := filepath.Join(dir, "settings.json")
+
+	installClaudeCodeHooks(settingsPath, true)
+
+	data, _ := os.ReadFile(settingsPath)
+	var settings map[string]interface{}
+	json.Unmarshal(data, &settings)
+
+	hooks := settings["hooks"].(map[string]interface{})
+
+	expected := map[string]bool{"PostToolUse": false, "SessionStart": false, "Stop": false}
+	for event := range expected {
+		if _, ok := hooks[event]; ok {
+			expected[event] = true
+		}
+	}
+	for event, found := range expected {
+		if !found {
+			t.Errorf("missing hook event: %s", event)
+		}
+	}
+}
+
+func TestUninstallClaudeCodeHooks_RemovesOnlyDevtrack(t *testing.T) {
+	dir := t.TempDir()
+	settingsPath := filepath.Join(dir, "settings.json")
+
+	existing := `{
+  "hooks": {
+    "PostToolUse": [
+      {"type": "command", "matcher": "Write", "command": "other-tool check"},
+      {"type": "command", "matcher": "Bash", "command": "devtrack event --type commit"}
+    ],
+    "SessionStart": [
+      {"type": "command", "command": "devtrack event --type session-start"}
+    ]
+  }
+}`
+	os.WriteFile(settingsPath, []byte(existing), 0o644)
+
+	if err := uninstallClaudeCodeHooks(settingsPath, true); err != nil {
+		t.Fatal(err)
+	}
+
+	data, _ := os.ReadFile(settingsPath)
+	var settings map[string]interface{}
+	json.Unmarshal(data, &settings)
+
+	hooks := settings["hooks"].(map[string]interface{})
+
+	// other-tool hook should remain
+	postToolUse := hooks["PostToolUse"].([]interface{})
+	if len(postToolUse) != 1 {
+		t.Errorf("expected 1 PostToolUse hook remaining, got %d", len(postToolUse))
+	}
+
+	// SessionStart should be removed entirely (was only devtrack)
+	if _, ok := hooks["SessionStart"]; ok {
+		t.Error("SessionStart should have been removed (was only devtrack entries)")
+	}
+}
+
+func TestUninstallClaudeCodeHooks_PreservesOtherHooks(t *testing.T) {
+	dir := t.TempDir()
+	settingsPath := filepath.Join(dir, "settings.json")
+
+	existing := `{
+  "hooks": {
+    "PostToolUse": [
+      {"type": "command", "matcher": "Write", "command": "lint-check"}
+    ]
+  }
+}`
+	os.WriteFile(settingsPath, []byte(existing), 0o644)
+
+	if err := uninstallClaudeCodeHooks(settingsPath, true); err != nil {
+		t.Fatal(err)
+	}
+
+	data, _ := os.ReadFile(settingsPath)
+	var settings map[string]interface{}
+	json.Unmarshal(data, &settings)
+
+	hooks := settings["hooks"].(map[string]interface{})
+	postToolUse := hooks["PostToolUse"].([]interface{})
+	if len(postToolUse) != 1 {
+		t.Errorf("other tool's hook was removed during uninstall")
+	}
+}
+
+func TestUninstallClaudeCodeHooks_MissingFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "nonexistent", "settings.json")
+	err := uninstallClaudeCodeHooks(path, true)
+	if err != nil {
+		t.Fatalf("expected no error for missing file, got: %v", err)
+	}
+}
+
+func TestUninstallClaudeCodeHooks_CleansUpEmptyHooksKey(t *testing.T) {
+	dir := t.TempDir()
+	settingsPath := filepath.Join(dir, "settings.json")
+
+	existing := `{
+  "hooks": {
+    "PostToolUse": [
+      {"type": "command", "matcher": "Bash", "command": "devtrack event --type commit"}
+    ]
+  },
+  "other": "value"
+}`
+	os.WriteFile(settingsPath, []byte(existing), 0o644)
+
+	uninstallClaudeCodeHooks(settingsPath, true)
+
+	data, _ := os.ReadFile(settingsPath)
+	var settings map[string]interface{}
+	json.Unmarshal(data, &settings)
+
+	if _, ok := settings["hooks"]; ok {
+		t.Error("empty hooks key should have been removed")
+	}
+	if _, ok := settings["other"]; !ok {
+		t.Error("non-hooks key was dropped")
+	}
+}
+
+func TestHooksInstallCmd_HasGitFlag(t *testing.T) {
+	f := hooksInstallCmd.Flags().Lookup("git")
+	if f == nil {
+		t.Fatal("--git flag not found on install command")
+	}
+}
+
+func TestHooksInstallCmd_HasClaudeCodeFlag(t *testing.T) {
+	f := hooksInstallCmd.Flags().Lookup("claude-code")
+	if f == nil {
+		t.Fatal("--claude-code flag not found on install command")
+	}
+}
+
+func TestHooksUninstallCmd_HasGitFlag(t *testing.T) {
+	f := hooksUninstallCmd.Flags().Lookup("git")
+	if f == nil {
+		t.Fatal("--git flag not found on uninstall command")
+	}
+}
+
+func TestHooksUninstallCmd_HasClaudeCodeFlag(t *testing.T) {
+	f := hooksUninstallCmd.Flags().Lookup("claude-code")
+	if f == nil {
+		t.Fatal("--claude-code flag not found on uninstall command")
 	}
 }
 
