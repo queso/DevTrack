@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams, usePathname } from "next/navigation"
-import { ExternalLink, ArrowUpDown, MessageSquareWarning } from "lucide-react"
+import { ExternalLink, ChevronUp, ChevronDown, ArrowUpDown, MessageSquareWarning } from "lucide-react"
 import type { Domain } from "@/lib/constants"
 
 function getPRAge(createdAt: string): { label: string; color: string } {
@@ -15,7 +15,7 @@ function getPRAge(createdAt: string): { label: string; color: string } {
 }
 import { PRStatusBadge, CheckStatusBadge } from "@/components/features/dashboard/status-badges"
 import { PRRowSkeleton, ErrorState, EmptyState } from "@/components/features/dashboard/loading-states"
-import { usePRs } from "@/lib/hooks"
+import { usePRs, useProjects } from "@/lib/hooks"
 import { mapPR } from "@/lib/mappers"
 import { cn } from "@/lib/utils"
 import { DOMAIN_ORDER, DOMAIN_LABELS } from "@/lib/constants"
@@ -50,6 +50,18 @@ export default function PRQueuePage() {
   )
 
   const { data: rawData, isLoading, error, mutate } = usePRs()
+  const { data: rawProjects } = useProjects()
+
+  // Build a set of project names (slugs) that belong to the selected domain
+  const domainProjectSlugs = useMemo(() => {
+    if (domainFilter === "all") return null
+    const projects = rawProjects ?? []
+    return new Set(
+      projects
+        .filter((p) => p.domain === domainFilter)
+        .map((p) => p.name)
+    )
+  }, [domainFilter, rawProjects])
 
   function updateURL(newSort: SortKey, newAsc: boolean, newDomain: Domain | "all") {
     const params = new URLSearchParams()
@@ -82,8 +94,8 @@ export default function PRQueuePage() {
   const sorted = useMemo(() => {
     let prs = [...mappedPRs]
 
-    if (domainFilter !== "all") {
-      prs = prs.filter((pr) => pr.projectSlug === domainFilter)
+    if (domainFilter !== "all" && domainProjectSlugs) {
+      prs = prs.filter((pr) => domainProjectSlugs.has(pr.projectSlug))
     }
 
     prs.sort((a, b) => {
@@ -98,7 +110,7 @@ export default function PRQueuePage() {
       return sortAsc ? diff : -diff
     })
     return prs
-  }, [mappedPRs, domainFilter, sortKey, sortAsc])
+  }, [mappedPRs, domainFilter, domainProjectSlugs, sortKey, sortAsc])
 
   const prCount = sorted.length
 
@@ -260,7 +272,7 @@ function SortTh({
   label,
   sortKey,
   current,
-  asc: _asc,
+  asc,
   onSort,
 }: {
   label: string
@@ -270,6 +282,7 @@ function SortTh({
   onSort: (k: SortKey) => void
 }) {
   const active = current === sortKey
+  const Icon = active ? (asc ? ChevronUp : ChevronDown) : ArrowUpDown
   return (
     <th className="px-4 py-2.5 text-left">
       <button
@@ -281,7 +294,7 @@ function SortTh({
         )}
       >
         {label}
-        <ArrowUpDown className={cn("w-3 h-3", active && "opacity-100", !active && "opacity-40")} />
+        <Icon className={cn("w-3 h-3", active && "opacity-100", !active && "opacity-40")} />
       </button>
     </th>
   )

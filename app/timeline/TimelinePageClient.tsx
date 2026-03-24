@@ -166,9 +166,21 @@ export default function TimelinePageClient() {
     }
 
     if (quickRange !== "all") {
-      const now = Date.now()
-      const weekMs = 7 * 24 * 60 * 60 * 1000
-      result = result.filter((e) => now - new Date(e.timestamp).getTime() < weekMs)
+      const now = new Date()
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      const yesterdayStart = new Date(todayStart.getTime() - 86400000)
+
+      if (quickRange === "today") {
+        result = result.filter((e) => new Date(e.timestamp).getTime() >= todayStart.getTime())
+      } else if (quickRange === "yesterday") {
+        result = result.filter((e) => {
+          const t = new Date(e.timestamp).getTime()
+          return t >= yesterdayStart.getTime() && t < todayStart.getTime()
+        })
+      } else if (quickRange === "week") {
+        const weekAgo = todayStart.getTime() - 7 * 86400000
+        result = result.filter((e) => new Date(e.timestamp).getTime() >= weekAgo)
+      }
     }
 
     return result
@@ -281,21 +293,24 @@ export default function TimelinePageClient() {
       <div className="flex flex-col gap-3">
         {/* Date range quick buttons */}
         <div className="flex items-center gap-2 flex-wrap">
-          {(["week", "all"] as QuickRange[]).map((r) => (
-            <button
-              type="button"
-              key={r}
-              onClick={() => handleRangeChange(r)}
-              className={cn(
-                "px-2.5 py-1 rounded text-xs font-medium transition-colors",
-                quickRange === r
-                  ? "bg-secondary text-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-secondary/50",
-              )}
-            >
-              {r === "week" ? "This week" : "All time"}
-            </button>
-          ))}
+          {(["today", "yesterday", "week", "all"] as QuickRange[]).map((r) => {
+            const label = r === "today" ? "Today" : r === "yesterday" ? "Yesterday" : r === "week" ? "This week" : "All time"
+            return (
+              <button
+                type="button"
+                key={r}
+                onClick={() => handleRangeChange(r)}
+                className={cn(
+                  "px-2.5 py-1 rounded text-xs font-medium transition-colors",
+                  quickRange === r
+                    ? "bg-secondary text-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/50",
+                )}
+              >
+                {label}
+              </button>
+            )
+          })}
           <input
             type="text"
             aria-label="From date"

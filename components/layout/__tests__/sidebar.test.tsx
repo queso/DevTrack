@@ -547,12 +547,6 @@ describe("Sidebar — static nav items", () => {
     expect(link).toHaveAttribute("href", "/prs")
   })
 
-  it("renders Settings link pointing to /settings", () => {
-    render(<SidebarModule.default />)
-    const link = screen.getByRole("link", { name: /settings/i })
-    expect(link).toHaveAttribute("href", "/settings")
-  })
-
   it("renders the DevTrack logo link to /", () => {
     render(<SidebarModule.default />)
     const logo = screen.getByRole("link", { name: /devtrack/i })

@@ -304,7 +304,7 @@ describe("AC2: Date headers use relative labels for recent days", () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByText(/today/i)).toBeInTheDocument()
+      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument()
     })
   })
 
@@ -321,7 +321,7 @@ describe("AC2: Date headers use relative labels for recent days", () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByText(/yesterday/i)).toBeInTheDocument()
+      expect(screen.getByRole("heading", { name: /yesterday/i })).toBeInTheDocument()
     })
   })
 
@@ -342,8 +342,8 @@ describe("AC2: Date headers use relative labels for recent days", () => {
     })
 
     // The header for 2 days ago should not say "Today" or "Yesterday"
-    expect(screen.queryByText(/^today$/i)).not.toBeInTheDocument()
-    expect(screen.queryByText(/^yesterday$/i)).not.toBeInTheDocument()
+    expect(screen.queryByRole("heading", { name: /^today$/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole("heading", { name: /^yesterday$/i })).not.toBeInTheDocument()
   })
 
   it("shows both Today and Yesterday headers when events span two days", async () => {
@@ -359,8 +359,8 @@ describe("AC2: Date headers use relative labels for recent days", () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByText(/today/i)).toBeInTheDocument()
-      expect(screen.getByText(/yesterday/i)).toBeInTheDocument()
+      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument()
+      expect(screen.getByRole("heading", { name: /yesterday/i })).toBeInTheDocument()
     })
   })
 })
@@ -1022,8 +1022,8 @@ describe("AC7: Empty state when no events", () => {
     )
 
     await waitFor(() => {
-      expect(screen.queryByText(/today/i)).not.toBeInTheDocument()
-      expect(screen.queryByText(/yesterday/i)).not.toBeInTheDocument()
+      expect(screen.queryByRole("heading", { name: /today/i })).not.toBeInTheDocument()
+      expect(screen.queryByRole("heading", { name: /yesterday/i })).not.toBeInTheDocument()
     })
   })
 
@@ -1085,7 +1085,7 @@ describe("Integration: filters, grouping, and pagination together", () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByText(/today/i)).toBeInTheDocument()
+      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument()
       expect(screen.getByText(/add multi-barcode batch scan mode/i)).toBeInTheDocument()
     })
   })

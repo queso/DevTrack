@@ -7,6 +7,7 @@ import { AlertCircle, Search } from "lucide-react"
 import { useProjects } from "@/lib/hooks"
 import type { ApiProject } from "@/types/api-responses"
 import { DomainBadge } from "@/components/features/dashboard/domain-badge"
+import { ProjectCardSkeleton, ErrorState } from "@/components/features/dashboard/loading-states"
 import { cn } from "@/lib/utils"
 
 // ---------------------------------------------------------------------------
@@ -54,48 +55,12 @@ type FilterDomain = Domain | "all"
 // Loading skeleton
 // ---------------------------------------------------------------------------
 
-function ProjectCardSkeleton() {
-  return (
-    <output className="animate-pulse rounded-lg border border-border p-4 flex flex-col gap-3">
-      <div className="flex items-start justify-between gap-2">
-        <div className="h-4 w-2/3 rounded bg-muted" />
-        <div className="h-3 w-12 rounded bg-muted" />
-      </div>
-      <div className="h-3 w-1/4 rounded bg-muted" />
-      <div className="h-3 w-full rounded bg-muted" />
-      <div className="h-3 w-4/5 rounded bg-muted" />
-    </output>
-  )
-}
-
 function LoadingSkeleton() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
       {["s1", "s2", "s3", "s4", "s5", "s6"].map((id) => (
         <ProjectCardSkeleton key={id} />
       ))}
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Error state
-// ---------------------------------------------------------------------------
-
-function ErrorState({ onRetry, message }: { onRetry: () => void; message?: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-16 gap-4 text-center">
-      <AlertCircle className="w-8 h-8 text-destructive" />
-      <p className="text-sm text-muted-foreground">
-        Something went wrong.{message ? ` ${message}` : ""}
-      </p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="px-3 py-1.5 rounded text-sm bg-secondary text-foreground hover:bg-secondary/80 transition-colors"
-      >
-        Retry
-      </button>
     </div>
   )
 }
@@ -207,10 +172,10 @@ export default function DashboardPage() {
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold tracking-tight text-balance">Dashboard</h1>
         <p className="text-sm text-muted-foreground">
-          {projects?.length ?? 0} projects &mdash;&nbsp;
-          <span className="text-amber-400">{needsAttention} need attention</span>
+          {error ? "—" : (projects?.length ?? 0)} projects &mdash;&nbsp;
+          <span className="text-amber-400">{error ? "—" : needsAttention} need attention</span>
           &nbsp;&mdash;&nbsp;
-          <span className="text-sky-400">{totalPRs} PRs open</span>
+          <span className="text-sky-400">{error ? "—" : totalPRs} PRs open</span>
         </p>
       </div>
 
@@ -263,7 +228,7 @@ export default function DashboardPage() {
       {isLoading ? (
         <LoadingSkeleton />
       ) : error ? (
-        <ErrorState onRetry={() => mutate()} message={error instanceof Error ? error.message : undefined} />
+        <ErrorState onRetry={() => mutate()} message={error instanceof Error ? error.message : "An unexpected error occurred."} />
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground text-sm">
           {projects?.length === 0 ? "No projects found." : "No projects match your filters."}
