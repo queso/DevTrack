@@ -1,0 +1,11 @@
+name: AI PR Review
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, synchronize]
+
+jobs:
+  review:
+    uses: queso/gh-workflows/.github/workflows/pr-review.yml@main
+    secrets:
+      llm_api_key: ${{ secrets.FIREWORKS_AI_API_KEY }}
