@@ -12,6 +12,12 @@ export type EventType =
   | "prd_completed"
   | "work_item_created"
   | "work_item_completed"
+  | "commit"
+  | "push"
+  | "session_start"
+  | "session_end"
+  | "pr_reviewed"
+  | "prd_synced"
 
 export interface Event {
   id: string

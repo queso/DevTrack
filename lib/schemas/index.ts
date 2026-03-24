@@ -198,7 +198,7 @@ export const createEventSchema = z.object({
   pull_request_id: z.string().uuid().optional().nullable(),
   type: eventTypeEnum,
   title: z.string().min(1),
-  metadata: z.record(z.unknown()).default({}),
+  metadata: z.record(z.string(), z.unknown()).default({}),
   occurred_at: z.string().datetime(),
 })
 

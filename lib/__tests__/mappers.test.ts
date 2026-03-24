@@ -25,7 +25,7 @@ const WEEK = 7 * DAY
 function makeApiProject(overrides: Partial<{
   id: string
   name: string
-  workflow: "sdlc" | "content"
+  workflow: "sdlc"
   domain: string | null
   tags: string[]
   repoUrl: string | null
@@ -767,7 +767,7 @@ describe("mapTimelineEvent — edge cases", () => {
     // Events with unknown types pass through via the default case — this is intentional
     // but we verify it doesn't throw or produce undefined
     const result = mapTimelineEvent(
-      makeEvent({ type: "unknown_future_event" as Parameters<typeof makeEvent>[0]["type"] }),
+      makeEvent({ type: "unknown_future_event" as ApiEvent["type"] }),
       "proj"
     )
     expect(typeof result.type).toBe("string")
