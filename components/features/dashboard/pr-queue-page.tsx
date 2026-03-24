@@ -4,7 +4,15 @@ import { useState, useMemo } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import { ExternalLink, ArrowUpDown, MessageSquareWarning } from "lucide-react"
-import { getPRAge, type Domain } from "@/lib/mock-data"
+import type { Domain } from "@/lib/constants"
+
+function getPRAge(createdAt: string): { label: string; color: string } {
+  const hours = (Date.now() - new Date(createdAt).getTime()) / 3600000
+  if (hours < 24) return { label: `${Math.floor(hours)}h`, color: "text-emerald-400" }
+  const days = Math.floor(hours / 24)
+  if (days <= 3) return { label: `${days}d`, color: "text-amber-400" }
+  return { label: `${days}d`, color: "text-red-400" }
+}
 import { PRStatusBadge, CheckStatusBadge } from "@/components/features/dashboard/status-badges"
 import { PRRowSkeleton, ErrorState, EmptyState } from "@/components/features/dashboard/loading-states"
 import { usePRs } from "@/lib/hooks"

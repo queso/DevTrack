@@ -4,7 +4,8 @@ import { useState, useMemo } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useTimeline, useProjects } from "@/lib/hooks"
 import { mapTimelineEvent } from "@/lib/mappers"
-import type { Domain, EventType } from "@/lib/mock-data"
+import type { Domain } from "@/lib/constants"
+import type { EventType } from "@/lib/ui-types"
 import {
   TimelineEntrySkeleton,
   EmptyState,
@@ -37,6 +38,25 @@ function getDayLabel(timestamp: string): string {
   const diff = today.getTime() - eventDay.getTime()
   if (diff < 7 * 86400000) return days[eventDay.getDay()]
   return `${days[eventDay.getDay()]}, ${months[eventDay.getMonth()]} ${eventDay.getDate()}`
+}
+
+function buildDaySummary(events: { type: string; projectSlug: string }[]): string {
+  const commits = events.filter((e) => e.type === "commit" || e.type === "commit_pushed")
+  const commitProjects = new Set(commits.map((e) => e.projectSlug)).size
+  const prMerged = events.filter((e) => e.type === "pr-merged" || e.type === "pr_merged").length
+  const prdCompleted = events.filter((e) => e.type === "prd-update" || e.type === "prd_completed").length
+
+  const parts: string[] = []
+  if (commits.length > 0) {
+    parts.push(`${commits.length} ${commits.length === 1 ? "commit" : "commits"} across ${commitProjects} ${commitProjects === 1 ? "project" : "projects"}`)
+  }
+  if (prMerged > 0) {
+    parts.push(`${prMerged} ${prMerged === 1 ? "PR" : "PRs"} merged`)
+  }
+  if (prdCompleted > 0) {
+    parts.push(`${prdCompleted} ${prdCompleted === 1 ? "PRD" : "PRDs"} completed`)
+  }
+  return parts.length > 0 ? parts.join(", ") : `${events.length} event${events.length !== 1 ? "s" : ""}`
 }
 
 function buildUrl(
@@ -347,7 +367,7 @@ export default function TimelinePageClient() {
 
               {/* Day summary */}
               <div className="rounded-md bg-muted/30 border border-border/50 px-3 py-2 text-xs text-muted-foreground">
-                {dayEvents.length} event{dayEvents.length !== 1 ? "s" : ""}
+                {buildDaySummary(dayEvents)}
               </div>
 
               {/* Events */}

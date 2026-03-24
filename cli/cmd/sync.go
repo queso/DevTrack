@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"devtrack/internal"
 	"devtrack/internal/client"
@@ -30,7 +32,15 @@ type SyncAPI interface {
 	SyncPullRequests(projectID string) ([]byte, error)
 }
 
-// apiSyncClient adapts the HTTP client to satisfy SyncAPI.
+// FullSyncAPI extends SyncAPI with project update and PRD sync capabilities.
+// runSync performs a full re-sync when the provided api satisfies this interface.
+type FullSyncAPI interface {
+	SyncAPI
+	UpdateProject(id string, body map[string]interface{}) ([]byte, error)
+	SyncPRDs(projectID string, prds []map[string]interface{}) (int, error)
+}
+
+// apiSyncClient adapts the HTTP client to satisfy FullSyncAPI.
 type apiSyncClient struct {
 	c *client.Client
 }
@@ -52,10 +62,36 @@ func (a *apiSyncClient) SyncPullRequests(projectID string) ([]byte, error) {
 	return a.c.Do("POST", "/projects/{id}/sync-pull-requests", map[string]string{"id": projectID}, map[string]string{}, nil)
 }
 
+func (a *apiSyncClient) UpdateProject(id string, body map[string]interface{}) ([]byte, error) {
+	resp, err := a.c.Do("PATCH", "/projects/{id}", map[string]string{"id": id}, map[string]string{}, body)
+	if err != nil {
+		return nil, fmt.Errorf("update project: %w", err)
+	}
+	return resp, nil
+}
+
+func (a *apiSyncClient) SyncPRDs(projectID string, prds []map[string]interface{}) (int, error) {
+	body := map[string]interface{}{"prds": prds}
+	resp, err := a.c.Do("POST", "/projects/{id}/sync-prds", map[string]string{"id": projectID}, map[string]string{}, body)
+	if err != nil {
+		return 0, fmt.Errorf("sync PRDs: %w", err)
+	}
+	var result struct {
+		Synced int `json:"synced"`
+	}
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return 0, nil
+	}
+	return result.Synced, nil
+}
+
 // runSync is the testable core of the sync command. It reads the manifest at
 // manifestPath, resolves the project ID via the API, triggers a server-side
 // pull-request sync, and writes a result summary to out. When quiet is true,
-// only a minimal confirmation line is written.
+// only a single summary line is written.
+//
+// If api satisfies FullSyncAPI, runSync also updates the project from the
+// manifest and syncs PRDs from the prd_path directory.
 func runSync(manifestPath string, api SyncAPI, quiet bool, out io.Writer) error {
 	manifest, err := internal.ReadManifest(manifestPath)
 	if err != nil {
@@ -67,12 +103,69 @@ func runSync(manifestPath string, api SyncAPI, quiet bool, out io.Writer) error 
 		return fmt.Errorf("project %q not found — run `devtrack register` first: %w", manifest.Name, err)
 	}
 
+	prdCount := 0
+
+	if fullAPI, ok := api.(FullSyncAPI); ok {
+		// Step 1: update project from manifest.
+		if _, updateErr := fullAPI.UpdateProject(projectID, manifestToBody(manifest)); updateErr != nil {
+			return fmt.Errorf("update project: %w", updateErr)
+		}
+
+		// Step 2: sync PRDs from prd_path when configured.
+		if manifest.PrdPath != "" {
+			prdDir := filepath.Join(filepath.Dir(manifestPath), manifest.PrdPath)
+			if prds, scanErr := scanPRDDirectory(prdDir); scanErr == nil && len(prds) > 0 {
+				prdCount, _ = fullAPI.SyncPRDs(projectID, prds)
+			}
+		}
+	}
+
+	// Step 3: sync pull requests.
 	resp, err := api.SyncPullRequests(projectID)
 	if err != nil {
 		return fmt.Errorf("sync pull requests failed: %w", err)
 	}
 
-	return writeSyncOutput(out, projectID, resp, quiet)
+	return writeSyncOutput(out, projectID, resp, prdCount, quiet)
+}
+
+// scanPRDDirectory reads all *.md files in dir and returns a slice of PRD
+// body maps suitable for passing to SyncPRDs.
+func scanPRDDirectory(dir string) ([]map[string]interface{}, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	var prds []map[string]interface{}
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
+			continue
+		}
+		content, readErr := os.ReadFile(filepath.Join(dir, e.Name()))
+		if readErr != nil {
+			continue
+		}
+		prds = append(prds, parsePRDMarkdown(e.Name(), string(content)))
+	}
+	return prds, nil
+}
+
+// parsePRDMarkdown extracts a title from the first H1 heading in content,
+// falling back to the filename (without extension) when no heading is found.
+func parsePRDMarkdown(filename, content string) map[string]interface{} {
+	title := strings.TrimSuffix(filename, ".md")
+	for _, line := range strings.Split(content, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "# ") {
+			title = strings.TrimPrefix(line, "# ")
+			break
+		}
+	}
+	return map[string]interface{}{
+		"title":       title,
+		"source_path": filename,
+	}
 }
 
 // syncResult holds the fields returned by the server-side sync endpoint.
@@ -83,24 +176,21 @@ type syncResult struct {
 	Closed  int `json:"closed"`
 }
 
-// writeSyncOutput writes the sync summary to out. In quiet mode only the
-// project ID is written; in verbose mode a human-readable PR sync summary
-// is written.
-func writeSyncOutput(out io.Writer, projectID string, body []byte, quiet bool) error {
-	if quiet {
-		fmt.Fprintln(out, projectID)
-		return nil
-	}
-
+// writeSyncOutput writes the sync summary to out. In quiet mode a single
+// summary line is written; in verbose mode a human-readable multi-line
+// summary is written.
+func writeSyncOutput(out io.Writer, projectID string, body []byte, prdCount int, quiet bool) error {
 	var result syncResult
-	if err := json.Unmarshal(body, &result); err == nil && result.Synced > 0 {
-		fmt.Fprintf(out, "Pull requests synced for project %s: %d synced (%d created, %d updated, %d closed)\n",
-			projectID, result.Synced, result.Created, result.Updated, result.Closed)
+	json.Unmarshal(body, &result) //nolint:errcheck — fallback to zero values
+
+	if quiet {
+		fmt.Fprintf(out, "Synced: %d PRDs, %d PRs\n", prdCount, result.Synced)
 		return nil
 	}
 
-	// Fallback for unexpected response shapes.
-	fmt.Fprintf(out, "Pull request sync complete for project %s\n", projectID)
+	fmt.Fprintf(out, "Project %s synced\n", projectID)
+	fmt.Fprintf(out, "Synced: %d PRDs, %d PRs (%d created, %d updated, %d closed)\n",
+		prdCount, result.Synced, result.Created, result.Updated, result.Closed)
 	return nil
 }
 

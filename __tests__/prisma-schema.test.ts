@@ -30,7 +30,6 @@ describe("Prisma schema smoke tests", () => {
       "Project",
       "Prd",
       "WorkItem",
-      "ContentItem",
       "Branch",
       "PullRequest",
       "Event",

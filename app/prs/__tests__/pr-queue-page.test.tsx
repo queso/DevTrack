@@ -20,7 +20,19 @@ import userEvent from "@testing-library/user-event"
 import { type ReactNode, createElement } from "react"
 import { SWRConfig } from "swr"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import type { PullRequest } from "@/lib/mock-data"
+interface PullRequest {
+  id: string
+  projectSlug?: string
+  number: number
+  title: string
+  branch: string
+  status: string
+  checkStatus: string
+  createdAt: string
+  url: string
+  author: string
+  unresolvedComments: number
+}
 
 // ---------------------------------------------------------------------------
 // Mocks

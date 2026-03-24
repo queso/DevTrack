@@ -7,7 +7,7 @@ import type {
   TimelineEvent as UiTimelineEvent,
   Project as UiProject,
   CheckStatus as UiCheckStatus,
-} from "@/lib/mock-data"
+} from "@/lib/ui-types"
 
 // ---------------------------------------------------------------------------
 // mapWorkItem
@@ -78,8 +78,6 @@ function mapEventType(type: string): UiTimelineEvent["type"] {
       return "pr-reviewed"
     case "prd_updated":
       return "prd-update"
-    case "content_published":
-      return "published"
     default:
       return type as UiTimelineEvent["type"]
   }
@@ -186,20 +184,6 @@ function buildSdlcSummaryLine(project: ApiProject, lastActivityAt: Date | null):
   return "No active PRD"
 }
 
-function buildContentSummaryLine(project: ApiProject): string {
-  const items = project.contentItems ?? []
-  const drafts = items.filter((ci) => ci.status === "draft" || ci.status === "review")
-  const ideas = items.filter((ci) => ci.status === "idea")
-  const published = items.filter((ci) => ci.status === "published")
-
-  const parts: string[] = []
-  if (drafts.length > 0) parts.push(`${drafts.length} draft${drafts.length !== 1 ? "s" : ""} in progress`)
-  if (ideas.length > 0) parts.push(`${ideas.length} idea${ideas.length !== 1 ? "s" : ""} queued`)
-  if (published.length > 0 && parts.length === 0) parts.push(`${published.length} published`)
-  if (parts.length === 0) return "No content in progress"
-  return parts.join(", ")
-}
-
 export function mapProject(project: ApiProject): UiProject {
   // Coerce lastActivityAt — JSON responses deliver it as a string, not a Date.
   const lastActivityAt = toDate(project.lastActivityAt)
@@ -215,10 +199,7 @@ export function mapProject(project: ApiProject): UiProject {
   const upNextPrds = project.prds.filter((p) => p.status === "queued")
   const shippedPrds = project.prds.filter((p) => p.status === "completed")
 
-  const summaryLine =
-    project.workflow === "content"
-      ? buildContentSummaryLine(project)
-      : buildSdlcSummaryLine(project, lastActivityAt)
+  const summaryLine = buildSdlcSummaryLine(project, lastActivityAt)
 
   return {
     slug: project.name,

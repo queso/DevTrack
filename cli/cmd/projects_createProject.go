@@ -15,11 +15,9 @@ var (
 	projectsCreateProjectCmdBodyFile string
 	projectsCreateProjectCmd_deployUrl string
 	projectsCreateProjectCmd_mainBranch string
-	projectsCreateProjectCmd_contentPath string
 	projectsCreateProjectCmd_deployEnvironment string
 	projectsCreateProjectCmd_deployHealthCheck string
 	projectsCreateProjectCmd_domain string
-	projectsCreateProjectCmd_draftPath string
 	projectsCreateProjectCmd_testPattern string
 	projectsCreateProjectCmd_branchPrefix string
 	projectsCreateProjectCmd_name string
@@ -40,7 +38,7 @@ var projectsCreateProjectCmd = &cobra.Command{
 		c := client.NewClient(baseURL, token)
 		pathParams := map[string]string{}
 		queryParams := map[string]string{}
-		if err := validate.Enum("workflow", projectsCreateProjectCmd_workflow, []string{"sdlc", "content"}); err != nil { return err }
+		if err := validate.Enum("workflow", projectsCreateProjectCmd_workflow, []string{"sdlc"}); err != nil { return err }
 		if projectsCreateProjectCmdBodyFile != "" {
 			fileData, err := os.ReadFile(projectsCreateProjectCmdBodyFile)
 			if err != nil {
@@ -75,11 +73,9 @@ var projectsCreateProjectCmd = &cobra.Command{
 		bodyMap := map[string]interface{}{}
 		bodyMap["deploy_url"] = projectsCreateProjectCmd_deployUrl
 		bodyMap["main_branch"] = projectsCreateProjectCmd_mainBranch
-		bodyMap["content_path"] = projectsCreateProjectCmd_contentPath
 		bodyMap["deploy_environment"] = projectsCreateProjectCmd_deployEnvironment
 		bodyMap["deploy_health_check"] = projectsCreateProjectCmd_deployHealthCheck
 		bodyMap["domain"] = projectsCreateProjectCmd_domain
-		bodyMap["draft_path"] = projectsCreateProjectCmd_draftPath
 		bodyMap["test_pattern"] = projectsCreateProjectCmd_testPattern
 		bodyMap["branch_prefix"] = projectsCreateProjectCmd_branchPrefix
 		bodyMap["name"] = projectsCreateProjectCmd_name
@@ -111,19 +107,17 @@ func init() {
 	projectsCreateProjectCmd.Flags().StringVar(&projectsCreateProjectCmdBodyFile, "body-file", "", "Path to JSON file to use as request body")
 	projectsCreateProjectCmd.Flags().StringVar(&projectsCreateProjectCmd_deployUrl, "deploy_url", "", "")
 	projectsCreateProjectCmd.Flags().StringVar(&projectsCreateProjectCmd_mainBranch, "main_branch", "", "")
-	projectsCreateProjectCmd.Flags().StringVar(&projectsCreateProjectCmd_contentPath, "content_path", "", "")
 	projectsCreateProjectCmd.Flags().StringVar(&projectsCreateProjectCmd_deployEnvironment, "deploy_environment", "", "")
 	projectsCreateProjectCmd.Flags().StringVar(&projectsCreateProjectCmd_deployHealthCheck, "deploy_health_check", "", "")
 	projectsCreateProjectCmd.Flags().StringVar(&projectsCreateProjectCmd_domain, "domain", "", "")
-	projectsCreateProjectCmd.Flags().StringVar(&projectsCreateProjectCmd_draftPath, "draft_path", "", "")
 	projectsCreateProjectCmd.Flags().StringVar(&projectsCreateProjectCmd_testPattern, "test_pattern", "", "")
 	projectsCreateProjectCmd.Flags().StringVar(&projectsCreateProjectCmd_branchPrefix, "branch_prefix", "", "")
 	projectsCreateProjectCmd.Flags().StringVar(&projectsCreateProjectCmd_name, "name", "", "")
 	projectsCreateProjectCmd.Flags().StringVar(&projectsCreateProjectCmd_owner, "owner", "", "")
 	projectsCreateProjectCmd.Flags().StringVar(&projectsCreateProjectCmd_prdPath, "prd_path", "", "")
-	projectsCreateProjectCmd.Flags().StringVar(&projectsCreateProjectCmd_workflow, "workflow", "", "(sdlc|content)")
+	projectsCreateProjectCmd.Flags().StringVar(&projectsCreateProjectCmd_workflow, "workflow", "sdlc", "(sdlc)")
 	projectsCreateProjectCmd.RegisterFlagCompletionFunc("workflow", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		return []string{"sdlc", "content"}, cobra.ShellCompDirectiveNoFileComp
+		return []string{"sdlc"}, cobra.ShellCompDirectiveNoFileComp
 	})
 	projectsCreateProjectCmd.Flags().StringVar(&projectsCreateProjectCmd_repoUrl, "repo_url", "", "")
 	projectsCreateProjectCmd.Flags().StringArrayVar(&projectsCreateProjectCmd_tags, "tags", nil, "")

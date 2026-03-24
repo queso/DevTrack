@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -651,6 +652,150 @@ func TestHooksUninstallCmd_HasClaudeCodeFlag(t *testing.T) {
 	f := hooksUninstallCmd.Flags().Lookup("claude-code")
 	if f == nil {
 		t.Fatal("--claude-code flag not found on uninstall command")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// WI-006: hooks test subcommand
+//
+// These tests assume B.A. adds a runHooksTest function:
+//
+//   func runHooksTest(repoRoot string, settingsPath string, checkHealth func() error, out io.Writer) error
+//
+// It should:
+//   - Check each of gitHookNames exists in repoRoot/.git/hooks/ with devtrack block
+//   - Check claude hooks exist in settingsPath
+//   - Call checkHealth() to verify API reachability
+//   - Write a status report to out
+//   - Return non-nil error when: no hooks installed OR API unreachable
+// ---------------------------------------------------------------------------
+
+// TestHooksTest_AllInstalledAndAPIReachable verifies that when all hooks are
+// installed and the API is healthy, runHooksTest succeeds (nil error) and
+// outputs a status report.
+func TestHooksTest_AllInstalledAndAPIReachable(t *testing.T) {
+	repoRoot := makeGitRepo(t)
+	if err := installHooks(repoRoot, true); err != nil {
+		t.Fatalf("installHooks: %v", err)
+	}
+
+	dir := t.TempDir()
+	settingsPath := filepath.Join(dir, "settings.json")
+	if err := installClaudeCodeHooks(settingsPath, true); err != nil {
+		t.Fatalf("installClaudeCodeHooks: %v", err)
+	}
+
+	healthOK := func() error { return nil }
+
+	var out strings.Builder
+	err := runHooksTest(repoRoot, settingsPath, healthOK, &out)
+	if err != nil {
+		t.Errorf("expected nil error when all hooks installed and API reachable, got: %v", err)
+	}
+
+	// Output should mention both git and claude hooks and API.
+	got := strings.ToLower(out.String())
+	if !strings.Contains(got, "git") && !strings.Contains(got, "hook") {
+		t.Errorf("output %q should mention git hooks", out.String())
+	}
+}
+
+// TestHooksTest_DetectsGitHooksMissing verifies that when git hooks are absent,
+// runHooksTest reports them as missing in output.
+func TestHooksTest_DetectsGitHooksMissing(t *testing.T) {
+	repoRoot := makeGitRepo(t)
+	// No hooks installed — .git/hooks/ is empty.
+
+	dir := t.TempDir()
+	settingsPath := filepath.Join(dir, "settings.json")
+	if err := installClaudeCodeHooks(settingsPath, true); err != nil {
+		t.Fatalf("installClaudeCodeHooks: %v", err)
+	}
+
+	healthOK := func() error { return nil }
+
+	var out strings.Builder
+	_ = runHooksTest(repoRoot, settingsPath, healthOK, &out)
+
+	got := strings.ToLower(out.String())
+	if !strings.Contains(got, "missing") && !strings.Contains(got, "not installed") && !strings.Contains(got, "✗") && !strings.Contains(got, "x") {
+		t.Errorf("output %q should indicate git hooks are missing", out.String())
+	}
+}
+
+// TestHooksTest_DetectsAPIUnreachable verifies that when the health check fails,
+// runHooksTest returns a non-nil error and mentions the API in the output.
+func TestHooksTest_DetectsAPIUnreachable(t *testing.T) {
+	repoRoot := makeGitRepo(t)
+	if err := installHooks(repoRoot, true); err != nil {
+		t.Fatalf("installHooks: %v", err)
+	}
+
+	dir := t.TempDir()
+	settingsPath := filepath.Join(dir, "settings.json")
+	if err := installClaudeCodeHooks(settingsPath, true); err != nil {
+		t.Fatalf("installClaudeCodeHooks: %v", err)
+	}
+
+	healthFail := func() error { return errors.New("connection refused") }
+
+	var out strings.Builder
+	err := runHooksTest(repoRoot, settingsPath, healthFail, &out)
+	if err == nil {
+		t.Error("expected non-nil error when API is unreachable, got nil")
+	}
+
+	got := strings.ToLower(out.String())
+	if !strings.Contains(got, "api") && !strings.Contains(got, "health") && !strings.Contains(got, "unreachable") {
+		t.Errorf("output %q should mention API reachability failure", out.String())
+	}
+}
+
+// TestHooksTest_ExitsNonZeroWhenNoHooksInstalled verifies that runHooksTest
+// returns an error when neither git hooks nor claude code hooks are installed.
+func TestHooksTest_ExitsNonZeroWhenNoHooksInstalled(t *testing.T) {
+	repoRoot := makeGitRepo(t)
+	// No git hooks installed.
+
+	dir := t.TempDir()
+	settingsPath := filepath.Join(dir, "nonexistent-settings.json")
+	// No claude settings file — no claude hooks.
+
+	healthOK := func() error { return nil }
+
+	var out strings.Builder
+	err := runHooksTest(repoRoot, settingsPath, healthOK, &out)
+	if err == nil {
+		t.Error("expected non-nil error when no hooks are installed at all, got nil")
+	}
+}
+
+// TestHooksTest_ReportsInstalledHookNames verifies that the output lists the
+// individual hook names that are installed vs missing.
+func TestHooksTest_ReportsInstalledHookNames(t *testing.T) {
+	repoRoot := makeGitRepo(t)
+	if err := installHooks(repoRoot, true); err != nil {
+		t.Fatalf("installHooks: %v", err)
+	}
+
+	dir := t.TempDir()
+	settingsPath := filepath.Join(dir, "settings.json")
+	healthOK := func() error { return nil }
+
+	var out strings.Builder
+	_ = runHooksTest(repoRoot, settingsPath, healthOK, &out)
+
+	got := out.String()
+	// At least one known git hook name should appear in the output.
+	foundAny := false
+	for _, hookName := range gitHookNames {
+		if strings.Contains(got, hookName) {
+			foundAny = true
+			break
+		}
+	}
+	if !foundAny {
+		t.Errorf("output %q should list individual git hook names", got)
 	}
 }
 

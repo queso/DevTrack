@@ -38,7 +38,7 @@ var eventsListEventsCmd = &cobra.Command{
 		queryParams["to"] = eventsListEventsCmd_to
 		queryParams["page"] = strconv.Itoa(eventsListEventsCmd_page)
 		queryParams["per_page"] = strconv.Itoa(eventsListEventsCmd_perPage)
-		if cmd.Flags().Changed("type") { if err := validate.Enum("type", eventsListEventsCmd_type, []string{"pr_opened", "pr_merged", "pr_closed", "pr_review_requested", "pr_changes_requested", "pr_approved", "pr_reviewed", "branch_created", "branch_deleted", "prd_created", "prd_updated", "prd_completed", "prd_synced", "work_item_created", "work_item_completed", "content_published", "content_updated", "commit", "push", "session_start", "session_end"}); err != nil { return err } }
+		if cmd.Flags().Changed("type") { if err := validate.Enum("type", eventsListEventsCmd_type, []string{"pr_opened", "pr_merged", "pr_closed", "pr_review_requested", "pr_changes_requested", "pr_approved", "pr_reviewed", "branch_created", "branch_deleted", "prd_created", "prd_updated", "prd_completed", "prd_synced", "work_item_created", "work_item_completed", "commit", "push", "session_start", "session_end"}); err != nil { return err } }
 		if eventsListEventsCmdAll {
 			_cfg := client.PaginationConfig{
 				Type: client.PaginationType("page"),
@@ -81,9 +81,9 @@ func init() {
 	eventsListEventsCmd.Flags().BoolVar(&eventsListEventsCmdAll, "all", false, "Auto-paginate through all pages")
 	eventsListEventsCmd.Flags().StringVar(&eventsListEventsCmd_projectId, "project_id", "", "")
 	eventsListEventsCmd.Flags().StringVar(&eventsListEventsCmd_domain, "domain", "", "")
-	eventsListEventsCmd.Flags().StringVar(&eventsListEventsCmd_type, "type", "", "(pr_opened|pr_merged|pr_closed|pr_review_requested|pr_changes_requested|pr_approved|pr_reviewed|branch_created|branch_deleted|prd_created|prd_updated|prd_completed|prd_synced|work_item_created|work_item_completed|content_published|content_updated|commit|push|session_start|session_end)")
+	eventsListEventsCmd.Flags().StringVar(&eventsListEventsCmd_type, "type", "", "(pr_opened|pr_merged|pr_closed|pr_review_requested|pr_changes_requested|pr_approved|pr_reviewed|branch_created|branch_deleted|prd_created|prd_updated|prd_completed|prd_synced|work_item_created|work_item_completed|commit|push|session_start|session_end)")
 	eventsListEventsCmd.RegisterFlagCompletionFunc("type", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		return []string{"pr_opened", "pr_merged", "pr_closed", "pr_review_requested", "pr_changes_requested", "pr_approved", "pr_reviewed", "branch_created", "branch_deleted", "prd_created", "prd_updated", "prd_completed", "prd_synced", "work_item_created", "work_item_completed", "content_published", "content_updated", "commit", "push", "session_start", "session_end"}, cobra.ShellCompDirectiveNoFileComp
+		return []string{"pr_opened", "pr_merged", "pr_closed", "pr_review_requested", "pr_changes_requested", "pr_approved", "pr_reviewed", "branch_created", "branch_deleted", "prd_created", "prd_updated", "prd_completed", "prd_synced", "work_item_created", "work_item_completed", "commit", "push", "session_start", "session_end"}, cobra.ShellCompDirectiveNoFileComp
 	})
 	eventsListEventsCmd.Flags().StringVar(&eventsListEventsCmd_from, "from", "", "")
 	eventsListEventsCmd.Flags().StringVar(&eventsListEventsCmd_to, "to", "", "")

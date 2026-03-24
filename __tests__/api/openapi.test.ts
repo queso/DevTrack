@@ -26,7 +26,6 @@ describe("GET /api/v1/openapi.json", () => {
       "/api/health",
       "/api/v1/projects",
       "/api/v1/prds",
-      "/api/v1/content",
       "/api/v1/prs",
       "/api/v1/branches",
       "/api/v1/events",

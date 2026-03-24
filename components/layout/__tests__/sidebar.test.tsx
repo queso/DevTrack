@@ -40,7 +40,19 @@ vi.mock("@/lib/hooks", () => ({
 // Fixture data
 // ---------------------------------------------------------------------------
 
-import type { Project } from "@/lib/mock-data"
+interface Project {
+  slug: string
+  name: string
+  domain: string
+  workflow: string
+  tags: string[]
+  activityLevel: string
+  repoUrl: string
+  openPRCount: number
+  checkStatus: string
+  daysSinceActivity: number
+  summaryLine: string
+}
 
 const PROJECT_ARCANELAYER: Project = {
   slug: "picking-app",

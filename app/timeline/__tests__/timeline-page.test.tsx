@@ -134,11 +134,11 @@ const todayEvent1 = makeEvent({ id: "te-today-1", type: "commit", title: "add mu
 const todayEvent2 = makeEvent({ id: "te-today-2", type: "pr_opened", title: "Opened PR #47: feat: barcode scanner integration", occurredAt: hoursAgo(5), projectId: "proj-2" })
 const yesterdayEvent1 = makeEvent({ id: "te-yest-1", type: "pr_approved", title: "PR #23 approved: redesign: full landing page refresh", occurredAt: hoursAgo(26), projectId: "proj-1" })
 const _yesterdayEvent2 = makeEvent({ id: "te-yest-2", type: "prd_updated", title: "PRD updated: Barcode scanning — 3/5 items done", occurredAt: hoursAgo(30), projectId: "proj-2" })
-const twoDaysAgoEvent = makeEvent({ id: "te-2d-1", type: "content_published", title: "Published: Ship It: K8s Upgrade Story", occurredAt: daysAgo(2), projectId: "proj-3" })
+const twoDaysAgoEvent = makeEvent({ id: "te-2d-1", type: "commit", title: "Published: Ship It: K8s Upgrade Story", occurredAt: daysAgo(2), projectId: "proj-3" })
 
 const projectAlpha = makeProject({ id: "proj-1", name: "picking-app", domain: "arcanelayer", workflow: "sdlc" })
 const projectBeta = makeProject({ id: "proj-2", name: "aiteam-brand", domain: "aiteam", workflow: "sdlc" })
-const projectGamma = makeProject({ id: "proj-3", name: "joshowens-dev", domain: "joshowensdev", workflow: "content" })
+const projectGamma = makeProject({ id: "proj-3", name: "joshowens-dev", domain: "joshowensdev", workflow: "sdlc" })
 
 const paginationMeta = { total: 30, page: 1, per_page: 20 }
 
@@ -383,8 +383,8 @@ describe("AC3: Day summary computed from actual events", () => {
     )
 
     await waitFor(() => {
-      // Should show event count for the day (e.g. "2 events")
-      expect(screen.getByText(/2 events?/i)).toBeInTheDocument()
+      // Should show human-readable summary: todayEvent1 is "commit", todayEvent2 is "pr_opened"
+      expect(screen.getByText(/1 commit across 1 project/i)).toBeInTheDocument()
     })
   })
 
@@ -401,9 +401,10 @@ describe("AC3: Day summary computed from actual events", () => {
     )
 
     await waitFor(() => {
-      // Today has 2 events, yesterday has 1
-      expect(screen.getByText(/2 events?/i)).toBeInTheDocument()
-      expect(screen.getByText(/1 events?/i)).toBeInTheDocument()
+      // Today has commit + pr_opened → "1 commit across 1 project"
+      expect(screen.getByText(/1 commit across 1 project/i)).toBeInTheDocument()
+      // Yesterday has pr_approved → fallback to "1 event"
+      expect(screen.getByText("1 event")).toBeInTheDocument()
     })
   })
 
@@ -1246,8 +1247,8 @@ describe("Edge cases: day grouping", () => {
     )
 
     await waitFor(() => {
-      // Singular: "1 event" (not "1 events")
-      expect(screen.getByText("1 event")).toBeInTheDocument()
+      // todayEvent1 is "commit" → "1 commit across 1 project"
+      expect(screen.getByText(/1 commit across 1 project/i)).toBeInTheDocument()
     })
   })
 })

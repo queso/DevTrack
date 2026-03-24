@@ -32,7 +32,7 @@ var eventsCreateEventCmd = &cobra.Command{
 		c := client.NewClient(baseURL, token)
 		pathParams := map[string]string{}
 		queryParams := map[string]string{}
-		if err := validate.Enum("type", eventsCreateEventCmd_type, []string{"pr_opened", "pr_merged", "pr_closed", "pr_review_requested", "pr_changes_requested", "pr_approved", "pr_reviewed", "branch_created", "branch_deleted", "prd_created", "prd_updated", "prd_completed", "prd_synced", "work_item_created", "work_item_completed", "content_published", "content_updated", "commit", "push", "session_start", "session_end"}); err != nil { return err }
+		if err := validate.Enum("type", eventsCreateEventCmd_type, []string{"pr_opened", "pr_merged", "pr_closed", "pr_review_requested", "pr_changes_requested", "pr_approved", "pr_reviewed", "branch_created", "branch_deleted", "prd_created", "prd_updated", "prd_completed", "prd_synced", "work_item_created", "work_item_completed", "commit", "push", "session_start", "session_end"}); err != nil { return err }
 		if eventsCreateEventCmdBodyFile != "" {
 			fileData, err := os.ReadFile(eventsCreateEventCmdBodyFile)
 			if err != nil {
@@ -95,9 +95,9 @@ func init() {
 	eventsCreateEventCmd.Flags().StringVar(&eventsCreateEventCmdBodyFile, "body-file", "", "Path to JSON file to use as request body")
 	eventsCreateEventCmd.Flags().StringVar(&eventsCreateEventCmd_pullRequestId, "pull_request_id", "", "")
 	eventsCreateEventCmd.Flags().StringVar(&eventsCreateEventCmd_title, "title", "", "")
-	eventsCreateEventCmd.Flags().StringVar(&eventsCreateEventCmd_type, "type", "", "(pr_opened|pr_merged|pr_closed|pr_review_requested|pr_changes_requested|pr_approved|pr_reviewed|branch_created|branch_deleted|prd_created|prd_updated|prd_completed|prd_synced|work_item_created|work_item_completed|content_published|content_updated|commit|push|session_start|session_end)")
+	eventsCreateEventCmd.Flags().StringVar(&eventsCreateEventCmd_type, "type", "", "(pr_opened|pr_merged|pr_closed|pr_review_requested|pr_changes_requested|pr_approved|pr_reviewed|branch_created|branch_deleted|prd_created|prd_updated|prd_completed|prd_synced|work_item_created|work_item_completed|commit|push|session_start|session_end)")
 	eventsCreateEventCmd.RegisterFlagCompletionFunc("type", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		return []string{"pr_opened", "pr_merged", "pr_closed", "pr_review_requested", "pr_changes_requested", "pr_approved", "pr_reviewed", "branch_created", "branch_deleted", "prd_created", "prd_updated", "prd_completed", "prd_synced", "work_item_created", "work_item_completed", "content_published", "content_updated", "commit", "push", "session_start", "session_end"}, cobra.ShellCompDirectiveNoFileComp
+		return []string{"pr_opened", "pr_merged", "pr_closed", "pr_review_requested", "pr_changes_requested", "pr_approved", "pr_reviewed", "branch_created", "branch_deleted", "prd_created", "prd_updated", "prd_completed", "prd_synced", "work_item_created", "work_item_completed", "commit", "push", "session_start", "session_end"}, cobra.ShellCompDirectiveNoFileComp
 	})
 	eventsCreateEventCmd.Flags().StringVar(&eventsCreateEventCmd_metadata, "metadata", "", "")
 	eventsCreateEventCmd.Flags().StringVar(&eventsCreateEventCmd_occurredAt, "occurred_at", "", "")

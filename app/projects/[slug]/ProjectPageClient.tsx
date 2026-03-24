@@ -153,12 +153,6 @@ export function ProjectPageClient({ slug }: ProjectPageClientProps) {
     mapPR(pr, slug)
   )
 
-  // Content items from raw project
-  const rawContentItems = rawProject.contentItems ?? []
-  const drafts = rawContentItems.filter((ci) => ci.status === "draft" || ci.status === "review")
-  const ideas = rawContentItems.filter((ci) => ci.status === "idea")
-  const published = rawContentItems.filter((ci) => ci.status === "published")
-
   // Compute health indicators
   const openPRCount = project.openPRCount
   const checkStatus = project.checkStatus
@@ -376,60 +370,6 @@ export function ProjectPageClient({ slug }: ProjectPageClientProps) {
         </section>
       )}
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Pipeline — Content variant                                            */}
-      {/* ------------------------------------------------------------------ */}
-      {project.workflow === "content" && (
-        <section aria-label="Content Pipeline">
-          <h2 className="text-lg font-semibold mb-3">Content Pipeline</h2>
-
-          {/* Drafts */}
-          {drafts.length > 0 && (
-            <div className="mb-4">
-              <h3 className="text-sm font-medium text-muted-foreground mb-2">Drafts in Progress</h3>
-              <ul className="flex flex-col gap-2">
-                {drafts.map((item) => (
-                  <li key={item.id} className="border border-border rounded p-3">
-                    <p className="font-medium text-sm">{item.title}</p>
-                    <span className="text-xs text-muted-foreground">{item.status}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Ideas */}
-          {ideas.length > 0 && (
-            <div className="mb-4">
-              <h3 className="text-sm font-medium text-muted-foreground mb-2">Ideas</h3>
-              <ul className="flex flex-col gap-2">
-                {ideas.map((item) => (
-                  <li key={item.id} className="border border-border rounded p-3">
-                    <p className="font-medium text-sm">{item.title}</p>
-                    {item.summary && (
-                      <p className="text-xs text-muted-foreground mt-1">{item.summary}</p>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Published */}
-          {published.length > 0 && (
-            <div>
-              <h3 className="text-sm font-medium text-muted-foreground mb-2">Recently Published</h3>
-              <ul className="flex flex-col gap-2">
-                {published.map((item) => (
-                  <li key={item.id} className="border border-border rounded p-3">
-                    <p className="font-medium text-sm">{item.title}</p>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </section>
-      )}
 
       {/* ------------------------------------------------------------------ */}
       {/* Activity Timeline                                                     */}

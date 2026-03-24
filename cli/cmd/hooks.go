@@ -3,12 +3,20 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
 )
+
+// httpNewRequest is a thin wrapper so tests can stay focused on behavior.
+var httpNewRequest = http.NewRequest
+
+// httpDefaultClient is the shared HTTP client for health checks.
+var httpDefaultClient = &http.Client{}
 
 // gitHookNames lists the git hooks that devtrack installs automatically.
 var gitHookNames = []string{
@@ -413,6 +421,112 @@ func uninstallClaudeCodeHooks(settingsPath string, quiet bool) error {
 }
 
 // ---------------------------------------------------------------------------
+// WI-006: hooks test subcommand
+// ---------------------------------------------------------------------------
+
+// runHooksTest checks whether git hooks, Claude Code hooks, and the API are
+// all operational. It writes a status report to out and returns a non-nil error
+// when any critical check fails (no hooks installed, or API unreachable).
+func runHooksTest(repoRoot string, settingsPath string, checkHealth func() error, out io.Writer) error {
+	hooksPath := filepath.Join(repoRoot, ".git", "hooks")
+
+	// Check git hooks.
+	gitInstalled := 0
+	for _, hookName := range gitHookNames {
+		hookFile := filepath.Join(hooksPath, hookName)
+		content, err := readFileIfExists(hookFile)
+		if err != nil || content == "" || !strings.Contains(content, devtrackBlockStart) {
+			fmt.Fprintf(out, "  [✗] git hook missing: %s\n", hookName)
+		} else {
+			fmt.Fprintf(out, "  [✓] git hook installed: %s\n", hookName)
+			gitInstalled++
+		}
+	}
+
+	// Check Claude Code hooks.
+	claudeInstalled := countClaudeHooks(settingsPath)
+	if claudeInstalled > 0 {
+		fmt.Fprintf(out, "  [✓] Claude Code hooks installed (%d)\n", claudeInstalled)
+	} else {
+		fmt.Fprintf(out, "  [✗] Claude Code hooks not installed\n")
+	}
+
+	// Check API reachability.
+	if apiErr := checkHealth(); apiErr != nil {
+		fmt.Fprintf(out, "  [✗] API unreachable: %v\n", apiErr)
+		return fmt.Errorf("API health check failed: %w", apiErr)
+	}
+	fmt.Fprintf(out, "  [✓] API reachable\n")
+
+	// Fail when nothing at all is installed.
+	if gitInstalled == 0 && claudeInstalled == 0 {
+		return fmt.Errorf("no hooks installed: run `devtrack hooks install`")
+	}
+
+	return nil
+}
+
+// countClaudeHooks reads settingsPath and returns the number of devtrack-managed
+// Claude Code hook entries found. Returns 0 when the file does not exist or
+// contains no devtrack hooks.
+func countClaudeHooks(settingsPath string) int {
+	data, err := os.ReadFile(settingsPath)
+	if err != nil {
+		return 0
+	}
+	var settings map[string]interface{}
+	if json.Unmarshal(data, &settings) != nil {
+		return 0
+	}
+	hooksRaw, ok := settings["hooks"]
+	if !ok {
+		return 0
+	}
+	hooks, ok := hooksRaw.(map[string]interface{})
+	if !ok {
+		return 0
+	}
+	count := 0
+	for _, arr := range hooks {
+		if typedArr, ok := arr.([]interface{}); ok {
+			for _, entry := range typedArr {
+				if entryMap, ok := entry.(map[string]interface{}); ok {
+					if cmd, ok := entryMap["command"].(string); ok {
+						if strings.Contains(cmd, claudeCodeHookMarker) {
+							count++
+						}
+					}
+				}
+			}
+		}
+	}
+	return count
+}
+
+// defaultCheckHealth performs a GET /api/health request to verify the API is up.
+func defaultCheckHealth(baseURL, token string) func() error {
+	return func() error {
+		url := strings.TrimRight(baseURL, "/") + "/api/health"
+		req, err := httpNewRequest("GET", url, nil)
+		if err != nil {
+			return fmt.Errorf("build health request: %w", err)
+		}
+		if token != "" {
+			req.Header.Set("X-Api-Key", token)
+		}
+		resp, err := httpDefaultClient.Do(req)
+		if err != nil {
+			return fmt.Errorf("API unreachable: %w", err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode >= 400 {
+			return fmt.Errorf("API returned status %d", resp.StatusCode)
+		}
+		return nil
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Cobra commands
 // ---------------------------------------------------------------------------
 
@@ -522,10 +636,28 @@ func findGitRoot() (string, error) {
 	}
 }
 
+var hooksTestCmd = &cobra.Command{
+	Use:   "test",
+	Short: "Verify hooks are installed and API is reachable",
+	Long:  "Checks that all git hooks and Claude Code hooks are installed and that the DevTrack API is reachable.",
+	Args:  cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		repoRoot, err := findGitRoot()
+		if err != nil {
+			return err
+		}
+		settingsPath := defaultClaudeSettingsPath()
+		baseURL, _ := cmd.Root().PersistentFlags().GetString("base-url")
+		token := os.Getenv("DEVTRACK_TOKEN")
+		return runHooksTest(repoRoot, settingsPath, defaultCheckHealth(baseURL, token), cmd.OutOrStdout())
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(hooksCmd)
 	hooksCmd.AddCommand(hooksInstallCmd)
 	hooksCmd.AddCommand(hooksUninstallCmd)
+	hooksCmd.AddCommand(hooksTestCmd)
 	hooksInstallCmd.Flags().Bool("git", false, "Install git hooks only")
 	hooksInstallCmd.Flags().Bool("claude-code", false, "Install Claude Code hooks only")
 	hooksUninstallCmd.Flags().Bool("git", false, "Uninstall git hooks only")

@@ -48,8 +48,8 @@ importers:
         specifier: 19.2.4
         version: 19.2.4(react@19.2.4)
       reactive-swr:
-        specifier: github:queso/reactiveSWR
-        version: https://codeload.github.com/queso/reactiveSWR/tar.gz/a6c70ccb8ae94d4b2c5c7eeb9f529ed2dda1ca18(react@19.2.4)(swr@2.4.0(react@19.2.4))
+        specifier: ^0.2.0
+        version: 0.2.0(react@19.2.4)(swr@2.4.0(react@19.2.4))
       swr:
         specifier: ^2.4.0
         version: 2.4.0(react@19.2.4)
@@ -3511,9 +3511,8 @@ packages:
     resolution: {integrity: sha512-9nfp2hYpCwOjAN+8TZFGhtWEwgvWHXqESH8qT89AT/lWklpLON22Lc8pEtnpsZz7VmawabSU0gCjnj8aC0euHQ==}
     engines: {node: '>=0.10.0'}
 
-  reactive-swr@https://codeload.github.com/queso/reactiveSWR/tar.gz/a6c70ccb8ae94d4b2c5c7eeb9f529ed2dda1ca18:
-    resolution: {tarball: https://codeload.github.com/queso/reactiveSWR/tar.gz/a6c70ccb8ae94d4b2c5c7eeb9f529ed2dda1ca18}
-    version: 0.0.1
+  reactive-swr@0.2.0:
+    resolution: {integrity: sha512-quFUTiIIfaKoHSL2T+i1H6P3z8NvDQ58Me3u4SsRyS1RbFF8HeVLkCLZtzSg8c9ZQeMrOYtIctZQFW+nu0hKGw==}
     peerDependencies:
       react: ^18 || ^19
       swr: ^2
@@ -7369,7 +7368,7 @@ snapshots:
 
   react@19.2.4: {}
 
-  reactive-swr@https://codeload.github.com/queso/reactiveSWR/tar.gz/a6c70ccb8ae94d4b2c5c7eeb9f529ed2dda1ca18(react@19.2.4)(swr@2.4.0(react@19.2.4)):
+  reactive-swr@0.2.0(react@19.2.4)(swr@2.4.0(react@19.2.4)):
     dependencies:
       react: 19.2.4
       swr: 2.4.0(react@19.2.4)

@@ -7,11 +7,6 @@ datasource db {
   provider = "postgresql"
 }
 
-enum Workflow {
-  sdlc
-  content
-}
-
 enum PrdStatus {
   queued
   in_progress
@@ -22,12 +17,6 @@ enum WorkItemStatus {
   todo
   in_progress
   done
-}
-
-enum ContentItemStatus {
-  idea
-  draft
-  published
 }
 
 enum PullRequestStatus {
@@ -60,20 +49,18 @@ enum EventType {
   prd_completed
   work_item_created
   work_item_completed
-  content_published
   commit
   push
   session_start
   session_end
   pr_reviewed
-  content_updated
   prd_synced
 }
 
 model Project {
   id                String    @id @default(uuid())
   name              String    @unique
-  workflow          Workflow
+  workflow          String    @default("sdlc")
   domain            String?
   owner             String?
   tags              String[]
@@ -82,8 +69,6 @@ model Project {
   branchPrefix      String?
   prdPath           String?
   testPattern       String?
-  contentPath       String?
-  draftPath         String?
   deployEnvironment String?
   deployUrl         String?
   deployHealthCheck String?
@@ -92,7 +77,6 @@ model Project {
   updatedAt         DateTime  @updatedAt
 
   prds         Prd[]
-  contentItems ContentItem[]
   branches     Branch[]
   pullRequests PullRequest[]
   events       Event[]
@@ -125,21 +109,6 @@ model WorkItem {
   updatedAt DateTime       @updatedAt
 
   prd Prd @relation(fields: [prdId], references: [id])
-}
-
-model ContentItem {
-  id          String            @id @default(uuid())
-  projectId   String
-  title       String
-  summary     String?
-  status      ContentItemStatus @default(idea)
-  sourcePath  String?
-  tags        String[]
-  publishedAt DateTime?
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-
-  project Project @relation(fields: [projectId], references: [id])
 }
 
 model Branch {

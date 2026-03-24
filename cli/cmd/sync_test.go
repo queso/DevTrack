@@ -3,6 +3,8 @@ package cmd
 import (
 	"bytes"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -170,6 +172,216 @@ func TestSync_APIError(t *testing.T) {
 
 // ---------------------------------------------------------------------------
 // Tests: quiet mode
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// WI-005: Full sync — project update + PRD sync + PR sync
+//
+// These tests assume runSync is extended to accept an updated SyncAPI that
+// adds two new methods:
+//
+//   type SyncAPI interface {
+//       ListProjects()  ([]internal.ProjectSummary, error)  // unchanged
+//       SyncPullRequests(projectID string) ([]byte, error)  // unchanged
+//       UpdateProject(id string, body map[string]interface{}) ([]byte, error)  // NEW
+//       SyncPRDs(projectID string, prds []map[string]interface{}) (int, error) // NEW
+//   }
+//
+// fakeSyncAPIFull implements the extended interface.
+// Existing tests using fakeSyncAPI will need the two new methods added when
+// B.A. extends the interface (a one-line addition per method is enough).
+// ---------------------------------------------------------------------------
+
+// fakeSyncAPIFull is a test double for the extended SyncAPI.
+type fakeSyncAPIFull struct {
+	// ListProjects / SyncPullRequests (same as fakeSyncAPI)
+	listProjects     []internal.ProjectSummary
+	listProjectsErr  error
+	syncResponseBody []byte
+	syncErr          error
+	syncCalled       bool
+	syncProjectID    string
+
+	// UpdateProject (new)
+	updateProjectID  string
+	updateProjectErr error
+	updateCalled     bool
+
+	// SyncPRDs (new): returns a count of PRDs synced
+	syncPRDsCount int
+	syncPRDsErr   error
+	syncPRDsCalled bool
+	lastPRDs       []map[string]interface{}
+}
+
+func (f *fakeSyncAPIFull) ListProjects() ([]internal.ProjectSummary, error) {
+	return f.listProjects, f.listProjectsErr
+}
+
+func (f *fakeSyncAPIFull) SyncPullRequests(projectID string) ([]byte, error) {
+	f.syncCalled = true
+	f.syncProjectID = projectID
+	return f.syncResponseBody, f.syncErr
+}
+
+func (f *fakeSyncAPIFull) UpdateProject(id string, body map[string]interface{}) ([]byte, error) {
+	f.updateCalled = true
+	if f.updateProjectErr != nil {
+		return nil, f.updateProjectErr
+	}
+	return []byte(`{"id":"` + f.updateProjectID + `"}`), nil
+}
+
+func (f *fakeSyncAPIFull) SyncPRDs(projectID string, prds []map[string]interface{}) (int, error) {
+	f.syncPRDsCalled = true
+	f.lastPRDs = prds
+	return f.syncPRDsCount, f.syncPRDsErr
+}
+
+// validFullSyncManifest includes a prd_path so PRD scanning is triggered.
+const validFullSyncManifest = `
+name: my-project
+workflow: sdlc
+repo_url: https://github.com/example/my-project
+prd_path: prds/
+`
+
+// writePRDFile creates a minimal PRD markdown file in dir/prds/.
+func writePRDFile(t *testing.T, prdsDir, filename, content string) {
+	t.Helper()
+	if err := os.WriteFile(filepath.Join(prdsDir, filename), []byte(content), 0o644); err != nil {
+		t.Fatalf("writePRDFile: %v", err)
+	}
+}
+
+// TestSync_FullSync_UpdatesProjectFromManifest verifies that full sync calls
+// UpdateProject on the API with the manifest data, keeping the project in sync.
+func TestSync_FullSync_UpdatesProjectFromManifest(t *testing.T) {
+	dir := t.TempDir()
+	manifestPath := writeManifest(t, dir, validFullSyncManifest)
+	prdsDir := filepath.Join(dir, "prds")
+	if err := os.MkdirAll(prdsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	api := &fakeSyncAPIFull{
+		listProjects:     []internal.ProjectSummary{syncProject},
+		updateProjectID:  knownProjectID,
+		syncResponseBody: []byte(`{"synced":0,"created":0,"updated":0,"closed":0}`),
+	}
+
+	var out bytes.Buffer
+	if err := runSync(manifestPath, api, false, &out); err != nil {
+		t.Fatalf("runSync returned unexpected error: %v", err)
+	}
+
+	if !api.updateCalled {
+		t.Error("expected UpdateProject to be called during full sync, but it was not")
+	}
+}
+
+// TestSync_FullSync_SyncsPRDsFromDirectory verifies that runSync scans prd_path
+// for markdown files and passes them to SyncPRDs.
+func TestSync_FullSync_SyncsPRDsFromDirectory(t *testing.T) {
+	dir := t.TempDir()
+	manifestPath := writeManifest(t, dir, validFullSyncManifest)
+	prdsDir := filepath.Join(dir, "prds")
+	if err := os.MkdirAll(prdsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writePRDFile(t, prdsDir, "001-feature.md", "# PRD: Feature One\n\nSummary of feature one.\n")
+	writePRDFile(t, prdsDir, "002-feature.md", "# PRD: Feature Two\n\nSummary of feature two.\n")
+
+	api := &fakeSyncAPIFull{
+		listProjects:     []internal.ProjectSummary{syncProject},
+		updateProjectID:  knownProjectID,
+		syncPRDsCount:    2,
+		syncResponseBody: []byte(`{"synced":0,"created":0,"updated":0,"closed":0}`),
+	}
+
+	var out bytes.Buffer
+	if err := runSync(manifestPath, api, false, &out); err != nil {
+		t.Fatalf("runSync returned unexpected error: %v", err)
+	}
+
+	if !api.syncPRDsCalled {
+		t.Error("expected SyncPRDs to be called when prd_path has markdown files, but it was not")
+	}
+	if len(api.lastPRDs) != 2 {
+		t.Errorf("expected SyncPRDs to be called with 2 PRD entries (one per .md file), got %d", len(api.lastPRDs))
+	}
+}
+
+// TestSync_FullSync_SummaryLineIncludesPRDsAndPRs verifies that the output
+// summary mentions both PRDs and PRs synced.
+func TestSync_FullSync_SummaryLineIncludesPRDsAndPRs(t *testing.T) {
+	dir := t.TempDir()
+	manifestPath := writeManifest(t, dir, validFullSyncManifest)
+	prdsDir := filepath.Join(dir, "prds")
+	if err := os.MkdirAll(prdsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writePRDFile(t, prdsDir, "001-feature.md", "# PRD: Feature One\n")
+	writePRDFile(t, prdsDir, "002-feature.md", "# PRD: Feature Two\n")
+	writePRDFile(t, prdsDir, "003-feature.md", "# PRD: Feature Three\n")
+
+	api := &fakeSyncAPIFull{
+		listProjects:     []internal.ProjectSummary{syncProject},
+		updateProjectID:  knownProjectID,
+		syncPRDsCount:    3,
+		syncResponseBody: []byte(`{"synced":2,"created":1,"updated":1,"closed":0}`),
+	}
+
+	var out bytes.Buffer
+	if err := runSync(manifestPath, api, false, &out); err != nil {
+		t.Fatalf("runSync returned unexpected error: %v", err)
+	}
+
+	got := strings.ToLower(out.String())
+	if !strings.Contains(got, "3") || !strings.Contains(got, "prd") {
+		t.Errorf("output %q should mention PRD count (3)", out.String())
+	}
+	if !strings.Contains(got, "pr") {
+		t.Errorf("output %q should mention PRs synced", out.String())
+	}
+}
+
+// TestSync_FullSync_QuietPrintsSingleSummaryLine verifies that --quiet prints
+// exactly one summary line (not the full verbose output).
+func TestSync_FullSync_QuietPrintsSingleSummaryLine(t *testing.T) {
+	dir := t.TempDir()
+	manifestPath := writeManifest(t, dir, validFullSyncManifest)
+	prdsDir := filepath.Join(dir, "prds")
+	if err := os.MkdirAll(prdsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writePRDFile(t, prdsDir, "001.md", "# PRD: One\n")
+
+	api := &fakeSyncAPIFull{
+		listProjects:     []internal.ProjectSummary{syncProject},
+		updateProjectID:  knownProjectID,
+		syncPRDsCount:    1,
+		syncResponseBody: []byte(`{"synced":2,"created":1,"updated":1,"closed":0}`),
+	}
+
+	var out bytes.Buffer
+	if err := runSync(manifestPath, api, true /* quiet */, &out); err != nil {
+		t.Fatalf("runSync (quiet) returned unexpected error: %v", err)
+	}
+
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	if len(lines) != 1 {
+		t.Errorf("quiet mode should print exactly 1 line, got %d: %v", len(lines), lines)
+	}
+	// The single line should be the summary mentioning sync counts.
+	summary := strings.ToLower(lines[0])
+	if !strings.Contains(summary, "sync") && !strings.Contains(summary, "prd") && !strings.Contains(summary, "pr") {
+		t.Errorf("quiet summary line %q should mention what was synced", lines[0])
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Tests: quiet mode (existing behavior, kept for reference)
 // ---------------------------------------------------------------------------
 
 // TestSync_QuietMode verifies that with quiet=true the output is minimal —

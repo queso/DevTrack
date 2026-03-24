@@ -95,23 +95,6 @@ const sdlcProject = {
   updatedAt: new Date(),
 }
 
-const contentProject = {
-  ...sdlcProject,
-  id: "proj-2",
-  name: "joshowens-dev",
-  workflow: "content" as const,
-  domain: "joshowensdev",
-  tags: ["blog", "nextjs"],
-  prds: [],
-  pullRequests: [],
-  contentItems: [
-    { id: "d-1", project_id: "proj-2", title: "How I Use Claude Code", status: "draft" as const, created_at: new Date(), updated_at: new Date() },
-    { id: "d-2", project_id: "proj-2", title: "K8s Home Lab in 2025", status: "review" as const, created_at: new Date(), updated_at: new Date() },
-    { id: "i-1", project_id: "proj-2", title: "Next.js 16 Cache Primitives", summary: "Deep dive into caching.", status: "idea" as const, created_at: new Date(), updated_at: new Date() },
-    { id: "p-1", project_id: "proj-2", title: "Ship It: K8s Upgrade Story", status: "published" as const, published_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), created_at: new Date(), updated_at: new Date() },
-  ],
-}
-
 const timelineEvents = [
   {
     id: "te-1",
@@ -355,43 +338,7 @@ describe("Project page — pipeline section (SDLC workflow)", () => {
 })
 
 // ===========================================================================
-// 4. Section: Pipeline — Content variant
-// ===========================================================================
-
-describe("Project page — pipeline section (Content workflow)", () => {
-  beforeEach(() => {
-    mockUseProject.mockReturnValue({ data: contentProject, error: undefined, isLoading: false, meta: undefined })
-    mockUseTimeline.mockReturnValue({ data: [], error: undefined, isLoading: false, meta: paginationMeta })
-  })
-
-  it("renders the drafts section for content workflow", async () => {
-    render(<ProjectPageClient slug="joshowens-dev" />)
-
-    expect(screen.getByText(/how i use claude code/i)).toBeInTheDocument()
-    expect(screen.getByText(/k8s home lab in 2025/i)).toBeInTheDocument()
-  })
-
-  it("renders the ideas section for content workflow", async () => {
-    render(<ProjectPageClient slug="joshowens-dev" />)
-
-    expect(screen.getByText(/next\.js 16 cache primitives/i)).toBeInTheDocument()
-  })
-
-  it("renders the published section for content workflow", async () => {
-    render(<ProjectPageClient slug="joshowens-dev" />)
-
-    expect(screen.getByText(/ship it.*k8s upgrade story/i)).toBeInTheDocument()
-  })
-
-  it("does NOT render SDLC-specific PRD pipeline UI for content projects", async () => {
-    render(<ProjectPageClient slug="joshowens-dev" />)
-
-    expect(screen.queryByText(/batch picking optimization/i)).not.toBeInTheDocument()
-  })
-})
-
-// ===========================================================================
-// 5. Section: Activity timeline
+// 4. Section: Activity timeline
 // ===========================================================================
 
 describe("Project page — activity timeline", () => {

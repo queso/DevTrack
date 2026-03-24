@@ -18,11 +18,6 @@ describe("Zod validation schemas barrel exports", () => {
       "createWorkItemSchema",
       "updateWorkItemSchema",
       "workItemResponseSchema",
-      // ContentItem
-      "createContentSchema",
-      "updateContentSchema",
-      "contentResponseSchema",
-      "contentListQuerySchema",
       // Branch
       "createBranchSchema",
       "updateBranchSchema",
@@ -57,7 +52,6 @@ describe("Zod validation schemas barrel exports", () => {
       "projectResponseSchema",
       "createPrdSchema",
       "createWorkItemSchema",
-      "createContentSchema",
       "createBranchSchema",
       "createPrSchema",
       "createEventSchema",

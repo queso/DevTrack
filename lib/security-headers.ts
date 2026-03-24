@@ -1,7 +1,8 @@
 type SecurityHeader = { key: string; value: string }
 
 function buildContentSecurityPolicy(env: string): string {
-  const scriptSrc = env === "development" ? "script-src 'self' 'unsafe-eval'" : "script-src 'self'"
+  const scriptSrc = env === "development" ? "script-src 'self' 'unsafe-eval' 'unsafe-inline'" : "script-src 'self'"
+  const connectSrc = env === "development" ? "connect-src 'self' ws: wss:" : "connect-src 'self'"
 
   const directives = [
     "default-src 'self'",
@@ -9,7 +10,7 @@ function buildContentSecurityPolicy(env: string): string {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: https:",
     "font-src 'self'",
-    "connect-src 'self'",
+    connectSrc,
     "frame-ancestors 'none'",
   ]
 

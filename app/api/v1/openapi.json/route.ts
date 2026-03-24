@@ -44,10 +44,9 @@ const spec = {
           meta: { $ref: "#/components/schemas/PaginationMeta" },
         },
       },
-      Workflow: { type: "string", enum: ["sdlc", "content"] },
+      Workflow: { type: "string", enum: ["sdlc"] },
       PrdStatus: { type: "string", enum: ["queued", "in_progress", "completed"] },
       WorkItemStatus: { type: "string", enum: ["todo", "in_progress", "done"] },
-      ContentItemStatus: { type: "string", enum: ["idea", "draft", "published"] },
       PullRequestStatus: {
         type: "string",
         enum: ["open", "closed", "merged", "draft", "review_requested", "changes_requested", "approved"],
@@ -59,7 +58,7 @@ const spec = {
           "pr_opened", "pr_merged", "pr_closed", "pr_review_requested",
           "pr_changes_requested", "pr_approved", "branch_created", "branch_deleted",
           "prd_created", "prd_updated", "prd_completed", "work_item_created",
-          "work_item_completed", "content_published", "commit",
+          "work_item_completed", "commit",
         ],
       },
       Project: {
@@ -114,21 +113,6 @@ const spec = {
           title: { type: "string" },
           status: { $ref: "#/components/schemas/WorkItemStatus" },
           order: { type: "integer" },
-          createdAt: { type: "string", format: "date-time" },
-          updatedAt: { type: "string", format: "date-time" },
-        },
-      },
-      ContentItem: {
-        type: "object",
-        required: ["id", "projectId", "title", "status"],
-        properties: {
-          id: { type: "string", format: "uuid" },
-          projectId: { type: "string", format: "uuid" },
-          title: { type: "string" },
-          summary: { type: "string", nullable: true },
-          status: { $ref: "#/components/schemas/ContentItemStatus" },
-          tags: { type: "array", items: { type: "string" } },
-          publishedAt: { type: "string", format: "date-time", nullable: true },
           createdAt: { type: "string", format: "date-time" },
           updatedAt: { type: "string", format: "date-time" },
         },
@@ -346,66 +330,6 @@ const spec = {
         requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/WorkItem" } } } },
         responses: {
           201: { description: "Created work item", content: { "application/json": { schema: { $ref: "#/components/schemas/EnvelopeResponse" } } } },
-        },
-      },
-    },
-    "/api/v1/projects/{id}/content": {
-      get: {
-        operationId: "listContent",
-        summary: "List content items for a project",
-        tags: ["Content"],
-        parameters: [
-          { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
-          { name: "status", in: "query", schema: { $ref: "#/components/schemas/ContentItemStatus" } },
-          { name: "page", in: "query", schema: { type: "integer", default: 1 } },
-          { name: "per_page", in: "query", schema: { type: "integer", default: 20 } },
-        ],
-        responses: {
-          200: { description: "Content list", content: { "application/json": { schema: { $ref: "#/components/schemas/EnvelopeResponse" } } } },
-          404: { description: "Not found", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
-        },
-      },
-      post: {
-        operationId: "createContent",
-        summary: "Create a content item",
-        tags: ["Content"],
-        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
-        requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/ContentItem" } } } },
-        responses: {
-          201: { description: "Created content item", content: { "application/json": { schema: { $ref: "#/components/schemas/EnvelopeResponse" } } } },
-        },
-      },
-    },
-    "/api/v1/content/{id}": {
-      get: {
-        operationId: "getContent",
-        summary: "Get a content item",
-        tags: ["Content"],
-        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
-        responses: {
-          200: { description: "Content item", content: { "application/json": { schema: { $ref: "#/components/schemas/EnvelopeResponse" } } } },
-          404: { description: "Not found", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
-        },
-      },
-      patch: {
-        operationId: "updateContent",
-        summary: "Update a content item (supports promotion)",
-        tags: ["Content"],
-        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
-        requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/ContentItem" } } } },
-        responses: {
-          200: { description: "Updated content item", content: { "application/json": { schema: { $ref: "#/components/schemas/EnvelopeResponse" } } } },
-          422: { description: "Invalid transition", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
-        },
-      },
-      delete: {
-        operationId: "deleteContent",
-        summary: "Delete a content item",
-        tags: ["Content"],
-        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
-        responses: {
-          204: { description: "Deleted" },
-          404: { description: "Not found", content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } } } },
         },
       },
     },

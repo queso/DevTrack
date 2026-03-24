@@ -1,5 +1,15 @@
-import { type Domain, getDomainColor } from "@/lib/mock-data"
+import type { Domain } from "@/lib/constants"
 import { cn } from "@/lib/utils"
+
+function getDomainColor(domain: Domain): string {
+  switch (domain) {
+    case "arcanelayer": return "domain-arcanelayer"
+    case "aiteam": return "domain-aiteam"
+    case "joshowensdev": return "domain-joshowensdev"
+    case "infrastructure": return "domain-infrastructure"
+    case "wendyowensbooks": return "domain-wendyowensbooks"
+  }
+}
 
 const DOMAIN_LABELS: Record<Domain, string> = {
   arcanelayer: "arcanelayer",

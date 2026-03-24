@@ -36,8 +36,6 @@ tags:
 repo_url: https://github.com/example/my-project
 main_branch: main
 prd_path: prd/
-content_path: content/
-draft_path: drafts/
 `)
 
 	m, err := ReadManifest(path)
@@ -66,12 +64,6 @@ draft_path: drafts/
 	if m.PrdPath != "prd/" {
 		t.Errorf("PrdPath: got %q, want %q", m.PrdPath, "prd/")
 	}
-	if m.ContentPath != "content/" {
-		t.Errorf("ContentPath: got %q, want %q", m.ContentPath, "content/")
-	}
-	if m.DraftPath != "drafts/" {
-		t.Errorf("DraftPath: got %q, want %q", m.DraftPath, "drafts/")
-	}
 }
 
 func TestReadManifest_OnlyRequiredFields(t *testing.T) {
@@ -79,7 +71,6 @@ func TestReadManifest_OnlyRequiredFields(t *testing.T) {
 	path := filepath.Join(dir, "project.yaml")
 	writeFile(t, path, `
 name: minimal-project
-workflow: content
 `)
 
 	m, err := ReadManifest(path)
@@ -89,8 +80,8 @@ workflow: content
 	if m.Name != "minimal-project" {
 		t.Errorf("Name: got %q, want %q", m.Name, "minimal-project")
 	}
-	if m.Workflow != "content" {
-		t.Errorf("Workflow: got %q, want %q", m.Workflow, "content")
+	if m.Workflow != "sdlc" {
+		t.Errorf("Workflow: got %q, want %q", m.Workflow, "sdlc")
 	}
 	// Optional fields should be zero values.
 	if m.Domain != "" {
@@ -139,9 +130,12 @@ func TestReadManifest_MissingWorkflow(t *testing.T) {
 	path := filepath.Join(dir, "project.yaml")
 	writeFile(t, path, "name: my-project\n")
 
-	_, err := ReadManifest(path)
-	if err == nil {
-		t.Fatal("expected error for missing workflow, got nil")
+	m, err := ReadManifest(path)
+	if err != nil {
+		t.Fatalf("expected no error for missing workflow (defaults to sdlc), got: %v", err)
+	}
+	if m.Workflow != "sdlc" {
+		t.Errorf("Workflow: got %q, want %q", m.Workflow, "sdlc")
 	}
 }
 

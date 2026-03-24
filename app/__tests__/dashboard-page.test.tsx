@@ -63,7 +63,7 @@ vi.mock("@/lib/hooks", () => ({
 function makeApiProject(overrides: Partial<{
   id: string
   name: string
-  workflow: "sdlc" | "content"
+  workflow: "sdlc"
   domain: string | null
   tags: string[]
   repoUrl: string | null
@@ -144,7 +144,7 @@ const projectBeta = makeApiProject({
   id: "proj-beta",
   name: "beta-project",
   domain: "aiteam",
-  workflow: "content",
+  workflow: "sdlc",
   tags: ["blog", "writing"],
   lastActivityAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000), // 10 days ago → stale
   pullRequests: [],
@@ -374,52 +374,6 @@ describe("AC3: Filters update URL query params", () => {
     })
   })
 
-  it("clicking 'SDLC' workflow filter updates URL with workflow param", async () => {
-    mockUseProjectsReturn.data = [projectAlpha, projectBeta]
-    const user = userEvent.setup()
-
-    const DashboardPage = await importDashboardPage()
-    render(
-      <SWRWrapper>
-        <DashboardPage />
-      </SWRWrapper>,
-    )
-
-    await waitFor(() => screen.getByText("alpha-project"))
-
-    const sdlcChip = screen.getByRole("button", { name: /^sdlc$/i })
-    await user.click(sdlcChip)
-
-    await waitFor(() => {
-      const calls = [...mockReplace.mock.calls, ...mockPush.mock.calls]
-      const urlStrings = calls.map((c) => String(c[0]))
-      expect(urlStrings.some((url) => url.includes("workflow=sdlc"))).toBe(true)
-    })
-  })
-
-  it("clicking 'Content' workflow filter updates URL with workflow=content", async () => {
-    mockUseProjectsReturn.data = [projectAlpha, projectBeta]
-    const user = userEvent.setup()
-
-    const DashboardPage = await importDashboardPage()
-    render(
-      <SWRWrapper>
-        <DashboardPage />
-      </SWRWrapper>,
-    )
-
-    await waitFor(() => screen.getByText("alpha-project"))
-
-    const contentChip = screen.getByRole("button", { name: /^content$/i })
-    await user.click(contentChip)
-
-    await waitFor(() => {
-      const calls = [...mockReplace.mock.calls, ...mockPush.mock.calls]
-      const urlStrings = calls.map((c) => String(c[0]))
-      expect(urlStrings.some((url) => url.includes("workflow=content"))).toBe(true)
-    })
-  })
-
   it("reads domain filter from URL query params on initial render", async () => {
     mockSearchParams = new URLSearchParams("domain=aiteam")
     mockUseProjectsReturn.data = [projectAlpha, projectBeta]
@@ -438,23 +392,6 @@ describe("AC3: Filters update URL query params", () => {
     })
   })
 
-  it("reads workflow filter from URL query params on initial render", async () => {
-    mockSearchParams = new URLSearchParams("workflow=content")
-    mockUseProjectsReturn.data = [projectAlpha, projectBeta]
-
-    const DashboardPage = await importDashboardPage()
-    render(
-      <SWRWrapper>
-        <DashboardPage />
-      </SWRWrapper>,
-    )
-
-    await waitFor(() => {
-      // With workflow=content filter, only beta-project (content workflow) should show
-      expect(screen.getByText("beta-project")).toBeInTheDocument()
-      expect(screen.queryByText("alpha-project")).not.toBeInTheDocument()
-    })
-  })
 })
 
 // ---------------------------------------------------------------------------
@@ -1204,34 +1141,6 @@ describe("Edge: Sort stability with equal lastActivityAt buckets", () => {
 })
 
 describe("Edge: Multiple active filters combined", () => {
-  it("domain + workflow filters together show only matching projects", async () => {
-    mockUseProjectsReturn.data = [projectAlpha, projectBeta, projectGamma]
-    // alpha: arcanelayer+sdlc, beta: aiteam+content, gamma: infrastructure+sdlc
-
-    const user = userEvent.setup()
-    const DashboardPage = await importDashboardPage()
-    render(
-      <SWRWrapper>
-        <DashboardPage />
-      </SWRWrapper>,
-    )
-
-    await waitFor(() => screen.getByText("alpha-project"))
-
-    // Filter to infrastructure domain
-    await user.click(screen.getByRole("button", { name: /^infrastructure$/i }))
-    // Then also filter to content workflow
-    await user.click(screen.getByRole("button", { name: /^content$/i }))
-
-    await waitFor(() => {
-      // gamma is infrastructure+sdlc, beta is aiteam+content
-      // Neither matches infrastructure+content
-      expect(screen.queryByText("alpha-project")).not.toBeInTheDocument()
-      expect(screen.queryByText("beta-project")).not.toBeInTheDocument()
-      expect(screen.queryByText("gamma-project")).not.toBeInTheDocument()
-    })
-  })
-
   it("domain filter + search combined show only projects matching both", async () => {
     mockUseProjectsReturn.data = [projectAlpha, projectBeta, projectGamma]
     const user = userEvent.setup()

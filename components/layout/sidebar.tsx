@@ -6,7 +6,7 @@ import { LayoutDashboard, Clock, GitPullRequest, Settings, Terminal, ChevronLeft
 import { cn } from "@/lib/utils"
 import { useProjects, usePRs } from "@/lib/hooks"
 import { ProjectCardSkeleton } from "@/components/features/dashboard/loading-states"
-import type { Project } from "@/lib/mock-data"
+import type { Project } from "@/lib/ui-types"
 import { useState, useEffect } from "react"
 
 const DOMAIN_ORDER = ["arcanelayer", "aiteam", "joshowensdev", "infrastructure", "wendyowensbooks"] as const

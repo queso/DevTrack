@@ -17,10 +17,12 @@ export async function GET(request: Request) {
   const type = url.searchParams.get("type") ?? undefined
   const from = url.searchParams.get("from") ?? undefined
   const to = url.searchParams.get("to") ?? undefined
+  const domain = url.searchParams.get("domain") ?? undefined
 
   const where = {
     ...(projectId ? { projectId } : {}),
     ...(type ? { type: type as EventType } : {}),
+    ...(domain ? { project: { domain } } : {}),
     ...(from || to ? {
       occurredAt: {
         ...(from ? { gte: new Date(from) } : {}),

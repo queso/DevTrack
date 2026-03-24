@@ -12,7 +12,6 @@ export type EventType =
   | "prd_completed"
   | "work_item_created"
   | "work_item_completed"
-  | "content_published"
 
 export interface Event {
   id: string

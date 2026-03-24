@@ -18,7 +18,7 @@ export async function GET(request: Request) {
 
   const where = {
     ...(domain ? { domain } : {}),
-    ...(workflow ? { workflow: workflow as "sdlc" | "content" } : {}),
+    ...(workflow ? { workflow } : {}),
     ...(tags.length > 0 ? { tags: { hasEvery: tags } } : {}),
   }
 
@@ -50,8 +50,8 @@ export async function POST(request: Request) {
   }
 
   // Map snake_case schema fields to camelCase Prisma fields
-  const { repo_url, main_branch, branch_prefix, prd_path, test_pattern, content_path,
-    draft_path, deploy_environment, deploy_url, deploy_health_check, ...rest } = parsed.data
+  const { repo_url, main_branch, branch_prefix, prd_path, test_pattern,
+    deploy_environment, deploy_url, deploy_health_check, ...rest } = parsed.data
 
   try {
     const project = await prisma.project.create({
@@ -62,8 +62,6 @@ export async function POST(request: Request) {
         branchPrefix: branch_prefix,
         prdPath: prd_path,
         testPattern: test_pattern,
-        contentPath: content_path,
-        draftPath: draft_path,
         deployEnvironment: deploy_environment,
         deployUrl: deploy_url,
         deployHealthCheck: deploy_health_check,

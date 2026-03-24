@@ -3,8 +3,8 @@ info:
   title: DevTrack API
   version: 1.0.0
   description: >
-    Mission control for multi-repo development. Track SDLC state, content
-    pipelines, and PR queues across all your projects.
+    Mission control for multi-repo development. Track SDLC state
+    and PR queues across all your projects.
 
 servers:
   - url: /api/v1
@@ -18,7 +18,6 @@ tags:
   - name: Projects
   - name: PRDs
   - name: WorkItems
-  - name: Content
   - name: PullRequests
   - name: Branches
   - name: Events
@@ -72,10 +71,6 @@ components:
     # -------------------------------------------------------------------------
     # Enums
     # -------------------------------------------------------------------------
-    Workflow:
-      type: string
-      enum: [sdlc, content]
-
     PrdStatus:
       type: string
       enum: [queued, in_progress, completed]
@@ -83,10 +78,6 @@ components:
     WorkItemStatus:
       type: string
       enum: [todo, in_progress, done]
-
-    ContentItemStatus:
-      type: string
-      enum: [idea, draft, published]
 
     PullRequestStatus:
       type: string
@@ -121,8 +112,6 @@ components:
         - prd_synced
         - work_item_created
         - work_item_completed
-        - content_published
-        - content_updated
         - commit
         - push
         - session_start
@@ -133,13 +122,11 @@ components:
     # -------------------------------------------------------------------------
     CreateProject:
       type: object
-      required: [name, workflow]
+      required: [name]
       properties:
         name:
           type: string
           minLength: 1
-        workflow:
-          $ref: '#/components/schemas/Workflow'
         domain:
           type: string
         owner:
@@ -160,10 +147,6 @@ components:
         prd_path:
           type: string
         test_pattern:
-          type: string
-        content_path:
-          type: string
-        draft_path:
           type: string
         deploy_environment:
           type: string
@@ -278,59 +261,6 @@ components:
     WorkItem:
       allOf:
         - $ref: '#/components/schemas/CreateWorkItem'
-        - type: object
-          required: [id, created_at, updated_at]
-          properties:
-            id:
-              type: string
-              format: uuid
-            created_at:
-              type: string
-              format: date-time
-            updated_at:
-              type: string
-              format: date-time
-
-    # -------------------------------------------------------------------------
-    # ContentItem
-    # -------------------------------------------------------------------------
-    CreateContent:
-      type: object
-      required: [project_id, title]
-      properties:
-        project_id:
-          type: string
-          format: uuid
-        title:
-          type: string
-          minLength: 1
-        summary:
-          type: string
-          nullable: true
-        status:
-          $ref: '#/components/schemas/ContentItemStatus'
-          default: idea
-        source_path:
-          type: string
-          nullable: true
-        tags:
-          type: array
-          items:
-            type: string
-          default: []
-        published_at:
-          type: string
-          format: date-time
-          nullable: true
-
-    UpdateContent:
-      allOf:
-        - $ref: '#/components/schemas/CreateContent'
-      description: All fields optional for partial update
-
-    ContentItem:
-      allOf:
-        - $ref: '#/components/schemas/CreateContent'
         - type: object
           required: [id, created_at, updated_at]
           properties:
@@ -561,10 +491,6 @@ paths:
           in: query
           schema:
             type: string
-        - name: workflow
-          in: query
-          schema:
-            $ref: '#/components/schemas/Workflow'
         - name: tags
           in: query
           schema:
@@ -983,168 +909,6 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '422':
           description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  # ---------------------------------------------------------------------------
-  # Content
-  # ---------------------------------------------------------------------------
-  /projects/{id}/content:
-    get:
-      operationId: listContent
-      summary: List content items for a project
-      tags: [Content]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - name: status
-          in: query
-          schema:
-            $ref: '#/components/schemas/ContentItemStatus'
-        - name: page
-          in: query
-          schema:
-            type: integer
-            default: 1
-        - name: per_page
-          in: query
-          schema:
-            type: integer
-            default: 20
-            maximum: 100
-      responses:
-        '200':
-          description: Content list
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EnvelopeResponse'
-        '404':
-          description: Project not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    post:
-      operationId: createContent
-      summary: Create a content item
-      tags: [Content]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateContent'
-      responses:
-        '201':
-          description: Created content item
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EnvelopeResponse'
-        '404':
-          description: Project not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '422':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /content/{id}:
-    get:
-      operationId: getContent
-      summary: Get a content item
-      tags: [Content]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      responses:
-        '200':
-          description: Content item
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EnvelopeResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    patch:
-      operationId: updateContent
-      summary: Update a content item (supports promotion)
-      tags: [Content]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateContent'
-      responses:
-        '200':
-          description: Updated content item
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EnvelopeResponse'
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '422':
-          description: Invalid status transition
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    delete:
-      operationId: deleteContent
-      summary: Delete a content item
-      tags: [Content]
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      responses:
-        '204':
-          description: Deleted
-        '404':
-          description: Not found
           content:
             application/json:
               schema:

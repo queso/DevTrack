@@ -8,23 +8,10 @@ interface ApiPrdWithItems extends Prd {
   workItems: WorkItem[]
 }
 
-interface ApiContentItem {
-  id: string
-  project_id: string
-  title: string
-  summary?: string | null
-  status: "idea" | "draft" | "review" | "scheduled" | "published"
-  source_path?: string | null
-  tags?: string[]
-  published_at?: Date | null
-  created_at: Date
-  updated_at: Date
-}
-
 export interface ApiProject {
   id: string
   name: string
-  workflow: "sdlc" | "content"
+  workflow: "sdlc"
   domain: string | null
   tags: string[]
   repoUrl: string | null
@@ -34,5 +21,4 @@ export interface ApiProject {
   pullRequests: PullRequest[]
   createdAt: Date
   updatedAt: Date
-  contentItems?: ApiContentItem[]
 }

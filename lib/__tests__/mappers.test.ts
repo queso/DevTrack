@@ -288,11 +288,6 @@ describe("mapTimelineEvent", () => {
     expect(result.type).toBe("prd-update")
   })
 
-  it("maps content_published → published", () => {
-    const result = mapTimelineEvent(makeEvent({ type: "content_published" }), "my-project")
-    expect(result.type).toBe("published")
-  })
-
   it("preserves event id and maps projectSlug", () => {
     const result = mapTimelineEvent(makeEvent({ id: "ev-42" }), "blog-project")
     expect(result.id).toBe("ev-42")
@@ -521,56 +516,6 @@ describe("mapProject — summaryLine (SDLC workflow)", () => {
   })
 })
 
-describe("mapProject — summaryLine (content workflow)", () => {
-  it("generates summary for content project with draft items", () => {
-    const draftItem = {
-      id: "ci-1",
-      project_id: "proj-1",
-      title: "How I Use Claude",
-      summary: null,
-      status: "draft" as const,
-      source_path: null,
-      tags: [],
-      published_at: null,
-      created_at: new Date(),
-      updated_at: new Date(),
-    }
-    const ideaItem = {
-      ...draftItem,
-      id: "ci-2",
-      title: "eBPF for Devs",
-      status: "idea" as const,
-    }
-    const p = {
-      ...makeApiProject({ workflow: "content" }),
-      contentItems: [draftItem, ideaItem],
-    }
-    const result = mapProject(p)
-    expect(result.summaryLine).toMatch(/draft|idea/i)
-  })
-
-  it("mentions published count if there are published items", () => {
-    const published = {
-      id: "ci-3",
-      project_id: "proj-1",
-      title: "K8s Upgrade Story",
-      summary: null,
-      status: "published" as const,
-      source_path: null,
-      tags: [],
-      published_at: msAgo(3 * DAY),
-      created_at: new Date(),
-      updated_at: new Date(),
-    }
-    const p = {
-      ...makeApiProject({ workflow: "content" }),
-      contentItems: [published],
-    }
-    const result = mapProject(p)
-    expect(typeof result.summaryLine).toBe("string")
-    expect(result.summaryLine.length).toBeGreaterThan(0)
-  })
-})
 
 // ---------------------------------------------------------------------------
 // mapProject — nested PRDs and structure

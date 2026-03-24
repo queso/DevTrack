@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -251,5 +252,211 @@ func TestRegister_QuietMode(t *testing.T) {
 	got := strings.TrimSpace(out.String())
 	if got != expectedUUID {
 		t.Errorf("quiet mode output: got %q, want %q (UUID only)", got, expectedUUID)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// WI-004: Auto-detect repo_url + hooks install prompt
+//
+// These tests assume runRegister is extended to accept a registerDeps struct:
+//
+//   type registerDeps struct {
+//       getGitURL    func() (string, error)  // called when manifest.RepoURL is empty
+//       installHooks func() error             // called when user accepts hooks prompt
+//       confirm      func(prompt string, out io.Writer) bool // prompt; nil = real stdin
+//   }
+//
+//   func runRegister(manifestPath string, api ProjectAPI, quiet bool, out io.Writer, deps registerDeps) error
+//
+// NOTE: Existing test calls (4 args) will need to be updated to pass
+// registerDeps{} as the 5th argument once B.A. updates the signature.
+// ---------------------------------------------------------------------------
+
+const noRepoURLManifest = `
+name: my-project
+workflow: sdlc
+`
+
+// TestRegister_AutoDetectsRepoURLFromGit verifies that when manifest.repo_url
+// is empty, runRegister calls deps.getGitURL and uses the returned URL.
+func TestRegister_AutoDetectsRepoURLFromGit(t *testing.T) {
+	dir := t.TempDir()
+	manifestPath := writeManifest(t, dir, noRepoURLManifest)
+
+	detectedURL := "https://github.com/auto/detected"
+	gitCalled := false
+
+	api := &fakeProjectAPI{
+		listProjects:    []internal.ProjectSummary{},
+		createProjectID: "new-uuid-auto",
+	}
+
+	var out bytes.Buffer
+	deps := registerDeps{
+		getGitURL: func() (string, error) {
+			gitCalled = true
+			return detectedURL, nil
+		},
+	}
+	err := runRegister(manifestPath, api, false, &out, deps)
+	if err != nil {
+		t.Fatalf("runRegister returned unexpected error: %v", err)
+	}
+
+	if !gitCalled {
+		t.Error("expected getGitURL to be called when manifest has no repo_url, but it was not")
+	}
+
+	// The body passed to CreateProject should include the auto-detected URL.
+	// We verify indirectly: if create was called successfully, the URL was usable.
+	if !api.createCalled {
+		t.Error("expected CreateProject to be called")
+	}
+}
+
+// TestRegister_ManifestRepoURLTakesPrecedenceOverGit verifies that when
+// manifest.repo_url is already set, deps.getGitURL is NOT called.
+func TestRegister_ManifestRepoURLTakesPrecedenceOverGit(t *testing.T) {
+	dir := t.TempDir()
+	manifestPath := writeManifest(t, dir, validManifestContent) // has repo_url
+
+	gitCalled := false
+	api := &fakeProjectAPI{
+		listProjects:    []internal.ProjectSummary{},
+		createProjectID: "uuid-manifest-url",
+	}
+
+	var out bytes.Buffer
+	deps := registerDeps{
+		getGitURL: func() (string, error) {
+			gitCalled = true
+			return "https://github.com/should/not/use", nil
+		},
+	}
+	err := runRegister(manifestPath, api, false, &out, deps)
+	if err != nil {
+		t.Fatalf("runRegister returned unexpected error: %v", err)
+	}
+
+	if gitCalled {
+		t.Error("expected getGitURL NOT to be called when manifest already has repo_url, but it was")
+	}
+}
+
+// TestRegister_PromptsAndInstallsHooksAfterCreate verifies that after a
+// successful project creation, runRegister calls deps.confirm and, if the
+// user accepts, calls deps.installHooks.
+func TestRegister_PromptsAndInstallsHooksAfterCreate(t *testing.T) {
+	dir := t.TempDir()
+	manifestPath := writeManifest(t, dir, validManifestContent)
+
+	api := &fakeProjectAPI{
+		listProjects:    []internal.ProjectSummary{},
+		createProjectID: "new-uuid-hooks",
+	}
+
+	confirmCalled := false
+	hooksCalled := false
+
+	var out bytes.Buffer
+	deps := registerDeps{
+		confirm: func(prompt string, w io.Writer) bool {
+			confirmCalled = true
+			return true // user says yes
+		},
+		installHooks: func() error {
+			hooksCalled = true
+			return nil
+		},
+	}
+	err := runRegister(manifestPath, api, false, &out, deps)
+	if err != nil {
+		t.Fatalf("runRegister returned unexpected error: %v", err)
+	}
+
+	if !confirmCalled {
+		t.Error("expected confirm prompt to be shown after project creation, but it was not")
+	}
+	if !hooksCalled {
+		t.Error("expected installHooks to be called after user accepted the prompt, but it was not")
+	}
+}
+
+// TestRegister_NoHooksPromptOnUpdate verifies that runRegister does NOT prompt
+// for hooks installation when updating an existing project (only on create).
+func TestRegister_NoHooksPromptOnUpdate(t *testing.T) {
+	dir := t.TempDir()
+	manifestPath := writeManifest(t, dir, validManifestContent)
+
+	existingID := "existing-uuid-nohooks"
+	api := &fakeProjectAPI{
+		listProjects: []internal.ProjectSummary{
+			{ID: existingID, Name: "my-project"},
+		},
+		updateProjectID: existingID,
+	}
+
+	confirmCalled := false
+	hooksCalled := false
+
+	var out bytes.Buffer
+	deps := registerDeps{
+		confirm: func(prompt string, w io.Writer) bool {
+			confirmCalled = true
+			return true
+		},
+		installHooks: func() error {
+			hooksCalled = true
+			return nil
+		},
+	}
+	err := runRegister(manifestPath, api, false, &out, deps)
+	if err != nil {
+		t.Fatalf("runRegister returned unexpected error: %v", err)
+	}
+
+	if confirmCalled {
+		t.Error("expected confirm NOT to be called on project update, but it was")
+	}
+	if hooksCalled {
+		t.Error("expected installHooks NOT to be called on project update, but it was")
+	}
+}
+
+// TestRegister_QuietModeSkipsHooksPrompt verifies that with quiet=true, the
+// hooks prompt is never shown and hooks are never installed after creation.
+func TestRegister_QuietModeSkipsHooksPrompt(t *testing.T) {
+	dir := t.TempDir()
+	manifestPath := writeManifest(t, dir, validManifestContent)
+
+	api := &fakeProjectAPI{
+		listProjects:    []internal.ProjectSummary{},
+		createProjectID: "quiet-new-uuid",
+	}
+
+	confirmCalled := false
+	hooksCalled := false
+
+	var out bytes.Buffer
+	deps := registerDeps{
+		confirm: func(prompt string, w io.Writer) bool {
+			confirmCalled = true
+			return true
+		},
+		installHooks: func() error {
+			hooksCalled = true
+			return nil
+		},
+	}
+	err := runRegister(manifestPath, api, true /* quiet */, &out, deps)
+	if err != nil {
+		t.Fatalf("runRegister (quiet) returned unexpected error: %v", err)
+	}
+
+	if confirmCalled {
+		t.Error("expected confirm NOT to be called in quiet mode, but it was")
+	}
+	if hooksCalled {
+		t.Error("expected installHooks NOT to be called in quiet mode, but it was")
 	}
 }
