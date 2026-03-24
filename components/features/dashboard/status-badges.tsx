@@ -15,16 +15,30 @@ const PR_STATUS_CONFIG: Record<PRStatus, { label: string; className: string }> =
 export function PRStatusBadge({ status, className }: { status: PRStatus; className?: string }) {
   const config = PR_STATUS_CONFIG[status]
   return (
-    <span className={cn("inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium", config.className, className)}>
+    <span
+      className={cn(
+        "inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium",
+        config.className,
+        className,
+      )}
+    >
       {config.label}
     </span>
   )
 }
 
-export function CheckStatusBadge({ status, className }: { status: CheckStatus; className?: string }) {
+export function CheckStatusBadge({
+  status,
+  className,
+}: {
+  status: CheckStatus
+  className?: string
+}) {
   if (status === "passing") {
     return (
-      <span className={cn("inline-flex items-center gap-1 text-[11px] text-emerald-400", className)}>
+      <span
+        className={cn("inline-flex items-center gap-1 text-[11px] text-emerald-400", className)}
+      >
         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
         Passing
       </span>

@@ -17,12 +17,12 @@ import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 
 import {
+  EmptyState,
+  ErrorState,
+  PRRowSkeleton,
   ProjectCardSkeleton,
   ProjectDetailHeaderSkeleton,
-  PRRowSkeleton,
   TimelineEntrySkeleton,
-  ErrorState,
-  EmptyState,
 } from "@/components/features/dashboard/loading-states"
 
 // ---------------------------------------------------------------------------
@@ -46,7 +46,9 @@ describe("ProjectCardSkeleton", () => {
   it("renders multiple skeleton bars to match name + summary + tags shape", () => {
     const { container } = render(<ProjectCardSkeleton />)
     // At least 3 skeleton bars: title, summary line, one tag/progress area
-    const bars = container.querySelectorAll(".bg-muted, .bg-muted\\/60, .bg-muted\\/40, .bg-secondary")
+    const bars = container.querySelectorAll(
+      ".bg-muted, .bg-muted\\/60, .bg-muted\\/40, .bg-secondary",
+    )
     expect(bars.length).toBeGreaterThanOrEqual(3)
   })
 
@@ -103,7 +105,7 @@ describe("PRRowSkeleton", () => {
         <tbody>
           <PRRowSkeleton />
         </tbody>
-      </table>
+      </table>,
     )
     const row = container.querySelector("tr")
     expect(row).toBeInTheDocument()
@@ -115,7 +117,7 @@ describe("PRRowSkeleton", () => {
         <tbody>
           <PRRowSkeleton />
         </tbody>
-      </table>
+      </table>,
     )
     const cells = container.querySelectorAll("td")
     expect(cells.length).toBe(6)
@@ -127,7 +129,7 @@ describe("PRRowSkeleton", () => {
         <tbody>
           <PRRowSkeleton />
         </tbody>
-      </table>
+      </table>,
     )
     const pulsingEl = container.querySelector(".animate-pulse")
     expect(pulsingEl).toBeInTheDocument()
@@ -139,7 +141,7 @@ describe("PRRowSkeleton", () => {
         <tbody>
           <PRRowSkeleton />
         </tbody>
-      </table>
+      </table>,
     )
     // Each cell should contain at least one skeleton bar
     const cells = container.querySelectorAll("td")
@@ -231,7 +233,7 @@ describe("ErrorState", () => {
     const { container } = render(<ErrorState message="Error" />)
     // The outer container should use muted/secondary background tokens
     const themed = container.querySelector(
-      "[class*='text-muted-foreground'], [class*='bg-muted'], [class*='bg-secondary']"
+      "[class*='text-muted-foreground'], [class*='bg-muted'], [class*='bg-secondary']",
     )
     expect(themed).toBeInTheDocument()
   })
@@ -259,7 +261,9 @@ describe("EmptyState", () => {
   })
 
   it("renders an optional title alongside the message", () => {
-    render(<EmptyState title="Nothing here yet" message="Create your first project to get started." />)
+    render(
+      <EmptyState title="Nothing here yet" message="Create your first project to get started." />,
+    )
     expect(screen.getByText(/nothing here yet/i)).toBeInTheDocument()
     expect(screen.getByText(/create your first project/i)).toBeInTheDocument()
   })
@@ -303,9 +307,9 @@ describe("Rendering multiple skeletons for list views", () => {
   it("renders N ProjectCardSkeletons without error", () => {
     const { container } = render(
       Array.from({ length: 6 }).map((_, i) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: test-only
-          <ProjectCardSkeleton key={i} />
-        ))
+        // biome-ignore lint/suspicious/noArrayIndexKey: test-only
+        <ProjectCardSkeleton key={i} />
+      )),
     )
     const statuses = container.querySelectorAll("output")
     expect(statuses.length).toBe(6)
@@ -320,7 +324,7 @@ describe("Rendering multiple skeletons for list views", () => {
             <PRRowSkeleton key={i} />
           ))}
         </tbody>
-      </table>
+      </table>,
     )
     const rows = container.querySelectorAll("tr")
     expect(rows.length).toBe(5)
@@ -329,9 +333,9 @@ describe("Rendering multiple skeletons for list views", () => {
   it("renders N TimelineEntrySkeletons without error", () => {
     const { container } = render(
       Array.from({ length: 4 }).map((_, i) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: test-only
-          <TimelineEntrySkeleton key={i} />
-        ))
+        // biome-ignore lint/suspicious/noArrayIndexKey: test-only
+        <TimelineEntrySkeleton key={i} />
+      )),
     )
     const statuses = container.querySelectorAll("output")
     expect(statuses.length).toBe(4)

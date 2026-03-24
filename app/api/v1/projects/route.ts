@@ -1,7 +1,7 @@
+import { badRequest, handlePrismaError, unprocessableEntity } from "@/lib/api"
+import { apiSuccess, buildPagination, paginatedResponse, parsePagination } from "@/lib/api/response"
 import { authenticateRequest } from "@/lib/auth"
-import { badRequest, unprocessableEntity, handlePrismaError } from "@/lib/api"
 import { prisma } from "@/lib/db"
-import { apiSuccess, paginatedResponse, parsePagination, buildPagination } from "@/lib/api/response"
 import { createProjectSchema } from "@/lib/schemas"
 
 export async function GET(request: Request) {
@@ -43,15 +43,22 @@ export async function POST(request: Request) {
 
   const parsed = createProjectSchema.safeParse(body)
   if (!parsed.success) {
-    const fields = Object.fromEntries(
-      parsed.error.issues.map((i) => [i.path.join("."), i.message]),
-    )
+    const fields = Object.fromEntries(parsed.error.issues.map((i) => [i.path.join("."), i.message]))
     return unprocessableEntity(fields)
   }
 
   // Map snake_case schema fields to camelCase Prisma fields
-  const { repo_url, main_branch, branch_prefix, prd_path, test_pattern,
-    deploy_environment, deploy_url, deploy_health_check, ...rest } = parsed.data
+  const {
+    repo_url,
+    main_branch,
+    branch_prefix,
+    prd_path,
+    test_pattern,
+    deploy_environment,
+    deploy_url,
+    deploy_health_check,
+    ...rest
+  } = parsed.data
 
   try {
     const project = await prisma.project.create({

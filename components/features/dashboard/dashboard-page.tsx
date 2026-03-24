@@ -1,14 +1,14 @@
 "use client"
 
-import { useState, useMemo } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
-import Link from "next/link"
 import { AlertCircle, Search } from "lucide-react"
-import { useProjects } from "@/lib/hooks"
-import type { ApiProject } from "@/types/api-responses"
+import Link from "next/link"
+import { useRouter, useSearchParams } from "next/navigation"
+import { useMemo, useState } from "react"
 import { DomainBadge } from "@/components/features/dashboard/domain-badge"
-import { ProjectCardSkeleton, ErrorState } from "@/components/features/dashboard/loading-states"
+import { ErrorState, ProjectCardSkeleton } from "@/components/features/dashboard/loading-states"
+import { useProjects } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
+import type { ApiProject } from "@/types/api-responses"
 
 // ---------------------------------------------------------------------------
 // Domain constants
@@ -16,7 +16,13 @@ import { cn } from "@/lib/utils"
 
 type Domain = "arcanelayer" | "aiteam" | "joshowensdev" | "infrastructure" | "wendyowensbooks"
 
-const DOMAINS: Domain[] = ["arcanelayer", "aiteam", "joshowensdev", "infrastructure", "wendyowensbooks"]
+const DOMAINS: Domain[] = [
+  "arcanelayer",
+  "aiteam",
+  "joshowensdev",
+  "infrastructure",
+  "wendyowensbooks",
+]
 const DOMAIN_LABELS: Record<Domain, string> = {
   arcanelayer: "Arcane Layer",
   aiteam: "AI Team",
@@ -41,7 +47,8 @@ function getActivityLevel(lastActivityAt: Date | null | string | undefined): Act
 }
 
 function getOpenPRCount(project: ApiProject): number {
-  return project.pullRequests.filter((pr) => pr.status !== "merged" && pr.status !== "closed").length
+  return project.pullRequests.filter((pr) => pr.status !== "merged" && pr.status !== "closed")
+    .length
 }
 
 // ---------------------------------------------------------------------------
@@ -87,11 +94,7 @@ export default function DashboardPage() {
   const { data: projects, isLoading, error, mutate } = useProjects()
 
   // Sync filter state to URL
-  function pushUrl(overrides: {
-    domain?: FilterDomain
-    q?: string
-    sort?: SortOption
-  }) {
+  function pushUrl(overrides: { domain?: FilterDomain; q?: string; sort?: SortOption }) {
     const params = new URLSearchParams()
     const d = overrides.domain ?? domainFilter
     const q = overrides.q !== undefined ? overrides.q : search
@@ -128,32 +131,33 @@ export default function DashboardPage() {
     if (search) {
       const q = search.toLowerCase()
       result = result.filter(
-        (p) =>
-          p.name.toLowerCase().includes(q) ||
-          p.tags.some((t) => t.toLowerCase().includes(q))
+        (p) => p.name.toLowerCase().includes(q) || p.tags.some((t) => t.toLowerCase().includes(q)),
       )
     }
 
     if (domainFilter !== "all") result = result.filter((p) => p.domain === domainFilter)
 
-    const activityOrder: Record<ActivityLevel, number> = { "active-now": 0, today: 1, "this-week": 2, stale: 3 }
+    const activityOrder: Record<ActivityLevel, number> = {
+      "active-now": 0,
+      today: 1,
+      "this-week": 2,
+      stale: 3,
+    }
 
     if (sort === "activity") {
       result.sort(
         (a, b) =>
           activityOrder[getActivityLevel(a.lastActivityAt)] -
-          activityOrder[getActivityLevel(b.lastActivityAt)]
+          activityOrder[getActivityLevel(b.lastActivityAt)],
       )
     } else if (sort === "name") {
       result.sort((a, b) => a.name.localeCompare(b.name))
     } else {
       result.sort((a, b) => {
         const aScore =
-          (getOpenPRCount(a) > 0 ? 0 : 2) +
-          activityOrder[getActivityLevel(a.lastActivityAt)] * 0.1
+          (getOpenPRCount(a) > 0 ? 0 : 2) + activityOrder[getActivityLevel(a.lastActivityAt)] * 0.1
         const bScore =
-          (getOpenPRCount(b) > 0 ? 0 : 2) +
-          activityOrder[getActivityLevel(b.lastActivityAt)] * 0.1
+          (getOpenPRCount(b) > 0 ? 0 : 2) + activityOrder[getActivityLevel(b.lastActivityAt)] * 0.1
         return aScore - bScore
       })
     }
@@ -182,7 +186,11 @@ export default function DashboardPage() {
       {/* Filters + Search */}
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-2 flex-wrap">
-          <FilterChip label="All Domains" active={domainFilter === "all"} onClick={() => handleDomainFilter("all")} />
+          <FilterChip
+            label="All Domains"
+            active={domainFilter === "all"}
+            onClick={() => handleDomainFilter("all")}
+          />
           {DOMAINS.map((d) => (
             <FilterChip
               key={d}
@@ -214,10 +222,14 @@ export default function DashboardPage() {
                 onClick={() => handleSort(s)}
                 className={cn(
                   "px-2.5 py-1 rounded text-xs transition-colors",
-                  sort === s ? "bg-secondary text-foreground" : "hover:text-foreground"
+                  sort === s ? "bg-secondary text-foreground" : "hover:text-foreground",
                 )}
               >
-                {s === "attention" ? "Needs attention" : s === "activity" ? "Last activity" : "Name"}
+                {s === "attention"
+                  ? "Needs attention"
+                  : s === "activity"
+                    ? "Last activity"
+                    : "Name"}
               </button>
             ))}
           </div>
@@ -228,7 +240,10 @@ export default function DashboardPage() {
       {isLoading ? (
         <LoadingSkeleton />
       ) : error ? (
-        <ErrorState onRetry={() => mutate()} message={error instanceof Error ? error.message : "An unexpected error occurred."} />
+        <ErrorState
+          onRetry={() => mutate()}
+          message={error instanceof Error ? error.message : "An unexpected error occurred."}
+        />
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground text-sm">
           {projects?.length === 0 ? "No projects found." : "No projects match your filters."}
@@ -248,14 +263,24 @@ export default function DashboardPage() {
 // Sub-components
 // ---------------------------------------------------------------------------
 
-function FilterChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+function FilterChip({
+  label,
+  active,
+  onClick,
+}: {
+  label: string
+  active: boolean
+  onClick: () => void
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
         "px-2.5 py-1 rounded text-xs font-medium transition-colors",
-        active ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+        active
+          ? "bg-secondary text-foreground"
+          : "text-muted-foreground hover:text-foreground hover:bg-secondary/50",
       )}
     >
       {label}
@@ -287,7 +312,7 @@ function ProjectCard({ project }: { project: ApiProject }) {
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex items-center gap-2 flex-wrap min-w-0">
           <span className="font-semibold text-sm text-foreground truncate">{project.name}</span>
-          {project.domain && <DomainBadge domain={project.domain} />}
+          {project.domain && <DomainBadge domain={project.domain as Domain} />}
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           {needsAttention && (
@@ -304,7 +329,9 @@ function ProjectCard({ project }: { project: ApiProject }) {
         <div className="mb-3">
           <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1">
             <span className="truncate">{activePrd.title}</span>
-            <span className="shrink-0 ml-2">{doneItems}/{totalItems}</span>
+            <span className="shrink-0 ml-2">
+              {doneItems}/{totalItems}
+            </span>
           </div>
           <div className="h-1 rounded-full bg-muted overflow-hidden">
             <div
@@ -318,7 +345,10 @@ function ProjectCard({ project }: { project: ApiProject }) {
       {project.tags.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {project.tags.map((tag) => (
-            <span key={tag} className="text-[10px] text-muted-foreground/60 bg-muted/30 rounded px-1.5 py-0.5">
+            <span
+              key={tag}
+              className="text-[10px] text-muted-foreground/60 bg-muted/30 rounded px-1.5 py-0.5"
+            >
               {tag}
             </span>
           ))}

@@ -38,9 +38,14 @@ describe("GET /api/v1/events", () => {
   it("should return paginated event list in envelope", async () => {
     mockPrisma.event.findMany.mockResolvedValue([
       {
-        id: "ev-1", projectId: "proj-1", type: "pr_opened",
-        title: "PR #1 opened", metadata: {}, occurredAt: new Date(),
-        createdAt: new Date(), updatedAt: new Date(),
+        id: "ev-1",
+        projectId: "proj-1",
+        type: "pr_opened",
+        title: "PR #1 opened",
+        metadata: {},
+        occurredAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
       },
     ])
     mockPrisma.event.count.mockResolvedValue(1)
@@ -77,14 +82,24 @@ describe("GET /api/v1/events/summary", () => {
   it("should return daily rollup grouped by project", async () => {
     mockPrisma.event.findMany.mockResolvedValue([
       {
-        id: "ev-1", projectId: "proj-1", type: "pr_opened",
-        title: "PR #1 opened", metadata: {}, occurredAt: new Date("2026-03-15"),
-        createdAt: new Date(), updatedAt: new Date(),
+        id: "ev-1",
+        projectId: "proj-1",
+        type: "pr_opened",
+        title: "PR #1 opened",
+        metadata: {},
+        occurredAt: new Date("2026-03-15"),
+        createdAt: new Date(),
+        updatedAt: new Date(),
       },
       {
-        id: "ev-2", projectId: "proj-1", type: "prd_completed",
-        title: "PRD done", metadata: {}, occurredAt: new Date("2026-03-15"),
-        createdAt: new Date(), updatedAt: new Date(),
+        id: "ev-2",
+        projectId: "proj-1",
+        type: "prd_completed",
+        title: "PRD done",
+        metadata: {},
+        occurredAt: new Date("2026-03-15"),
+        createdAt: new Date(),
+        updatedAt: new Date(),
       },
     ])
 
@@ -107,9 +122,14 @@ describe("GET /api/v1/projects/:id/events", () => {
     mockPrisma.project.findUnique.mockResolvedValue({ id: "proj-1" })
     mockPrisma.event.findMany.mockResolvedValue([
       {
-        id: "ev-1", projectId: "proj-1", type: "branch_created",
-        title: "Branch created", metadata: {}, occurredAt: new Date(),
-        createdAt: new Date(), updatedAt: new Date(),
+        id: "ev-1",
+        projectId: "proj-1",
+        type: "branch_created",
+        title: "Branch created",
+        metadata: {},
+        occurredAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
       },
     ])
     mockPrisma.event.count.mockResolvedValue(1)

@@ -14,13 +14,13 @@
  */
 
 import { act, render, renderHook, screen, waitFor } from "@testing-library/react"
-import { mockSSE } from "reactive-swr/testing"
 import type { SSEConfig } from "reactive-swr"
 import { useSSEStatus } from "reactive-swr"
+import { mockSSE } from "reactive-swr/testing"
 import useSWR, { useSWRConfig } from "swr"
 import { afterEach, describe, expect, it, vi } from "vitest"
+import { getPRsKey, getProjectKey, getProjectsKey, getSWRConfig } from "@/lib/hooks"
 import { Providers } from "../providers"
-import { getProjectsKey, getProjectKey, getPRsKey, getSWRConfig } from "@/lib/hooks"
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -173,7 +173,7 @@ describe("AC3: SSE data pushed into SWR cache without re-fetching", () => {
         "projects.updated": {
           key: projectsKey,
           update: "set",
-          transform: (raw: { payload: unknown }) => raw.payload,
+          transform: ((raw: { payload: unknown }) => raw.payload) as any,
         },
       },
     })
@@ -219,9 +219,10 @@ describe("AC3: SSE data pushed into SWR cache without re-fetching", () => {
     const sseConfig = makeSSEConfig({
       events: {
         "project.updated": {
-          key: (payload: { slug: string }) => getProjectKey(payload.slug) ?? "",
+          key: ((payload: { slug: string }) => getProjectKey(payload.slug) ?? "") as any,
           update: "set",
-          transform: (raw: { payload: { slug: string; [key: string]: unknown } }) => raw.payload,
+          transform: ((raw: { payload: { slug: string; [key: string]: unknown } }) =>
+            raw.payload) as any,
         },
       },
     })
@@ -318,7 +319,7 @@ describe("AC3: SSE data pushed into SWR cache without re-fetching", () => {
         "projects.patch": {
           key: projectsKey,
           update: "set",
-          transform: (raw: { payload: { items: unknown[] } }) => raw.payload.items,
+          transform: ((raw: { payload: { items: unknown[] } }) => raw.payload.items) as any,
         },
       },
     })
@@ -415,20 +416,17 @@ describe("AC4: Connection status is visible to user", () => {
 
     const sse = mockSSE(SSE_URL)
 
-    const { result } = renderHook(
-      () => useSSEStatus(),
-      {
-        wrapper: ({ children }) => (
-          <Providers
-            sseConfig={makeSSEConfig({
-              reconnect: { enabled: true, initialDelay: 100, maxDelay: 500, backoffMultiplier: 2 },
-            })}
-          >
-            {children}
-          </Providers>
-        ),
-      },
-    )
+    const { result } = renderHook(() => useSSEStatus(), {
+      wrapper: ({ children }) => (
+        <Providers
+          sseConfig={makeSSEConfig({
+            reconnect: { enabled: true, initialDelay: 100, maxDelay: 500, backoffMultiplier: 2 },
+          })}
+        >
+          {children}
+        </Providers>
+      ),
+    })
 
     const connection = sse.getConnection()
     await act(async () => {
@@ -498,9 +496,7 @@ describe("AC5: Automatic reconnection on disconnect", () => {
     const onConnect = vi.fn()
 
     render(
-      <Providers
-        sseConfig={makeSSEConfig({ reconnect: { enabled: false }, onConnect })}
-      >
+      <Providers sseConfig={makeSSEConfig({ reconnect: { enabled: false }, onConnect })}>
         <div>app</div>
       </Providers>,
     )
@@ -631,7 +627,10 @@ describe("AC6: Fallback to 30s polling if SSE connection fails", () => {
 
     const DataConsumer = () => {
       // revalidateOnMount: true ensures the fetcher is called on mount
-      const { data } = useSWR(pollingKey, fetcher, { revalidateOnMount: true, refreshInterval: 30_000 })
+      const { data } = useSWR(pollingKey, fetcher, {
+        revalidateOnMount: true,
+        refreshInterval: 30_000,
+      })
       return <div data-testid="data">{data ? "loaded" : "loading"}</div>
     }
 
@@ -669,7 +668,7 @@ describe("AC7: Existing SWR hooks benefit from real-time cache updates", () => {
         "projects.live": {
           key: projectsKey,
           update: "set",
-          transform: (raw: { payload: unknown }) => raw.payload,
+          transform: ((raw: { payload: unknown }) => raw.payload) as any,
         },
       },
     })
@@ -712,7 +711,7 @@ describe("AC7: Existing SWR hooks benefit from real-time cache updates", () => {
         "projects.shared": {
           key: projectsKey,
           update: "set",
-          transform: (raw: { payload: unknown }) => raw.payload,
+          transform: ((raw: { payload: unknown }) => raw.payload) as any,
         },
       },
     })
@@ -764,8 +763,9 @@ describe("AC7: Existing SWR hooks benefit from real-time cache updates", () => {
           key: projectsKey,
           update: "set",
           // filter on raw named-event payload (which is { type, payload: { projectId } })
-          filter: (raw: { payload: { projectId: string } }) => raw.payload?.projectId === "allowed",
-          transform: (raw: { payload: unknown }) => raw.payload,
+          filter: ((raw: { payload: { projectId: string } }) =>
+            raw.payload?.projectId === "allowed") as any,
+          transform: ((raw: { payload: unknown }) => raw.payload) as any,
         },
       },
     })
@@ -838,7 +838,7 @@ describe("Edge cases: SSE reconnection with stale cache", () => {
         "data.set": {
           key: cacheKey,
           update: "set",
-          transform: (raw: { payload: unknown }) => raw.payload,
+          transform: ((raw: { payload: unknown }) => raw.payload) as any,
         },
       },
     })
@@ -904,7 +904,7 @@ describe("Edge cases: Multiple rapid SSE events", () => {
         "rapid.update": {
           key: cacheKey,
           update: "set",
-          transform: (raw: { payload: unknown }) => raw.payload,
+          transform: ((raw: { payload: unknown }) => raw.payload) as any,
         },
       },
     })
@@ -967,12 +967,12 @@ describe("Edge cases: Multiple rapid SSE events", () => {
         "rapid.projects": {
           key: projectsKey,
           update: "set",
-          transform: (raw: { payload: unknown }) => raw.payload,
+          transform: ((raw: { payload: unknown }) => raw.payload) as any,
         },
         "rapid.prs": {
           key: prsKey,
           update: "set",
-          transform: (raw: { payload: unknown }) => raw.payload,
+          transform: ((raw: { payload: unknown }) => raw.payload) as any,
         },
       },
     })

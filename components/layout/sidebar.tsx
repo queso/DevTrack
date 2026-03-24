@@ -1,15 +1,28 @@
 "use client"
 
+import {
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  GitPullRequest,
+  LayoutDashboard,
+  Terminal,
+} from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, Clock, GitPullRequest, Terminal, ChevronLeft, ChevronRight } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { useProjects, usePRs } from "@/lib/hooks"
+import { useEffect, useState } from "react"
 import { ProjectCardSkeleton } from "@/components/features/dashboard/loading-states"
+import { usePRs, useProjects } from "@/lib/hooks"
 import type { Project } from "@/lib/ui-types"
-import { useState, useEffect } from "react"
+import { cn } from "@/lib/utils"
 
-const DOMAIN_ORDER = ["arcanelayer", "aiteam", "joshowensdev", "infrastructure", "wendyowensbooks"] as const
+const DOMAIN_ORDER = [
+  "arcanelayer",
+  "aiteam",
+  "joshowensdev",
+  "infrastructure",
+  "wendyowensbooks",
+] as const
 
 const domainLabels: Record<string, string> = {
   arcanelayer: "Arcane Layer",
@@ -28,9 +41,9 @@ export default function Sidebar() {
   const { data: projectsRaw, isLoading: projectsLoading } = useProjects()
   const { data: prsRaw } = usePRs()
 
-  const projects = (projectsRaw ?? []) as Project[]
+  const projects = (projectsRaw ?? []) as unknown as Project[]
   const openPRCount = (prsRaw ?? []).filter(
-    (pr) => pr.status === "open" || pr.status === "draft"
+    (pr) => pr.status === "open" || pr.status === "draft",
   ).length
 
   // Default to expanded; apply localStorage/viewport preference after mount to avoid hydration mismatch

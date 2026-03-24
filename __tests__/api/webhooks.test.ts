@@ -95,7 +95,7 @@ describe("POST /api/v1/webhooks/github — PR events", () => {
 
   it("should create PullRequest and Event records on pr.opened", async () => {
     mockPrisma.project.findFirst.mockResolvedValue({ id: "proj-1" })
-    mockPrisma.pullRequest.upsert.mockResolvedValue({ id: "pr-1", ...prPayload.pull_request })
+    mockPrisma.pullRequest.upsert.mockResolvedValue({ ...prPayload.pull_request, id: "pr-1" })
     mockPrisma.event.findFirst.mockResolvedValue(null)
     mockPrisma.event.create.mockResolvedValue({ id: "ev-1" })
 

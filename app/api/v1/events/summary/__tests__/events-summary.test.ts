@@ -48,7 +48,7 @@ function makeEvent(overrides: Record<string, unknown> = {}) {
   return {
     id: "ev-1",
     projectId: "proj-1",
-    type: "commit_pushed",
+    type: "commit",
     title: "Pushed commits",
     metadata: {},
     occurredAt: new Date("2026-03-15T10:00:00Z"),
@@ -67,8 +67,8 @@ describe("GET /api/v1/events/summary", () => {
   // AC1: Response includes a summary string per day
   it("includes a summary string in each day entry", async () => {
     mockPrisma.event.findMany.mockResolvedValue([
-      makeEvent({ type: "commit_pushed", projectId: "proj-1" }),
-      makeEvent({ type: "commit_pushed", projectId: "proj-2" }),
+      makeEvent({ type: "commit", projectId: "proj-1" }),
+      makeEvent({ type: "commit", projectId: "proj-2" }),
       makeEvent({ type: "pr_merged", projectId: "proj-1" }),
     ])
 
@@ -91,8 +91,8 @@ describe("GET /api/v1/events/summary", () => {
   // AC2: Summary string contains correct counts
   it("formats summary with commits, projects, and merged PRs", async () => {
     mockPrisma.event.findMany.mockResolvedValue([
-      makeEvent({ id: "ev-1", type: "commit_pushed", projectId: "proj-1" }),
-      makeEvent({ id: "ev-2", type: "commit_pushed", projectId: "proj-2" }),
+      makeEvent({ id: "ev-1", type: "commit", projectId: "proj-1" }),
+      makeEvent({ id: "ev-2", type: "commit", projectId: "proj-2" }),
       makeEvent({ id: "ev-3", type: "pr_merged", projectId: "proj-1" }),
     ])
 
@@ -104,7 +104,9 @@ describe("GET /api/v1/events/summary", () => {
     expect(response.status).toBe(200)
 
     const _day = body.data[0] ?? body.data
-    const summary = Array.isArray(body.data) ? (body.data[0]?.summary ?? body.data.summary) : body.data.summary
+    const summary = Array.isArray(body.data)
+      ? (body.data[0]?.summary ?? body.data.summary)
+      : body.data.summary
 
     // Should mention 2 commits and 2 projects
     expect(summary).toMatch(/2 commit/i)
@@ -139,7 +141,7 @@ describe("GET /api/v1/events/summary", () => {
   // AC1 + existing: raw counts are still present alongside summary
   it("still includes raw project counts alongside the summary field", async () => {
     mockPrisma.event.findMany.mockResolvedValue([
-      makeEvent({ type: "commit_pushed", projectId: "proj-1" }),
+      makeEvent({ type: "commit", projectId: "proj-1" }),
     ])
 
     const { GET } = await import("@/app/api/v1/events/summary/route")

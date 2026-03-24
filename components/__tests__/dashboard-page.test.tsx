@@ -11,7 +11,7 @@
 
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { type ReactNode, createElement } from "react"
+import { createElement, type ReactNode } from "react"
 import { SWRConfig } from "swr"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -109,7 +109,11 @@ describe("AC1: Uses real API via useProjects hook", () => {
     ]
 
     const DashboardPage = await importDashboardPage()
-    render(<SWRWrapper><DashboardPage /></SWRWrapper>)
+    render(
+      <SWRWrapper>
+        <DashboardPage />
+      </SWRWrapper>,
+    )
 
     await waitFor(() => {
       expect(screen.getByText("api-project-alpha")).toBeInTheDocument()
@@ -121,7 +125,11 @@ describe("AC1: Uses real API via useProjects hook", () => {
     mockUseProjectsReturn.data = [makeProject({ name: "only-live-project" })]
 
     const DashboardPage = await importDashboardPage()
-    render(<SWRWrapper><DashboardPage /></SWRWrapper>)
+    render(
+      <SWRWrapper>
+        <DashboardPage />
+      </SWRWrapper>,
+    )
 
     await waitFor(() => {
       expect(screen.getByText("only-live-project")).toBeInTheDocument()
@@ -143,7 +151,11 @@ describe("AC2: Shows loading skeleton while fetching", () => {
     mockUseProjectsReturn.data = undefined
 
     const DashboardPage = await importDashboardPage()
-    const { container } = render(<SWRWrapper><DashboardPage /></SWRWrapper>)
+    const { container } = render(
+      <SWRWrapper>
+        <DashboardPage />
+      </SWRWrapper>,
+    )
 
     // Skeleton cards use animate-pulse
     const skeletons = container.querySelectorAll(".animate-pulse")
@@ -161,7 +173,11 @@ describe("AC3: Error state with retry button", () => {
     mockUseProjectsReturn.data = undefined
 
     const DashboardPage = await importDashboardPage()
-    render(<SWRWrapper><DashboardPage /></SWRWrapper>)
+    render(
+      <SWRWrapper>
+        <DashboardPage />
+      </SWRWrapper>,
+    )
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /retry/i })).toBeInTheDocument()
@@ -173,7 +189,11 @@ describe("AC3: Error state with retry button", () => {
     mockUseProjectsReturn.data = undefined
 
     const DashboardPage = await importDashboardPage()
-    render(<SWRWrapper><DashboardPage /></SWRWrapper>)
+    render(
+      <SWRWrapper>
+        <DashboardPage />
+      </SWRWrapper>,
+    )
 
     const retryBtn = await screen.findByRole("button", { name: /retry/i })
     await userEvent.click(retryBtn)
@@ -191,14 +211,18 @@ describe("AC4: Empty state when API returns no projects", () => {
     mockUseProjectsReturn.data = []
 
     const DashboardPage = await importDashboardPage()
-    render(<SWRWrapper><DashboardPage /></SWRWrapper>)
+    render(
+      <SWRWrapper>
+        <DashboardPage />
+      </SWRWrapper>,
+    )
 
     await waitFor(() => {
       // Should show some kind of empty/no-projects message
       expect(
         screen.getByText(/no projects/i) ||
-        screen.getByText(/0 projects/i) ||
-        screen.queryByRole("link") === null
+          screen.getByText(/0 projects/i) ||
+          screen.queryByRole("link") === null,
       ).toBeTruthy()
     })
   })
@@ -216,7 +240,11 @@ describe("AC5: Filters and search work on live data", () => {
     ]
 
     const DashboardPage = await importDashboardPage()
-    render(<SWRWrapper><DashboardPage /></SWRWrapper>)
+    render(
+      <SWRWrapper>
+        <DashboardPage />
+      </SWRWrapper>,
+    )
 
     // Both visible initially
     await waitFor(() => {
@@ -241,7 +269,11 @@ describe("AC5: Filters and search work on live data", () => {
     ]
 
     const DashboardPage = await importDashboardPage()
-    render(<SWRWrapper><DashboardPage /></SWRWrapper>)
+    render(
+      <SWRWrapper>
+        <DashboardPage />
+      </SWRWrapper>,
+    )
 
     await waitFor(() => {
       expect(screen.getByText("searchable-project")).toBeInTheDocument()

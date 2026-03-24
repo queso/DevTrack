@@ -24,7 +24,9 @@ describe("API response helpers", () => {
   })
 
   it("paginatedResponse and pagination helpers should compute correct skip/take", async () => {
-    const { paginatedResponse, parsePagination, buildPagination } = await import("@/lib/api/response")
+    const { paginatedResponse, parsePagination, buildPagination } = await import(
+      "@/lib/api/response"
+    )
 
     // paginatedResponse returns correct meta
     const result = paginatedResponse([{ id: "a" }, { id: "b" }], 50, 2, 10)

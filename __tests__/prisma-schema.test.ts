@@ -26,14 +26,7 @@ describe("Prisma schema smoke tests", () => {
   it("should define all required models", () => {
     const { readFileSync } = require("node:fs")
     const schema = readFileSync(SCHEMA_PATH, "utf-8")
-    const requiredModels = [
-      "Project",
-      "Prd",
-      "WorkItem",
-      "Branch",
-      "PullRequest",
-      "Event",
-    ]
+    const requiredModels = ["Project", "Prd", "WorkItem", "Branch", "PullRequest", "Event"]
     for (const model of requiredModels) {
       expect(schema, `Expected model "${model}" to be defined`).toMatch(
         new RegExp(`model\\s+${model}\\s*\\{`),

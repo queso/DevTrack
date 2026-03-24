@@ -1,6 +1,6 @@
 import { timingSafeEqual } from "node:crypto"
-import { unauthorized } from "@/lib/api"
 import type { ValidationResult } from "@/lib/api"
+import { unauthorized } from "@/lib/api"
 import { getEnv } from "@/lib/env"
 import { getLogger } from "@/lib/logger"
 

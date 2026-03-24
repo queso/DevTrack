@@ -193,14 +193,18 @@ describe("syncPrds", () => {
 
     it("records a prd_synced event after syncing", async () => {
       mockFetch
-        .mockResolvedValueOnce(new Response(JSON.stringify({ data: { id: "prd-abc" } }), { status: 201 }))
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ data: { id: "prd-abc" } }), { status: 201 }),
+        )
         .mockResolvedValueOnce(new Response(JSON.stringify({ data: {} }), { status: 200 })) // work items
         .mockResolvedValueOnce(new Response(JSON.stringify({ data: {} }), { status: 201 })) // event
 
       await syncPrds({ ...BASE_OPTIONS, changedFiles: ["prd/0001-auth.md"] })
 
-      const allUrls = mockFetch.mock.calls.map(([url]: [string]) => url)
-      expect(allUrls.some((url: string) => url.includes("events") || url.includes("prd_synced"))).toBe(true)
+      const allUrls = mockFetch.mock.calls.map(([url]: any[]) => url)
+      expect(
+        allUrls.some((url: string) => url.includes("events") || url.includes("prd_synced")),
+      ).toBe(true)
     })
 
     it("marks record as created: true when PRD is newly created (201)", async () => {
@@ -225,52 +229,54 @@ describe("syncPrds", () => {
   describe("work item sync", () => {
     it("syncs work items to /api/v1/prds/:id/work-items", async () => {
       mockFetch
-        .mockResolvedValueOnce(new Response(JSON.stringify({ data: { id: "prd-abc" } }), { status: 201 }))
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ data: { id: "prd-abc" } }), { status: 201 }),
+        )
         .mockResolvedValue(new Response(JSON.stringify({ data: {} }), { status: 200 }))
 
       await syncPrds({ ...BASE_OPTIONS, changedFiles: ["prd/0001-auth.md"] })
 
-      const allUrls = mockFetch.mock.calls.map(([url]: [string]) => url)
-      expect(allUrls.some((url: string) => url.includes("work-items") || url.includes("prd-abc"))).toBe(true)
+      const allUrls = mockFetch.mock.calls.map(([url]: any[]) => url)
+      expect(
+        allUrls.some((url: string) => url.includes("work-items") || url.includes("prd-abc")),
+      ).toBe(true)
     })
 
     it("maps completed: true work items to status: 'done'", async () => {
       mockFetch
-        .mockResolvedValueOnce(new Response(JSON.stringify({ data: { id: "prd-abc" } }), { status: 201 }))
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ data: { id: "prd-abc" } }), { status: 201 }),
+        )
         .mockResolvedValue(new Response(JSON.stringify({ data: {} }), { status: 200 }))
 
       await syncPrds({ ...BASE_OPTIONS, changedFiles: ["prd/0001-auth.md"] })
 
-      const workItemCalls = mockFetch.mock.calls.filter(([url]: [string]) =>
-        url.includes("work-item"),
-      )
-      const bodies = workItemCalls.map(([, opts]: [string, RequestInit]) =>
-        JSON.parse(opts.body as string),
-      )
+      const workItemCalls = mockFetch.mock.calls.filter(([url]: any[]) => url.includes("work-item"))
+      const bodies = workItemCalls.map(([, opts]: any[]) => JSON.parse(opts.body as string))
       const doneItems = bodies.filter((b: { status?: string }) => b.status === "done")
       expect(doneItems.length).toBeGreaterThan(0)
     })
 
     it("maps completed: false work items to status: 'todo'", async () => {
       mockFetch
-        .mockResolvedValueOnce(new Response(JSON.stringify({ data: { id: "prd-abc" } }), { status: 201 }))
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ data: { id: "prd-abc" } }), { status: 201 }),
+        )
         .mockResolvedValue(new Response(JSON.stringify({ data: {} }), { status: 200 }))
 
       await syncPrds({ ...BASE_OPTIONS, changedFiles: ["prd/0001-auth.md"] })
 
-      const workItemCalls = mockFetch.mock.calls.filter(([url]: [string]) =>
-        url.includes("work-item"),
-      )
-      const bodies = workItemCalls.map(([, opts]: [string, RequestInit]) =>
-        JSON.parse(opts.body as string),
-      )
+      const workItemCalls = mockFetch.mock.calls.filter(([url]: any[]) => url.includes("work-item"))
+      const bodies = workItemCalls.map(([, opts]: any[]) => JSON.parse(opts.body as string))
       const todoItems = bodies.filter((b: { status?: string }) => b.status === "todo")
       expect(todoItems.length).toBeGreaterThan(0)
     })
 
     it("records the number of work items synced", async () => {
       mockFetch
-        .mockResolvedValueOnce(new Response(JSON.stringify({ data: { id: "prd-abc" } }), { status: 201 }))
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ data: { id: "prd-abc" } }), { status: 201 }),
+        )
         .mockResolvedValue(new Response(JSON.stringify({ data: {} }), { status: 200 }))
 
       const result = await syncPrds({ ...BASE_OPTIONS, changedFiles: ["prd/0001-auth.md"] })
@@ -306,7 +312,9 @@ describe("syncPrds", () => {
 
     it("continues when work item sync fails, still records prd as synced", async () => {
       mockFetch
-        .mockResolvedValueOnce(new Response(JSON.stringify({ data: { id: "prd-abc" } }), { status: 201 }))
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ data: { id: "prd-abc" } }), { status: 201 }),
+        )
         .mockRejectedValueOnce(new Error("Work item sync failed"))
 
       const result = await syncPrds({ ...BASE_OPTIONS, changedFiles: ["prd/0001-auth.md"] })

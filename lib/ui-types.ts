@@ -1,7 +1,14 @@
 export type ActivityLevel = "active-now" | "today" | "this-week" | "stale"
 export type PRStatus = "draft" | "open" | "reviewed" | "changes-requested" | "approved" | "merged"
 export type CheckStatus = "passing" | "failing" | "pending"
-export type EventType = "commit" | "branch" | "pr-opened" | "pr-reviewed" | "pr-merged" | "prd-update" | "deploy"
+export type EventType =
+  | "commit"
+  | "branch"
+  | "pr-opened"
+  | "pr-reviewed"
+  | "pr-merged"
+  | "prd-update"
+  | "deploy"
 
 export interface WorkItem {
   id: string

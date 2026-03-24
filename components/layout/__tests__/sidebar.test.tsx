@@ -12,9 +12,9 @@
  *  8. Handles zero projects gracefully
  */
 
-import { render, screen, fireEvent, waitFor } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 // ---------------------------------------------------------------------------
 // Mock next/navigation
@@ -302,7 +302,12 @@ describe("Sidebar — loading state", () => {
 
   it("renders project list once loading completes", async () => {
     // Start loading
-    mockUseProjects.mockReturnValue({ data: undefined, isLoading: true, error: undefined, meta: undefined })
+    mockUseProjects.mockReturnValue({
+      data: undefined,
+      isLoading: true,
+      error: undefined,
+      meta: undefined,
+    })
     mockUsePRs.mockReturnValue({ data: [], isLoading: false, error: undefined, meta: undefined })
 
     const { rerender } = render(<SidebarModule.default />)
@@ -666,7 +671,12 @@ describe("Sidebar — PR badge zero count", () => {
   it("shows badge when PR count transitions from zero to one", async () => {
     const _user = userEvent.setup()
     mockUsePRs.mockReturnValue({ data: [], isLoading: false, error: undefined, meta: undefined })
-    mockUseProjects.mockReturnValue({ data: [PROJECT_ARCANELAYER], isLoading: false, error: undefined, meta: undefined })
+    mockUseProjects.mockReturnValue({
+      data: [PROJECT_ARCANELAYER],
+      isLoading: false,
+      error: undefined,
+      meta: undefined,
+    })
 
     const { rerender } = render(<SidebarModule.default />)
 
@@ -674,7 +684,12 @@ describe("Sidebar — PR badge zero count", () => {
     expect(screen.queryByText("1")).not.toBeInTheDocument()
 
     // Now one PR arrives
-    mockUsePRs.mockReturnValue({ data: [OPEN_PR], isLoading: false, error: undefined, meta: undefined })
+    mockUsePRs.mockReturnValue({
+      data: [OPEN_PR],
+      isLoading: false,
+      error: undefined,
+      meta: undefined,
+    })
     rerender(<SidebarModule.default />)
 
     await waitFor(() => {

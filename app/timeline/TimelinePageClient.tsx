@@ -1,17 +1,14 @@
 "use client"
 
-import { useState, useMemo } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useTimeline, useProjects } from "@/lib/hooks"
-import { mapTimelineEvent } from "@/lib/mappers"
+import { useMemo, useState } from "react"
+import { EmptyState, TimelineEntrySkeleton } from "@/components/features/dashboard/loading-states"
 import type { Domain } from "@/lib/constants"
+import { DOMAIN_LABELS, DOMAIN_ORDER } from "@/lib/constants"
+import { useProjects, useTimeline } from "@/lib/hooks"
+import { mapTimelineEvent } from "@/lib/mappers"
 import type { EventType } from "@/lib/ui-types"
-import {
-  TimelineEntrySkeleton,
-  EmptyState,
-} from "@/components/features/dashboard/loading-states"
 import { cn } from "@/lib/utils"
-import { DOMAIN_ORDER, DOMAIN_LABELS } from "@/lib/constants"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -34,21 +31,38 @@ function getDayLabel(timestamp: string): string {
   if (eventDay.getTime() === yesterday.getTime()) return "Yesterday"
 
   const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+  const months = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ]
   const diff = today.getTime() - eventDay.getTime()
   if (diff < 7 * 86400000) return days[eventDay.getDay()]
   return `${days[eventDay.getDay()]}, ${months[eventDay.getMonth()]} ${eventDay.getDate()}`
 }
 
 function buildDaySummary(events: { type: string; projectSlug: string }[]): string {
-  const commits = events.filter((e) => e.type === "commit" || e.type === "commit_pushed")
+  const commits = events.filter((e) => e.type === "commit")
   const commitProjects = new Set(commits.map((e) => e.projectSlug)).size
   const prMerged = events.filter((e) => e.type === "pr-merged" || e.type === "pr_merged").length
-  const prdCompleted = events.filter((e) => e.type === "prd-update" || e.type === "prd_completed").length
+  const prdCompleted = events.filter(
+    (e) => e.type === "prd-update" || e.type === "prd_completed",
+  ).length
 
   const parts: string[] = []
   if (commits.length > 0) {
-    parts.push(`${commits.length} ${commits.length === 1 ? "commit" : "commits"} across ${commitProjects} ${commitProjects === 1 ? "project" : "projects"}`)
+    parts.push(
+      `${commits.length} ${commits.length === 1 ? "commit" : "commits"} across ${commitProjects} ${commitProjects === 1 ? "project" : "projects"}`,
+    )
   }
   if (prMerged > 0) {
     parts.push(`${prMerged} ${prMerged === 1 ? "PR" : "PRs"} merged`)
@@ -56,7 +70,9 @@ function buildDaySummary(events: { type: string; projectSlug: string }[]): strin
   if (prdCompleted > 0) {
     parts.push(`${prdCompleted} ${prdCompleted === 1 ? "PRD" : "PRDs"} completed`)
   }
-  return parts.length > 0 ? parts.join(", ") : `${events.length} event${events.length !== 1 ? "s" : ""}`
+  return parts.length > 0
+    ? parts.join(", ")
+    : `${events.length} event${events.length !== 1 ? "s" : ""}`
 }
 
 function buildUrl(
@@ -89,8 +105,6 @@ const ALL_EVENT_TYPES: EventType[] = [
   "pr-merged",
   "prd-update",
   "deploy",
-  "published",
-  "draft-started",
 ]
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
@@ -100,8 +114,6 @@ const EVENT_TYPE_LABELS: Record<string, string> = {
   "pr-merged": "PR Merged",
   "prd-update": "PRD Update",
   deploy: "Deploy",
-  published: "Published",
-  "draft-started": "Draft Started",
 }
 
 // ---------------------------------------------------------------------------
@@ -155,9 +167,7 @@ export default function TimelinePageClient() {
     }
 
     if (domainFilter !== "all") {
-      const domainProjects = projects
-        .filter((p) => p.domain === domainFilter)
-        .map((p) => p.name)
+      const domainProjects = projects.filter((p) => p.domain === domainFilter).map((p) => p.name)
       result = result.filter((e) => domainProjects.includes(e.projectSlug))
     }
 
@@ -235,10 +245,7 @@ export default function TimelinePageClient() {
 
   // Determine if "load more" should show
   // Show when there is a next page: page * per_page < total
-  const hasMore =
-    meta !== undefined &&
-    meta.total > 0 &&
-    meta.page * meta.per_page < meta.total
+  const hasMore = meta !== undefined && meta.total > 0 && meta.page * meta.per_page < meta.total
 
   // ---------------------------------------------------------------------------
   // Render
@@ -286,7 +293,9 @@ export default function TimelinePageClient() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Timeline</h1>
-        <p className="text-sm text-muted-foreground mt-1">Cross-project activity feed for standups and recaps</p>
+        <p className="text-sm text-muted-foreground mt-1">
+          Cross-project activity feed for standups and recaps
+        </p>
       </div>
 
       {/* Filters */}
@@ -294,7 +303,14 @@ export default function TimelinePageClient() {
         {/* Date range quick buttons */}
         <div className="flex items-center gap-2 flex-wrap">
           {(["today", "yesterday", "week", "all"] as QuickRange[]).map((r) => {
-            const label = r === "today" ? "Today" : r === "yesterday" ? "Yesterday" : r === "week" ? "This week" : "All time"
+            const label =
+              r === "today"
+                ? "Today"
+                : r === "yesterday"
+                  ? "Yesterday"
+                  : r === "week"
+                    ? "This week"
+                    : "All time"
             return (
               <button
                 type="button"
@@ -331,7 +347,9 @@ export default function TimelinePageClient() {
           >
             <option value="all">All Domains</option>
             {DOMAINS.map((d) => (
-              <option key={d} value={d}>{DOMAIN_LABELS[d]}</option>
+              <option key={d} value={d}>
+                {DOMAIN_LABELS[d]}
+              </option>
             ))}
           </select>
 
@@ -344,7 +362,9 @@ export default function TimelinePageClient() {
           >
             <option value="all">All Projects</option>
             {projects.map((p) => (
-              <option key={p.id} value={p.name}>{p.name}</option>
+              <option key={p.id} value={p.name}>
+                {p.name}
+              </option>
             ))}
           </select>
 
@@ -357,7 +377,9 @@ export default function TimelinePageClient() {
           >
             <option value="all">All Types</option>
             {ALL_EVENT_TYPES.map((t) => (
-              <option key={t} value={t}>{EVENT_TYPE_LABELS[t] ?? t}</option>
+              <option key={t} value={t}>
+                {EVENT_TYPE_LABELS[t] ?? t}
+              </option>
             ))}
           </select>
         </div>
@@ -369,11 +391,7 @@ export default function TimelinePageClient() {
       ) : (
         <div className="flex flex-col gap-6">
           {Array.from(grouped.entries()).map(([day, dayEvents]) => (
-            <section
-              key={day}
-              aria-label={day}
-              className="flex flex-col gap-3"
-            >
+            <section key={day} aria-label={day} className="flex flex-col gap-3">
               {/* Day header */}
               <div className="flex items-center gap-3">
                 <h2 className="text-sm font-semibold text-foreground">{day}</h2>
@@ -400,10 +418,14 @@ export default function TimelinePageClient() {
                       <div className="w-5 h-5 rounded-full bg-secondary border border-border flex items-center justify-center shrink-0 mt-0.5 z-10" />
                       <div className="flex flex-col gap-1 pt-0.5 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-[11px] font-mono text-muted-foreground">{event.projectSlug}</span>
+                          <span className="text-[11px] font-mono text-muted-foreground">
+                            {event.projectSlug}
+                          </span>
                           <span className="text-[11px] text-muted-foreground/40">{timeStr}</span>
                         </div>
-                        <p className="text-sm text-foreground/90 leading-relaxed">{event.description}</p>
+                        <p className="text-sm text-foreground/90 leading-relaxed">
+                          {event.description}
+                        </p>
                       </div>
                     </div>
                   )

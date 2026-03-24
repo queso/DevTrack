@@ -1,7 +1,7 @@
-import { authenticateRequest } from "@/lib/auth"
-import { notFound, badRequest, unprocessableEntity, handlePrismaError } from "@/lib/api"
-import { prisma } from "@/lib/db"
+import { badRequest, handlePrismaError, notFound, unprocessableEntity } from "@/lib/api"
 import { apiSuccess } from "@/lib/api/response"
+import { authenticateRequest } from "@/lib/auth"
+import { prisma } from "@/lib/db"
 import { updatePrSchema } from "@/lib/schemas"
 
 type RouteContext = { params: Promise<{ id: string }> }
@@ -34,13 +34,12 @@ export async function PATCH(request: Request, { params }: RouteContext) {
 
   const parsed = updatePrSchema.safeParse(body)
   if (!parsed.success) {
-    const fields = Object.fromEntries(
-      parsed.error.issues.map((i) => [i.path.join("."), i.message]),
-    )
+    const fields = Object.fromEntries(parsed.error.issues.map((i) => [i.path.join("."), i.message]))
     return unprocessableEntity(fields)
   }
 
-  const { project_id, branch_id, prd_id, github_id, check_status, opened_at, merged_at, ...rest } = parsed.data
+  const { project_id, branch_id, prd_id, github_id, check_status, opened_at, merged_at, ...rest } =
+    parsed.data
   try {
     const pr = await prisma.pullRequest.update({
       where: { id },

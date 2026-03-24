@@ -25,8 +25,9 @@ export function Providers({ children, sseConfig }: ProvidersProps) {
   const correlationIdRef = useRef<string | undefined>(undefined)
 
   if (!correlationIdRef.current) {
-    correlationIdRef.current = globalThis.crypto?.randomUUID?.()
-      ?? Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)
+    correlationIdRef.current =
+      globalThis.crypto?.randomUUID?.() ??
+      Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)
   }
 
   const correlationId = correlationIdRef.current

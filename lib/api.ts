@@ -1,5 +1,5 @@
-import { Prisma } from "@/lib/generated/prisma/client"
 import type { z } from "zod"
+import { Prisma } from "@/lib/generated/prisma/client"
 
 export interface ApiErrorResponse {
   error: string

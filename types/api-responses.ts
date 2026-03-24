@@ -1,8 +1,8 @@
-export type { PullRequest as ApiPullRequest } from "@/types/pull-request"
 export type { Event as ApiEvent } from "@/types/event"
+export type { PullRequest as ApiPullRequest } from "@/types/pull-request"
 
-import type { PullRequest } from "@/types/pull-request"
 import type { Prd, WorkItem } from "@/types/prd"
+import type { PullRequest } from "@/types/pull-request"
 
 interface ApiPrdWithItems extends Prd {
   workItems: WorkItem[]

@@ -1,13 +1,13 @@
-import type { WorkItem as ApiWorkItem, Prd } from "@/types/prd"
-import type { ApiPullRequest, ApiEvent, ApiProject } from "@/types/api-responses"
 import type {
-  WorkItem as UiWorkItem,
+  CheckStatus as UiCheckStatus,
   PRD as UiPRD,
+  Project as UiProject,
   PullRequest as UiPullRequest,
   TimelineEvent as UiTimelineEvent,
-  Project as UiProject,
-  CheckStatus as UiCheckStatus,
+  WorkItem as UiWorkItem,
 } from "@/lib/ui-types"
+import type { ApiEvent, ApiProject, ApiPullRequest } from "@/types/api-responses"
+import type { WorkItem as ApiWorkItem, Prd } from "@/types/prd"
 
 // ---------------------------------------------------------------------------
 // mapWorkItem
@@ -145,7 +145,7 @@ function computeActionNeeded(project: ApiProject): boolean {
 
 function computeCheckStatus(pullRequests: ApiPullRequest[]): UiCheckStatus {
   const open = pullRequests.filter(
-    (pr) => pr.status === "open" || pr.status === "draft" || pr.status === "review_requested"
+    (pr) => pr.status === "open" || pr.status === "draft" || pr.status === "review_requested",
   )
   if (open.length === 0) return "passing"
   if (open.some((pr) => pr.check_status === "failing")) return "failing"
@@ -155,7 +155,7 @@ function computeCheckStatus(pullRequests: ApiPullRequest[]): UiCheckStatus {
 
 function computeOpenPRCount(pullRequests: ApiPullRequest[]): number {
   return pullRequests.filter(
-    (pr) => pr.status === "open" || pr.status === "draft" || pr.status === "review_requested"
+    (pr) => pr.status === "open" || pr.status === "draft" || pr.status === "review_requested",
   ).length
 }
 

@@ -20,7 +20,7 @@ describe("WI-009: mock-data.ts removed", () => {
   it("lib/mock-data.ts file is deleted", () => {
     expect(
       existsSync(join(ROOT, "lib", "mock-data.ts")),
-      "lib/mock-data.ts should be deleted — it is dead code after WI-001 and WI-008"
+      "lib/mock-data.ts should be deleted — it is dead code after WI-001 and WI-008",
     ).toBe(false)
   })
 
@@ -35,7 +35,7 @@ describe("WI-009: mock-data.ts removed", () => {
           --exclude="*.test.ts" --exclude="*.test.tsx" \
           --exclude="*.spec.ts" --exclude="*.spec.tsx" \
           -l .`,
-        { cwd: ROOT, encoding: "utf-8" }
+        { cwd: ROOT, encoding: "utf-8" },
       ).trim()
     } catch {
       // grep exits 1 when no matches — that is the success case.
@@ -44,7 +44,7 @@ describe("WI-009: mock-data.ts removed", () => {
 
     expect(
       output,
-      `These source files still import from mock-data and must be updated:\n${output}`
+      `These source files still import from mock-data and must be updated:\n${output}`,
     ).toBe("")
   })
 })

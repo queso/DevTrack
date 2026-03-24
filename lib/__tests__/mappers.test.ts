@@ -1,13 +1,8 @@
 import { describe, expect, it } from "vitest"
-import {
-  mapProject,
-  mapPR,
-  mapTimelineEvent,
-  mapWorkItem,
-} from "@/lib/mappers"
-import type { Prd, WorkItem as ApiWorkItem } from "@/types/prd"
-import type { PullRequest as ApiPullRequest } from "@/types/pull-request"
+import { mapPR, mapProject, mapTimelineEvent, mapWorkItem } from "@/lib/mappers"
 import type { Event as ApiEvent } from "@/types/event"
+import type { WorkItem as ApiWorkItem, Prd } from "@/types/prd"
+import type { PullRequest as ApiPullRequest } from "@/types/pull-request"
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -22,20 +17,22 @@ const DAY = 24 * HOUR
 const WEEK = 7 * DAY
 
 // Base Prisma-shaped API objects (snake_case / Date fields)
-function makeApiProject(overrides: Partial<{
-  id: string
-  name: string
-  workflow: "sdlc"
-  domain: string | null
-  tags: string[]
-  repoUrl: string | null
-  deployUrl: string | null
-  lastActivityAt: Date | null
-  prds: ApiPrdWithItems[]
-  pullRequests: ApiPullRequest[]
-  createdAt: Date
-  updatedAt: Date
-}> = {}) {
+function makeApiProject(
+  overrides: Partial<{
+    id: string
+    name: string
+    workflow: "sdlc"
+    domain: string | null
+    tags: string[]
+    repoUrl: string | null
+    deployUrl: string | null
+    lastActivityAt: Date | null
+    prds: ApiPrdWithItems[]
+    pullRequests: ApiPullRequest[]
+    createdAt: Date
+    updatedAt: Date
+  }> = {},
+) {
   return {
     id: "proj-1",
     name: "my-project",
@@ -306,10 +303,7 @@ describe("mapTimelineEvent", () => {
   })
 
   it("passes metadata through", () => {
-    const result = mapTimelineEvent(
-      makeEvent({ metadata: { sha: "abc123", pr: "42" } }),
-      "proj"
-    )
+    const result = mapTimelineEvent(makeEvent({ metadata: { sha: "abc123", pr: "42" } }), "proj")
     expect(result.metadata).toMatchObject({ sha: "abc123", pr: "42" })
   })
 
@@ -472,7 +466,7 @@ describe("mapProject — summaryLine (SDLC workflow)", () => {
     const p = makeApiProject({ workflow: "sdlc", prds: [prd] })
     const result = mapProject(p)
     expect(result.summaryLine).toMatch(/barcode scanning/i)
-    expect(result.summaryLine).toMatch(/2\/5|2 of 5/)  // "2/5 items done"
+    expect(result.summaryLine).toMatch(/2\/5|2 of 5/) // "2/5 items done"
   })
 
   it("generates summary indicating stale when no PRDs and stale activity", () => {
@@ -489,10 +483,7 @@ describe("mapProject — summaryLine (SDLC workflow)", () => {
     const prd = makePrd({
       title: "Landing redesign",
       status: "in_progress",
-      workItems: [
-        makeWorkItem({ status: "done" }),
-        makeWorkItem({ id: "wi-2", status: "done" }),
-      ],
+      workItems: [makeWorkItem({ status: "done" }), makeWorkItem({ id: "wi-2", status: "done" })],
     })
     const p = makeApiProject({ workflow: "sdlc", prds: [prd] })
     const result = mapProject(p)
@@ -515,7 +506,6 @@ describe("mapProject — summaryLine (SDLC workflow)", () => {
     expect(result.summaryLine.length).toBeGreaterThan(0)
   })
 })
-
 
 // ---------------------------------------------------------------------------
 // mapProject — nested PRDs and structure
@@ -756,7 +746,7 @@ describe("mapTimelineEvent — edge cases", () => {
     // would need to be sanitized at the render layer.
     const result = mapTimelineEvent(
       makeEvent({ metadata: { msg: "<script>alert(1)</script>" } }),
-      "proj"
+      "proj",
     )
     // Mapper does not sanitize — the value passes through unchanged.
     // This is acceptable as long as the render layer uses React (which escapes by default).
@@ -768,7 +758,7 @@ describe("mapTimelineEvent — edge cases", () => {
     // but we verify it doesn't throw or produce undefined
     const result = mapTimelineEvent(
       makeEvent({ type: "unknown_future_event" as ApiEvent["type"] }),
-      "proj"
+      "proj",
     )
     expect(typeof result.type).toBe("string")
     expect(result.type).toBe("unknown_future_event")

@@ -35,7 +35,13 @@ describe("GET /api/v1/projects", () => {
 
   it("should return paginated project list in envelope", async () => {
     mockPrisma.project.findMany.mockResolvedValue([
-      { id: "uuid-1", name: "Project A", workflow: "sdlc", createdAt: new Date(), updatedAt: new Date() },
+      {
+        id: "uuid-1",
+        name: "Project A",
+        workflow: "sdlc",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
     ])
     mockPrisma.project.count.mockResolvedValue(1)
 
@@ -55,7 +61,10 @@ describe("GET /api/v1/projects", () => {
     const { authenticateRequest } = await import("@/lib/auth")
     vi.mocked(authenticateRequest).mockReturnValueOnce({
       success: false,
-      response: new Response(JSON.stringify({ error: "UNAUTHORIZED", message: "Invalid API key" }), { status: 401 }),
+      response: new Response(
+        JSON.stringify({ error: "UNAUTHORIZED", message: "Invalid API key" }),
+        { status: 401 },
+      ),
     } as never)
 
     vi.resetModules()
@@ -71,7 +80,13 @@ describe("POST /api/v1/projects", () => {
   beforeEach(() => vi.clearAllMocks())
 
   it("should create a project and return 201 with envelope", async () => {
-    const created = { id: "uuid-2", name: "New Project", workflow: "sdlc", createdAt: new Date(), updatedAt: new Date() }
+    const created = {
+      id: "uuid-2",
+      name: "New Project",
+      workflow: "sdlc",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }
     mockPrisma.project.create.mockResolvedValue(created)
 
     const { POST } = await import("@/app/api/v1/projects/route")
@@ -121,7 +136,13 @@ describe("DELETE /api/v1/projects/:id", () => {
   beforeEach(() => vi.clearAllMocks())
 
   it("should delete a project and return 204", async () => {
-    const project = { id: "uuid-1", name: "Project A", workflow: "sdlc", createdAt: new Date(), updatedAt: new Date() }
+    const project = {
+      id: "uuid-1",
+      name: "Project A",
+      workflow: "sdlc",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }
     mockPrisma.project.findUnique.mockResolvedValue(project)
     mockPrisma.project.delete.mockResolvedValue(project)
 
@@ -136,7 +157,9 @@ describe("DELETE /api/v1/projects/:id", () => {
     mockPrisma.project.findUnique.mockResolvedValue(null)
 
     const { DELETE } = await import("@/app/api/v1/projects/[id]/route")
-    const request = new Request("http://localhost/api/v1/projects/nonexistent-id", { method: "DELETE" })
+    const request = new Request("http://localhost/api/v1/projects/nonexistent-id", {
+      method: "DELETE",
+    })
     const response = await DELETE(request, { params: Promise.resolve({ id: "nonexistent-id" }) })
 
     expect(response.status).toBe(404)

@@ -45,7 +45,9 @@ describe("loadCliConfig", () => {
       process.env.DEVTRACK_API_KEY = "env-key"
 
       vi.mocked(fs.existsSync).mockReturnValue(true)
-      vi.mocked(fs.readFileSync).mockReturnValue("api_url: https://file.example.com\napi_key: file-key")
+      vi.mocked(fs.readFileSync).mockReturnValue(
+        "api_url: https://file.example.com\napi_key: file-key",
+      )
       vi.mocked(yaml.load).mockReturnValue({
         api_url: "https://file.example.com",
         api_key: "file-key",
@@ -62,7 +64,9 @@ describe("loadCliConfig", () => {
       delete process.env.DEVTRACK_API_KEY
 
       vi.mocked(fs.existsSync).mockReturnValue(true)
-      vi.mocked(fs.readFileSync).mockReturnValue("api_url: https://file.example.com\napi_key: file-key")
+      vi.mocked(fs.readFileSync).mockReturnValue(
+        "api_url: https://file.example.com\napi_key: file-key",
+      )
       vi.mocked(yaml.load).mockReturnValue({
         api_url: "https://file.example.com",
         api_key: "file-key",
@@ -83,7 +87,9 @@ describe("loadCliConfig", () => {
 
     it("reads api_url and api_key from ~/.devtrack/config.yaml", () => {
       vi.mocked(fs.existsSync).mockReturnValue(true)
-      vi.mocked(fs.readFileSync).mockReturnValue("api_url: https://file.example.com\napi_key: file-key-456")
+      vi.mocked(fs.readFileSync).mockReturnValue(
+        "api_url: https://file.example.com\napi_key: file-key-456",
+      )
       vi.mocked(yaml.load).mockReturnValue({
         api_url: "https://file.example.com",
         api_key: "file-key-456",
