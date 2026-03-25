@@ -4,6 +4,10 @@ on:
   pull_request:
     types: [opened, reopened, ready_for_review, synchronize]
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   review:
     uses: queso/gh-workflows/.github/workflows/pr-review.yml@main
