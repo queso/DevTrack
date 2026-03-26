@@ -1,8 +1,8 @@
+import { badRequest, handlePrismaError, unprocessableEntity } from "@/lib/api"
+import { apiSuccess, buildPagination, paginatedResponse, parsePagination } from "@/lib/api/response"
 import { authenticateRequest } from "@/lib/auth"
-import { badRequest, unprocessableEntity, handlePrismaError } from "@/lib/api"
-import type { EventType } from "@/lib/generated/prisma/client"
 import { prisma } from "@/lib/db"
-import { apiSuccess, paginatedResponse, parsePagination, buildPagination } from "@/lib/api/response"
+import type { EventType } from "@/lib/generated/prisma/client"
 import { createEventSchema } from "@/lib/schemas"
 
 export async function GET(request: Request) {
@@ -17,16 +17,20 @@ export async function GET(request: Request) {
   const type = url.searchParams.get("type") ?? undefined
   const from = url.searchParams.get("from") ?? undefined
   const to = url.searchParams.get("to") ?? undefined
+  const domain = url.searchParams.get("domain") ?? undefined
 
   const where = {
     ...(projectId ? { projectId } : {}),
     ...(type ? { type: type as EventType } : {}),
-    ...(from || to ? {
-      occurredAt: {
-        ...(from ? { gte: new Date(from) } : {}),
-        ...(to ? { lte: new Date(to) } : {}),
-      },
-    } : {}),
+    ...(domain ? { project: { domain } } : {}),
+    ...(from || to
+      ? {
+          occurredAt: {
+            ...(from ? { gte: new Date(from) } : {}),
+            ...(to ? { lte: new Date(to) } : {}),
+          },
+        }
+      : {}),
   }
 
   const [events, total] = await Promise.all([
@@ -50,9 +54,7 @@ export async function POST(request: Request) {
 
   const parsed = createEventSchema.safeParse(body)
   if (!parsed.success) {
-    const fields = Object.fromEntries(
-      parsed.error.issues.map((i) => [i.path.join("."), i.message]),
-    )
+    const fields = Object.fromEntries(parsed.error.issues.map((i) => [i.path.join("."), i.message]))
     return unprocessableEntity(fields)
   }
 
@@ -70,7 +72,7 @@ export async function POST(request: Request) {
         prdId: prd_id ?? null,
         pullRequestId: pull_request_id ?? null,
         occurredAt: occurredAtDate,
-      },
+      } as any,
     })
     return Response.json(apiSuccess(event), { status: 201 })
   } catch (error) {

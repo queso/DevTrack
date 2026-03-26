@@ -1,4 +1,9 @@
-import type { Domain } from "@/lib/mock-data"
+export type Domain =
+  | "arcanelayer"
+  | "aiteam"
+  | "joshowensdev"
+  | "infrastructure"
+  | "wendyowensbooks"
 
 export const DOMAIN_ORDER = [
   "arcanelayer",

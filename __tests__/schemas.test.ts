@@ -18,11 +18,6 @@ describe("Zod validation schemas barrel exports", () => {
       "createWorkItemSchema",
       "updateWorkItemSchema",
       "workItemResponseSchema",
-      // ContentItem
-      "createContentSchema",
-      "updateContentSchema",
-      "contentResponseSchema",
-      "contentListQuerySchema",
       // Branch
       "createBranchSchema",
       "updateBranchSchema",
@@ -57,7 +52,6 @@ describe("Zod validation schemas barrel exports", () => {
       "projectResponseSchema",
       "createPrdSchema",
       "createWorkItemSchema",
-      "createContentSchema",
       "createBranchSchema",
       "createPrSchema",
       "createEventSchema",
@@ -67,7 +61,10 @@ describe("Zod validation schemas barrel exports", () => {
 
     for (const name of schemaNames) {
       const schema = schemas[name as keyof typeof schemas]
-      expect(typeof (schema as { safeParse?: unknown }).safeParse, `${name} should be a Zod schema`).toBe("function")
+      expect(
+        typeof (schema as { safeParse?: unknown }).safeParse,
+        `${name} should be a Zod schema`,
+      ).toBe("function")
     }
   })
 

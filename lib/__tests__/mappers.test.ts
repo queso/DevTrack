@@ -1,13 +1,8 @@
 import { describe, expect, it } from "vitest"
-import {
-  mapProject,
-  mapPR,
-  mapTimelineEvent,
-  mapWorkItem,
-} from "@/lib/mappers"
-import type { Prd, WorkItem as ApiWorkItem } from "@/types/prd"
-import type { PullRequest as ApiPullRequest } from "@/types/pull-request"
+import { mapPR, mapProject, mapTimelineEvent, mapWorkItem } from "@/lib/mappers"
 import type { Event as ApiEvent } from "@/types/event"
+import type { WorkItem as ApiWorkItem, Prd } from "@/types/prd"
+import type { PullRequest as ApiPullRequest } from "@/types/pull-request"
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -22,20 +17,22 @@ const DAY = 24 * HOUR
 const WEEK = 7 * DAY
 
 // Base Prisma-shaped API objects (snake_case / Date fields)
-function makeApiProject(overrides: Partial<{
-  id: string
-  name: string
-  workflow: "sdlc" | "content"
-  domain: string | null
-  tags: string[]
-  repoUrl: string | null
-  deployUrl: string | null
-  lastActivityAt: Date | null
-  prds: ApiPrdWithItems[]
-  pullRequests: ApiPullRequest[]
-  createdAt: Date
-  updatedAt: Date
-}> = {}) {
+function makeApiProject(
+  overrides: Partial<{
+    id: string
+    name: string
+    workflow: "sdlc"
+    domain: string | null
+    tags: string[]
+    repoUrl: string | null
+    deployUrl: string | null
+    lastActivityAt: Date | null
+    prds: ApiPrdWithItems[]
+    pullRequests: ApiPullRequest[]
+    createdAt: Date
+    updatedAt: Date
+  }> = {},
+) {
   return {
     id: "proj-1",
     name: "my-project",
@@ -288,11 +285,6 @@ describe("mapTimelineEvent", () => {
     expect(result.type).toBe("prd-update")
   })
 
-  it("maps content_published → published", () => {
-    const result = mapTimelineEvent(makeEvent({ type: "content_published" }), "my-project")
-    expect(result.type).toBe("published")
-  })
-
   it("preserves event id and maps projectSlug", () => {
     const result = mapTimelineEvent(makeEvent({ id: "ev-42" }), "blog-project")
     expect(result.id).toBe("ev-42")
@@ -311,10 +303,7 @@ describe("mapTimelineEvent", () => {
   })
 
   it("passes metadata through", () => {
-    const result = mapTimelineEvent(
-      makeEvent({ metadata: { sha: "abc123", pr: "42" } }),
-      "proj"
-    )
+    const result = mapTimelineEvent(makeEvent({ metadata: { sha: "abc123", pr: "42" } }), "proj")
     expect(result.metadata).toMatchObject({ sha: "abc123", pr: "42" })
   })
 
@@ -477,7 +466,7 @@ describe("mapProject — summaryLine (SDLC workflow)", () => {
     const p = makeApiProject({ workflow: "sdlc", prds: [prd] })
     const result = mapProject(p)
     expect(result.summaryLine).toMatch(/barcode scanning/i)
-    expect(result.summaryLine).toMatch(/2\/5|2 of 5/)  // "2/5 items done"
+    expect(result.summaryLine).toMatch(/2\/5|2 of 5/) // "2/5 items done"
   })
 
   it("generates summary indicating stale when no PRDs and stale activity", () => {
@@ -494,10 +483,7 @@ describe("mapProject — summaryLine (SDLC workflow)", () => {
     const prd = makePrd({
       title: "Landing redesign",
       status: "in_progress",
-      workItems: [
-        makeWorkItem({ status: "done" }),
-        makeWorkItem({ id: "wi-2", status: "done" }),
-      ],
+      workItems: [makeWorkItem({ status: "done" }), makeWorkItem({ id: "wi-2", status: "done" })],
     })
     const p = makeApiProject({ workflow: "sdlc", prds: [prd] })
     const result = mapProject(p)
@@ -515,57 +501,6 @@ describe("mapProject — summaryLine (SDLC workflow)", () => {
 
   it("returns non-empty summaryLine even with empty prds array", () => {
     const p = makeApiProject({ workflow: "sdlc", prds: [], lastActivityAt: msAgo(HOUR) })
-    const result = mapProject(p)
-    expect(typeof result.summaryLine).toBe("string")
-    expect(result.summaryLine.length).toBeGreaterThan(0)
-  })
-})
-
-describe("mapProject — summaryLine (content workflow)", () => {
-  it("generates summary for content project with draft items", () => {
-    const draftItem = {
-      id: "ci-1",
-      project_id: "proj-1",
-      title: "How I Use Claude",
-      summary: null,
-      status: "draft" as const,
-      source_path: null,
-      tags: [],
-      published_at: null,
-      created_at: new Date(),
-      updated_at: new Date(),
-    }
-    const ideaItem = {
-      ...draftItem,
-      id: "ci-2",
-      title: "eBPF for Devs",
-      status: "idea" as const,
-    }
-    const p = {
-      ...makeApiProject({ workflow: "content" }),
-      contentItems: [draftItem, ideaItem],
-    }
-    const result = mapProject(p)
-    expect(result.summaryLine).toMatch(/draft|idea/i)
-  })
-
-  it("mentions published count if there are published items", () => {
-    const published = {
-      id: "ci-3",
-      project_id: "proj-1",
-      title: "K8s Upgrade Story",
-      summary: null,
-      status: "published" as const,
-      source_path: null,
-      tags: [],
-      published_at: msAgo(3 * DAY),
-      created_at: new Date(),
-      updated_at: new Date(),
-    }
-    const p = {
-      ...makeApiProject({ workflow: "content" }),
-      contentItems: [published],
-    }
     const result = mapProject(p)
     expect(typeof result.summaryLine).toBe("string")
     expect(result.summaryLine.length).toBeGreaterThan(0)
@@ -811,7 +746,7 @@ describe("mapTimelineEvent — edge cases", () => {
     // would need to be sanitized at the render layer.
     const result = mapTimelineEvent(
       makeEvent({ metadata: { msg: "<script>alert(1)</script>" } }),
-      "proj"
+      "proj",
     )
     // Mapper does not sanitize — the value passes through unchanged.
     // This is acceptable as long as the render layer uses React (which escapes by default).
@@ -822,8 +757,8 @@ describe("mapTimelineEvent — edge cases", () => {
     // Events with unknown types pass through via the default case — this is intentional
     // but we verify it doesn't throw or produce undefined
     const result = mapTimelineEvent(
-      makeEvent({ type: "unknown_future_event" as Parameters<typeof makeEvent>[0]["type"] }),
-      "proj"
+      makeEvent({ type: "unknown_future_event" as ApiEvent["type"] }),
+      "proj",
     )
     expect(typeof result.type).toBe("string")
     expect(result.type).toBe("unknown_future_event")

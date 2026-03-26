@@ -1,10 +1,10 @@
 import * as fs from "node:fs"
 import * as path from "node:path"
 import type {
+  ClaudeSettings,
   HookInstallOptions,
   HookInstallResult,
   HookScriptName,
-  ClaudeSettings,
 } from "@/types/hooks"
 
 const HOOK_SCRIPTS: Record<HookScriptName, string> = {
@@ -45,7 +45,8 @@ devtrack event session-start --project-yaml "$PROJECT_YAML" || true
     "# DevTrack post-session hook\n" +
     "# Reads project name from project.yaml and records a session-end event with duration\n\n" +
     'PROJECT_YAML="$(git rev-parse --show-toplevel)/project.yaml"\n' +
-    "DURATION=$" + "{DEVTRACK_SESSION_DURATION:-0}\n\n" +
+    "DURATION=$" +
+    "{DEVTRACK_SESSION_DURATION:-0}\n\n" +
     'devtrack event session-end --duration "$DURATION" --project-yaml "$PROJECT_YAML" || true\n',
 }
 

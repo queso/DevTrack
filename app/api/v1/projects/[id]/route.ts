@@ -1,7 +1,7 @@
-import { authenticateRequest } from "@/lib/auth"
-import { notFound, unprocessableEntity, badRequest, handlePrismaError } from "@/lib/api"
-import { prisma } from "@/lib/db"
+import { badRequest, handlePrismaError, notFound, unprocessableEntity } from "@/lib/api"
 import { apiSuccess } from "@/lib/api/response"
+import { authenticateRequest } from "@/lib/auth"
+import { prisma } from "@/lib/db"
 import { updateProjectSchema } from "@/lib/schemas"
 
 type RouteContext = { params: Promise<{ id: string }> }
@@ -34,14 +34,21 @@ export async function PATCH(request: Request, { params }: RouteContext) {
 
   const parsed = updateProjectSchema.safeParse(body)
   if (!parsed.success) {
-    const fields = Object.fromEntries(
-      parsed.error.issues.map((i) => [i.path.join("."), i.message]),
-    )
+    const fields = Object.fromEntries(parsed.error.issues.map((i) => [i.path.join("."), i.message]))
     return unprocessableEntity(fields)
   }
 
-  const { repo_url, main_branch, branch_prefix, prd_path, test_pattern, content_path,
-    draft_path, deploy_environment, deploy_url, deploy_health_check, ...rest } = parsed.data
+  const {
+    repo_url,
+    main_branch,
+    branch_prefix,
+    prd_path,
+    test_pattern,
+    deploy_environment,
+    deploy_url,
+    deploy_health_check,
+    ...rest
+  } = parsed.data
 
   try {
     const project = await prisma.project.update({
@@ -53,8 +60,6 @@ export async function PATCH(request: Request, { params }: RouteContext) {
         ...(branch_prefix !== undefined ? { branchPrefix: branch_prefix } : {}),
         ...(prd_path !== undefined ? { prdPath: prd_path } : {}),
         ...(test_pattern !== undefined ? { testPattern: test_pattern } : {}),
-        ...(content_path !== undefined ? { contentPath: content_path } : {}),
-        ...(draft_path !== undefined ? { draftPath: draft_path } : {}),
         ...(deploy_environment !== undefined ? { deployEnvironment: deploy_environment } : {}),
         ...(deploy_url !== undefined ? { deployUrl: deploy_url } : {}),
         ...(deploy_health_check !== undefined ? { deployHealthCheck: deploy_health_check } : {}),

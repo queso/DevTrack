@@ -14,7 +14,7 @@
  */
 
 import { renderHook, waitFor } from "@testing-library/react"
-import { type ReactNode, createElement } from "react"
+import { createElement, type ReactNode } from "react"
 import { SWRConfig } from "swr"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import type { ApiEnvelope, PaginationMeta } from "@/types/api"
@@ -281,8 +281,7 @@ describe("SWR global config (getSWRConfig)", () => {
     const config = getSWRConfig()
 
     // onErrorRetry or shouldRetryOnError must be present
-    const hasRetryConfig =
-      "onErrorRetry" in config || "shouldRetryOnError" in config
+    const hasRetryConfig = "onErrorRetry" in config || "shouldRetryOnError" in config
     expect(hasRetryConfig).toBe(true)
   })
 })
@@ -999,7 +998,9 @@ describe("API key security and fetcher stability", () => {
     vi.stubEnv("DEVTRACK_API_KEY", API_KEY)
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => { throw new SyntaxError("Unexpected token") },
+      json: async () => {
+        throw new SyntaxError("Unexpected token")
+      },
     })
 
     const { createApiFetcher } = await importHooks()
@@ -1016,10 +1017,9 @@ describe("API key security and fetcher stability", () => {
     })
 
     const { useActivity } = await importHooks()
-    const { result } = renderHook(
-      () => useActivity({ projectId: "proj-1", onSuccess }),
-      { wrapper }
-    )
+    const { result } = renderHook(() => useActivity({ projectId: "proj-1", onSuccess }), {
+      wrapper,
+    })
 
     await waitFor(() => expect(onSuccess).toHaveBeenCalled())
     expect(result.current.data).toBeDefined()

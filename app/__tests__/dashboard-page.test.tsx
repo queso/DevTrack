@@ -18,9 +18,9 @@
  * - Mount DashboardPage and assert rendered output
  */
 
-import { render, screen, waitFor, } from "@testing-library/react"
+import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { type ReactNode, createElement } from "react"
+import { createElement, type ReactNode } from "react"
 import { SWRConfig } from "swr"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -60,36 +60,38 @@ vi.mock("@/lib/hooks", () => ({
 // Fixtures — raw API project shape (what useProjects returns before mapping)
 // ---------------------------------------------------------------------------
 
-function makeApiProject(overrides: Partial<{
-  id: string
-  name: string
-  workflow: "sdlc" | "content"
-  domain: string | null
-  tags: string[]
-  repoUrl: string | null
-  deployUrl: string | null
-  lastActivityAt: Date | null
-  prds: Array<{
+function makeApiProject(
+  overrides: Partial<{
     id: string
-    title: string
-    summary: string
-    status: string
-    workItems: Array<{ id: string; title: string; status: string }>
-  }>
-  pullRequests: Array<{
-    id: string
-    number: number
-    title: string
-    status: string
-    check_status: string | null
-    branch_id: string | null
-    url: string
-    author: string
-    opened_at: Date
-  }>
-  createdAt: Date
-  updatedAt: Date
-}> = {}) {
+    name: string
+    workflow: "sdlc"
+    domain: string | null
+    tags: string[]
+    repoUrl: string | null
+    deployUrl: string | null
+    lastActivityAt: Date | null
+    prds: Array<{
+      id: string
+      title: string
+      summary: string
+      status: string
+      workItems: Array<{ id: string; title: string; status: string }>
+    }>
+    pullRequests: Array<{
+      id: string
+      number: number
+      title: string
+      status: string
+      check_status: string | null
+      branch_id: string | null
+      url: string
+      author: string
+      opened_at: Date
+    }>
+    createdAt: Date
+    updatedAt: Date
+  }> = {},
+) {
   return {
     id: overrides.id ?? "proj-1",
     name: overrides.name ?? "devtrack",
@@ -144,7 +146,7 @@ const projectBeta = makeApiProject({
   id: "proj-beta",
   name: "beta-project",
   domain: "aiteam",
-  workflow: "content",
+  workflow: "sdlc",
   tags: ["blog", "writing"],
   lastActivityAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000), // 10 days ago → stale
   pullRequests: [],
@@ -224,9 +226,7 @@ describe("AC1: Project cards from live API data", () => {
   })
 
   it("renders project name from API data, not mock data", async () => {
-    mockUseProjectsReturn.data = [
-      makeApiProject({ id: "live-1", name: "live-api-project" }),
-    ]
+    mockUseProjectsReturn.data = [makeApiProject({ id: "live-1", name: "live-api-project" })]
 
     const DashboardPage = await importDashboardPage()
     render(
@@ -374,52 +374,6 @@ describe("AC3: Filters update URL query params", () => {
     })
   })
 
-  it("clicking 'SDLC' workflow filter updates URL with workflow param", async () => {
-    mockUseProjectsReturn.data = [projectAlpha, projectBeta]
-    const user = userEvent.setup()
-
-    const DashboardPage = await importDashboardPage()
-    render(
-      <SWRWrapper>
-        <DashboardPage />
-      </SWRWrapper>,
-    )
-
-    await waitFor(() => screen.getByText("alpha-project"))
-
-    const sdlcChip = screen.getByRole("button", { name: /^sdlc$/i })
-    await user.click(sdlcChip)
-
-    await waitFor(() => {
-      const calls = [...mockReplace.mock.calls, ...mockPush.mock.calls]
-      const urlStrings = calls.map((c) => String(c[0]))
-      expect(urlStrings.some((url) => url.includes("workflow=sdlc"))).toBe(true)
-    })
-  })
-
-  it("clicking 'Content' workflow filter updates URL with workflow=content", async () => {
-    mockUseProjectsReturn.data = [projectAlpha, projectBeta]
-    const user = userEvent.setup()
-
-    const DashboardPage = await importDashboardPage()
-    render(
-      <SWRWrapper>
-        <DashboardPage />
-      </SWRWrapper>,
-    )
-
-    await waitFor(() => screen.getByText("alpha-project"))
-
-    const contentChip = screen.getByRole("button", { name: /^content$/i })
-    await user.click(contentChip)
-
-    await waitFor(() => {
-      const calls = [...mockReplace.mock.calls, ...mockPush.mock.calls]
-      const urlStrings = calls.map((c) => String(c[0]))
-      expect(urlStrings.some((url) => url.includes("workflow=content"))).toBe(true)
-    })
-  })
-
   it("reads domain filter from URL query params on initial render", async () => {
     mockSearchParams = new URLSearchParams("domain=aiteam")
     mockUseProjectsReturn.data = [projectAlpha, projectBeta]
@@ -433,24 +387,6 @@ describe("AC3: Filters update URL query params", () => {
 
     await waitFor(() => {
       // With domain=aiteam filter, only beta-project (domain: aiteam) should show
-      expect(screen.getByText("beta-project")).toBeInTheDocument()
-      expect(screen.queryByText("alpha-project")).not.toBeInTheDocument()
-    })
-  })
-
-  it("reads workflow filter from URL query params on initial render", async () => {
-    mockSearchParams = new URLSearchParams("workflow=content")
-    mockUseProjectsReturn.data = [projectAlpha, projectBeta]
-
-    const DashboardPage = await importDashboardPage()
-    render(
-      <SWRWrapper>
-        <DashboardPage />
-      </SWRWrapper>,
-    )
-
-    await waitFor(() => {
-      // With workflow=content filter, only beta-project (content workflow) should show
       expect(screen.getByText("beta-project")).toBeInTheDocument()
       expect(screen.queryByText("alpha-project")).not.toBeInTheDocument()
     })
@@ -676,8 +612,8 @@ describe("AC5: Search filters projects by name", () => {
       // Some "no results" or similar text
       expect(
         screen.getByText(/no projects/i) ||
-        screen.getByText(/no results/i) ||
-        screen.getByText(/match/i),
+          screen.getByText(/no results/i) ||
+          screen.getByText(/match/i),
       ).toBeTruthy()
     })
   })
@@ -752,7 +688,7 @@ describe("AC6: Count summary from actual data", () => {
   it("shows needs-attention count for projects with open PRs or stale activity", async () => {
     mockUseProjectsReturn.data = [
       projectAlpha, // has open PR → needs attention
-      projectBeta,  // stale → needs attention
+      projectBeta, // stale → needs attention
       projectGamma, // no PR, not stale
     ]
 
@@ -879,8 +815,8 @@ describe("AC8: Error state with retry", () => {
       // Some error heading or message
       expect(
         screen.getByText(/something went wrong/i) ||
-        screen.getByText(/failed to load/i) ||
-        screen.getByText(/error/i),
+          screen.getByText(/failed to load/i) ||
+          screen.getByText(/error/i),
       ).toBeTruthy()
     })
   })
@@ -977,9 +913,7 @@ describe("AC9: Card navigation to /projects/[slug]", () => {
   })
 
   it("card href uses the mapped slug (project.name as slug)", async () => {
-    mockUseProjectsReturn.data = [
-      makeApiProject({ id: "slug-test", name: "my-cool-project" }),
-    ]
+    mockUseProjectsReturn.data = [makeApiProject({ id: "slug-test", name: "my-cool-project" })]
 
     const DashboardPage = await importDashboardPage()
     render(
@@ -1027,9 +961,7 @@ describe("AC9: Card navigation to /projects/[slug]", () => {
 
 describe("Integration: URL params drive full filter+sort pipeline", () => {
   it("domain + workflow + search + sort all applied together from URL params", async () => {
-    mockSearchParams = new URLSearchParams(
-      "domain=arcanelayer&workflow=sdlc&q=alpha&sort=name",
-    )
+    mockSearchParams = new URLSearchParams("domain=arcanelayer&workflow=sdlc&q=alpha&sort=name")
     mockUseProjectsReturn.data = [projectBeta, projectAlpha, projectGamma]
 
     const DashboardPage = await importDashboardPage()
@@ -1204,34 +1136,6 @@ describe("Edge: Sort stability with equal lastActivityAt buckets", () => {
 })
 
 describe("Edge: Multiple active filters combined", () => {
-  it("domain + workflow filters together show only matching projects", async () => {
-    mockUseProjectsReturn.data = [projectAlpha, projectBeta, projectGamma]
-    // alpha: arcanelayer+sdlc, beta: aiteam+content, gamma: infrastructure+sdlc
-
-    const user = userEvent.setup()
-    const DashboardPage = await importDashboardPage()
-    render(
-      <SWRWrapper>
-        <DashboardPage />
-      </SWRWrapper>,
-    )
-
-    await waitFor(() => screen.getByText("alpha-project"))
-
-    // Filter to infrastructure domain
-    await user.click(screen.getByRole("button", { name: /^infrastructure$/i }))
-    // Then also filter to content workflow
-    await user.click(screen.getByRole("button", { name: /^content$/i }))
-
-    await waitFor(() => {
-      // gamma is infrastructure+sdlc, beta is aiteam+content
-      // Neither matches infrastructure+content
-      expect(screen.queryByText("alpha-project")).not.toBeInTheDocument()
-      expect(screen.queryByText("beta-project")).not.toBeInTheDocument()
-      expect(screen.queryByText("gamma-project")).not.toBeInTheDocument()
-    })
-  })
-
   it("domain filter + search combined show only projects matching both", async () => {
     mockUseProjectsReturn.data = [projectAlpha, projectBeta, projectGamma]
     const user = userEvent.setup()

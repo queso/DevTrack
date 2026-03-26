@@ -1,8 +1,8 @@
 import { createHmac, timingSafeEqual } from "node:crypto"
-import type { EventType, PullRequestStatus } from "@/lib/generated/prisma/client"
-import { badRequest, unauthorized, handlePrismaError } from "@/lib/api"
+import { badRequest, handlePrismaError, unauthorized } from "@/lib/api"
 import { prisma } from "@/lib/db"
 import { getEnv } from "@/lib/env"
+import type { EventType, PullRequestStatus } from "@/lib/generated/prisma/client"
 import { getLogger } from "@/lib/logger"
 
 async function verifySignature(body: string, signature: string, secret: string): Promise<boolean> {
@@ -10,7 +10,10 @@ async function verifySignature(body: string, signature: string, secret: string):
   try {
     return timingSafeEqual(Buffer.from(signature), Buffer.from(expected))
   } catch (error) {
-    getLogger().warn({ error: String(error), sigLen: signature.length, expectedLen: expected.length }, "Webhook signature verification error")
+    getLogger().warn(
+      { error: String(error), sigLen: signature.length, expectedLen: expected.length },
+      "Webhook signature verification error",
+    )
     return false
   }
 }
@@ -293,7 +296,7 @@ async function handlePullRequestReview(payload: Record<string, unknown>, project
           projectId,
           type: eventType,
           title: `PR #${pr.number as number} reviewed by ${(review.user as { login: string }).login}`,
-          metadata: { key: eventKey, review_id: review.id, state: reviewState },
+          metadata: { key: eventKey, review_id: review.id, state: reviewState } as any,
           occurredAt: new Date(review.submitted_at as string),
         },
       })
@@ -358,7 +361,11 @@ async function handleCheckSuite(payload: Record<string, unknown>, projectId: str
   let checkStatus: "passing" | "failing" | null = null
   if (conclusion === "success") {
     checkStatus = "passing"
-  } else if (conclusion === "failure" || conclusion === "timed_out" || conclusion === "action_required") {
+  } else if (
+    conclusion === "failure" ||
+    conclusion === "timed_out" ||
+    conclusion === "action_required"
+  ) {
     checkStatus = "failing"
   }
 

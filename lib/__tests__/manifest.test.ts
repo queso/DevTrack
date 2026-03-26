@@ -29,17 +29,6 @@ deploy:
   health_check: /health
 `.trim()
 
-  const fullContent = `
-name: blog-project
-workflow: content
-domain: marketing
-owner: team-content
-content_path: content/
-draft_path: drafts/
-tags:
-  - blog
-`.trim()
-
   describe("required fields", () => {
     it("parses a minimal valid manifest with all required fields", () => {
       const config: ManifestConfig = parseManifest(minimalValid)
@@ -58,16 +47,6 @@ owner: team-platform
 `.trim()
 
       expect(() => parseManifest(yaml)).toThrow(/name/)
-    })
-
-    it("throws when workflow is missing", () => {
-      const yaml = `
-name: my-project
-domain: backend
-owner: team-platform
-`.trim()
-
-      expect(() => parseManifest(yaml)).toThrow(/workflow/)
     })
 
     it("throws when domain is missing", () => {
@@ -95,18 +74,6 @@ domain: backend
     it("accepts 'sdlc' as a valid workflow value", () => {
       const config = parseManifest(minimalValid)
       expect(config.workflow).toBe("sdlc")
-    })
-
-    it("accepts 'content' as a valid workflow value", () => {
-      const yaml = `
-name: blog-project
-workflow: content
-domain: marketing
-owner: team-content
-`.trim()
-
-      const config = parseManifest(yaml)
-      expect(config.workflow).toBe("content")
     })
 
     it("throws for an invalid workflow value", () => {
@@ -193,22 +160,6 @@ deploy:
       expect(config.prd_path).toBeUndefined()
       expect(config.test_pattern).toBeUndefined()
       expect(config.deploy).toBeUndefined()
-    })
-  })
-
-  describe("optional content fields", () => {
-    it("parses content_path and draft_path for content workflow", () => {
-      const config = parseManifest(fullContent)
-
-      expect(config.content_path).toBe("content/")
-      expect(config.draft_path).toBe("drafts/")
-    })
-
-    it("omits content_path and draft_path when not provided", () => {
-      const config = parseManifest(minimalValid)
-
-      expect(config.content_path).toBeUndefined()
-      expect(config.draft_path).toBeUndefined()
     })
   })
 

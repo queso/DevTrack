@@ -13,7 +13,9 @@ describe("ErrorPage", () => {
     render(<ErrorPage error={defaultError} reset={defaultReset} />)
 
     // Should show a friendly message, not the raw error string
-    expect(screen.getByRole("heading", { name: /an unexpected error occurred/i })).toBeInTheDocument()
+    expect(
+      screen.getByRole("heading", { name: /an unexpected error occurred/i }),
+    ).toBeInTheDocument()
     expect(screen.getByText(/we ran into a problem loading this page/i)).toBeInTheDocument()
     expect(screen.queryByText("Something went wrong")).not.toBeInTheDocument()
   })
@@ -37,7 +39,9 @@ describe("NotFound", () => {
     render(<NotFound />)
 
     expect(screen.getByRole("heading", { name: /404.*page not found/i })).toBeInTheDocument()
-    expect(screen.getByText(/the page you are looking for does not exist or has been moved/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/the page you are looking for does not exist or has been moved/i),
+    ).toBeInTheDocument()
 
     const homeLink = screen.getByRole("link", { name: /go back home/i })
     expect(homeLink).toBeInTheDocument()

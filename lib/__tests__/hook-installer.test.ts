@@ -59,9 +59,9 @@ describe("installHooks", () => {
     it("each script starts with #!/bin/bash shebang", async () => {
       await installHooks({ projectDir: PROJECT_DIR })
 
-      const scriptCalls = vi.mocked(fs.writeFileSync).mock.calls.filter(([p]) =>
-        (p as string).endsWith(".sh"),
-      )
+      const scriptCalls = vi
+        .mocked(fs.writeFileSync)
+        .mock.calls.filter(([p]) => (p as string).endsWith(".sh"))
 
       for (const [, content] of scriptCalls) {
         expect(content as string).toMatch(/^#!\/bin\/bash/)
@@ -71,9 +71,9 @@ describe("installHooks", () => {
     it("post-commit.sh calls 'devtrack event commit'", async () => {
       await installHooks({ projectDir: PROJECT_DIR })
 
-      const call = vi.mocked(fs.writeFileSync).mock.calls.find(([p]) =>
-        (p as string).endsWith("post-commit.sh"),
-      )
+      const call = vi
+        .mocked(fs.writeFileSync)
+        .mock.calls.find(([p]) => (p as string).endsWith("post-commit.sh"))
       expect(call).toBeDefined()
       expect(call?.[1] as string).toContain("devtrack event commit")
     })
@@ -81,9 +81,9 @@ describe("installHooks", () => {
     it("post-commit.sh passes branch, hash, and message to the CLI", async () => {
       await installHooks({ projectDir: PROJECT_DIR })
 
-      const call = vi.mocked(fs.writeFileSync).mock.calls.find(([p]) =>
-        (p as string).endsWith("post-commit.sh"),
-      )
+      const call = vi
+        .mocked(fs.writeFileSync)
+        .mock.calls.find(([p]) => (p as string).endsWith("post-commit.sh"))
       const content = call?.[1] as string
       // Script should extract and pass branch, commit hash, and message
       expect(content).toMatch(/branch|BRANCH|HEAD/i)
@@ -94,9 +94,9 @@ describe("installHooks", () => {
     it("post-push.sh calls 'devtrack event push'", async () => {
       await installHooks({ projectDir: PROJECT_DIR })
 
-      const call = vi.mocked(fs.writeFileSync).mock.calls.find(([p]) =>
-        (p as string).endsWith("post-push.sh"),
-      )
+      const call = vi
+        .mocked(fs.writeFileSync)
+        .mock.calls.find(([p]) => (p as string).endsWith("post-push.sh"))
       expect(call).toBeDefined()
       expect(call?.[1] as string).toContain("devtrack event push")
     })
@@ -104,9 +104,9 @@ describe("installHooks", () => {
     it("post-push.sh passes branch and commit count to the CLI", async () => {
       await installHooks({ projectDir: PROJECT_DIR })
 
-      const call = vi.mocked(fs.writeFileSync).mock.calls.find(([p]) =>
-        (p as string).endsWith("post-push.sh"),
-      )
+      const call = vi
+        .mocked(fs.writeFileSync)
+        .mock.calls.find(([p]) => (p as string).endsWith("post-push.sh"))
       const content = call?.[1] as string
       expect(content).toMatch(/branch|BRANCH/i)
       expect(content).toMatch(/count|COUNT|commits/i)
@@ -115,9 +115,9 @@ describe("installHooks", () => {
     it("pre-session.sh calls 'devtrack event session-start'", async () => {
       await installHooks({ projectDir: PROJECT_DIR })
 
-      const call = vi.mocked(fs.writeFileSync).mock.calls.find(([p]) =>
-        (p as string).endsWith("pre-session.sh"),
-      )
+      const call = vi
+        .mocked(fs.writeFileSync)
+        .mock.calls.find(([p]) => (p as string).endsWith("pre-session.sh"))
       expect(call).toBeDefined()
       expect(call?.[1] as string).toContain("devtrack event session-start")
     })
@@ -125,9 +125,9 @@ describe("installHooks", () => {
     it("post-session.sh calls 'devtrack event session-end'", async () => {
       await installHooks({ projectDir: PROJECT_DIR })
 
-      const call = vi.mocked(fs.writeFileSync).mock.calls.find(([p]) =>
-        (p as string).endsWith("post-session.sh"),
-      )
+      const call = vi
+        .mocked(fs.writeFileSync)
+        .mock.calls.find(([p]) => (p as string).endsWith("post-session.sh"))
       expect(call).toBeDefined()
       expect(call?.[1] as string).toContain("devtrack event session-end")
     })
@@ -135,9 +135,9 @@ describe("installHooks", () => {
     it("post-session.sh passes duration to the CLI", async () => {
       await installHooks({ projectDir: PROJECT_DIR })
 
-      const call = vi.mocked(fs.writeFileSync).mock.calls.find(([p]) =>
-        (p as string).endsWith("post-session.sh"),
-      )
+      const call = vi
+        .mocked(fs.writeFileSync)
+        .mock.calls.find(([p]) => (p as string).endsWith("post-session.sh"))
       const content = call?.[1] as string
       expect(content).toMatch(/duration|DURATION/i)
     })
@@ -145,9 +145,9 @@ describe("installHooks", () => {
     it("scripts read project name from project.yaml", async () => {
       await installHooks({ projectDir: PROJECT_DIR })
 
-      const scriptCalls = vi.mocked(fs.writeFileSync).mock.calls.filter(([p]) =>
-        (p as string).endsWith(".sh"),
-      )
+      const scriptCalls = vi
+        .mocked(fs.writeFileSync)
+        .mock.calls.filter(([p]) => (p as string).endsWith(".sh"))
 
       for (const [, content] of scriptCalls) {
         expect(content as string).toContain("project.yaml")
@@ -157,9 +157,9 @@ describe("installHooks", () => {
     it("scripts use devtrack CLI, not direct HTTP calls", async () => {
       await installHooks({ projectDir: PROJECT_DIR })
 
-      const scriptCalls = vi.mocked(fs.writeFileSync).mock.calls.filter(([p]) =>
-        (p as string).endsWith(".sh"),
-      )
+      const scriptCalls = vi
+        .mocked(fs.writeFileSync)
+        .mock.calls.filter(([p]) => (p as string).endsWith(".sh"))
 
       for (const [, content] of scriptCalls) {
         expect(content as string).not.toMatch(/curl|wget|fetch|http(s)?:\/\//i)
@@ -195,27 +195,27 @@ describe("installHooks", () => {
 
       await installHooks({ projectDir: PROJECT_DIR })
 
-      const settingsWrite = vi.mocked(fs.writeFileSync).mock.calls.find(([p]) =>
-        (p as string) === SETTINGS_PATH,
-      )
+      const settingsWrite = vi
+        .mocked(fs.writeFileSync)
+        .mock.calls.find(([p]) => (p as string) === SETTINGS_PATH)
       expect(settingsWrite).toBeDefined()
     })
 
     it("writes valid JSON to .claude/settings.json", async () => {
       await installHooks({ projectDir: PROJECT_DIR })
 
-      const settingsWrite = vi.mocked(fs.writeFileSync).mock.calls.find(([p]) =>
-        (p as string) === SETTINGS_PATH,
-      )
+      const settingsWrite = vi
+        .mocked(fs.writeFileSync)
+        .mock.calls.find(([p]) => (p as string) === SETTINGS_PATH)
       expect(() => JSON.parse(settingsWrite?.[1] as string)).not.toThrow()
     })
 
     it("registers hook entries in settings.json", async () => {
       await installHooks({ projectDir: PROJECT_DIR })
 
-      const settingsWrite = vi.mocked(fs.writeFileSync).mock.calls.find(([p]) =>
-        (p as string) === SETTINGS_PATH,
-      )
+      const settingsWrite = vi
+        .mocked(fs.writeFileSync)
+        .mock.calls.find(([p]) => (p as string) === SETTINGS_PATH)
       const settings = JSON.parse(settingsWrite?.[1] as string)
       expect(settings).toHaveProperty("hooks")
     })
@@ -227,9 +227,9 @@ describe("installHooks", () => {
 
       await installHooks({ projectDir: PROJECT_DIR })
 
-      const settingsWrite = vi.mocked(fs.writeFileSync).mock.calls.find(([p]) =>
-        (p as string) === SETTINGS_PATH,
-      )
+      const settingsWrite = vi
+        .mocked(fs.writeFileSync)
+        .mock.calls.find(([p]) => (p as string) === SETTINGS_PATH)
       const settings = JSON.parse(settingsWrite?.[1] as string)
       expect(settings.someOtherKey).toBe("preserve-me")
     })
@@ -238,7 +238,10 @@ describe("installHooks", () => {
       const existingSettings = JSON.stringify({
         hooks: {
           PostToolUse: [
-            { matcher: "Bash", hooks: [{ type: "command", command: `${HOOKS_DIR}/post-commit.sh` }] },
+            {
+              matcher: "Bash",
+              hooks: [{ type: "command", command: `${HOOKS_DIR}/post-commit.sh` }],
+            },
           ],
         },
       })
@@ -247,9 +250,9 @@ describe("installHooks", () => {
 
       await installHooks({ projectDir: PROJECT_DIR })
 
-      const settingsWrite = vi.mocked(fs.writeFileSync).mock.calls.find(([p]) =>
-        (p as string) === SETTINGS_PATH,
-      )
+      const settingsWrite = vi
+        .mocked(fs.writeFileSync)
+        .mock.calls.find(([p]) => (p as string) === SETTINGS_PATH)
       const settings = JSON.parse(settingsWrite?.[1] as string)
       const postToolUseHooks = settings.hooks?.PostToolUse ?? []
       const commitHooks = postToolUseHooks.filter((h: { hooks: Array<{ command: string }> }) =>
@@ -296,9 +299,9 @@ describe("installHooks", () => {
 
       await installHooks({ projectDir: PROJECT_DIR, force: true })
 
-      const scriptWrites = vi.mocked(fs.writeFileSync).mock.calls.filter(([p]) =>
-        (p as string).endsWith(".sh"),
-      )
+      const scriptWrites = vi
+        .mocked(fs.writeFileSync)
+        .mock.calls.filter(([p]) => (p as string).endsWith(".sh"))
       expect(scriptWrites.length).toBe(4)
     })
 
@@ -307,9 +310,9 @@ describe("installHooks", () => {
 
       await installHooks({ projectDir: PROJECT_DIR })
 
-      const scriptWrites = vi.mocked(fs.writeFileSync).mock.calls.filter(([p]) =>
-        (p as string).endsWith(".sh"),
-      )
+      const scriptWrites = vi
+        .mocked(fs.writeFileSync)
+        .mock.calls.filter(([p]) => (p as string).endsWith(".sh"))
       expect(scriptWrites.length).toBe(0)
     })
   })

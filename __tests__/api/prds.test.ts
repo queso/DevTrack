@@ -46,7 +46,14 @@ describe("GET /api/v1/projects/:id/prds", () => {
   it("should return PRD list for a project in envelope", async () => {
     mockPrisma.project.findUnique.mockResolvedValue({ id: "proj-1" })
     mockPrisma.prd.findMany.mockResolvedValue([
-      { id: "prd-1", projectId: "proj-1", title: "Feature PRD", status: "queued", createdAt: new Date(), updatedAt: new Date() },
+      {
+        id: "prd-1",
+        projectId: "proj-1",
+        title: "Feature PRD",
+        status: "queued",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
     ])
     mockPrisma.prd.count.mockResolvedValue(1)
 
@@ -77,7 +84,15 @@ describe("GET /api/v1/prds/:id/work-items", () => {
   it("should return work items for a PRD in envelope", async () => {
     mockPrisma.prd.findUnique.mockResolvedValue({ id: "prd-1" })
     mockPrisma.workItem.findMany.mockResolvedValue([
-      { id: "wi-1", prdId: "prd-1", title: "Task 1", status: "todo", order: 1, createdAt: new Date(), updatedAt: new Date() },
+      {
+        id: "wi-1",
+        prdId: "prd-1",
+        title: "Task 1",
+        status: "todo",
+        order: 1,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
     ])
 
     const { GET } = await import("@/app/api/v1/prds/[id]/work-items/route")
@@ -95,7 +110,15 @@ describe("PATCH /api/v1/work-items/:id", () => {
   beforeEach(() => vi.clearAllMocks())
 
   it("should update work item status and return updated item", async () => {
-    const updated = { id: "wi-1", title: "Task 1", status: "in_progress", order: 1, prdId: "prd-1", createdAt: new Date(), updatedAt: new Date() }
+    const updated = {
+      id: "wi-1",
+      title: "Task 1",
+      status: "in_progress",
+      order: 1,
+      prdId: "prd-1",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }
     mockPrisma.workItem.findUnique.mockResolvedValue(updated)
     mockPrisma.workItem.update.mockResolvedValue(updated)
 

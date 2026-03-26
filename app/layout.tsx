@@ -14,7 +14,8 @@ const geistMono = Geist_Mono({
 })
 
 const siteUrl = process.env.SITE_URL || "http://localhost:3000"
-const description = "Mission control for multi-repo development. Track SDLC state, content pipelines, and PR queues across all your projects from one dashboard."
+const description =
+  "Mission control for multi-repo development. Track SDLC state, content pipelines, and PR queues across all your projects from one dashboard."
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

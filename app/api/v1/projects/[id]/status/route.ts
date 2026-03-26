@@ -1,7 +1,7 @@
-import { authenticateRequest } from "@/lib/auth"
 import { notFound } from "@/lib/api"
-import { prisma } from "@/lib/db"
 import { apiSuccess } from "@/lib/api/response"
+import { authenticateRequest } from "@/lib/auth"
+import { prisma } from "@/lib/db"
 
 type RouteContext = { params: Promise<{ id: string }> }
 

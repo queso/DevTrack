@@ -26,7 +26,6 @@ describe("GET /api/v1/openapi.json", () => {
       "/api/health",
       "/api/v1/projects",
       "/api/v1/prds",
-      "/api/v1/content",
       "/api/v1/prs",
       "/api/v1/branches",
       "/api/v1/events",
@@ -34,7 +33,10 @@ describe("GET /api/v1/openapi.json", () => {
     ]
 
     for (const path of required) {
-      expect(paths.some((p) => p.startsWith(path)), `Expected path "${path}" in spec`).toBe(true)
+      expect(
+        paths.some((p) => p.startsWith(path)),
+        `Expected path "${path}" in spec`,
+      ).toBe(true)
     }
   })
 
@@ -46,14 +48,21 @@ describe("GET /api/v1/openapi.json", () => {
     // Bearer security scheme
     const schemes = spec.components?.securitySchemes ?? {}
     const hasBearer = Object.values(schemes).some(
-      (s: unknown) => (s as { scheme?: string }).scheme === "bearer" || (s as { type?: string }).type === "http",
+      (s: unknown) =>
+        (s as { scheme?: string }).scheme === "bearer" || (s as { type?: string }).type === "http",
     )
     expect(hasBearer, "Expected Bearer security scheme").toBe(true)
 
     // Envelope and error response schemas
     const schemas = spec.components?.schemas ?? {}
     const schemaNames = Object.keys(schemas)
-    expect(schemaNames.some((n) => /error/i.test(n)), "Expected error schema").toBe(true)
-    expect(schemaNames.some((n) => /envelope|response|meta/i.test(n)), "Expected envelope/meta schema").toBe(true)
+    expect(
+      schemaNames.some((n) => /error/i.test(n)),
+      "Expected error schema",
+    ).toBe(true)
+    expect(
+      schemaNames.some((n) => /envelope|response|meta/i.test(n)),
+      "Expected envelope/meta schema",
+    ).toBe(true)
   })
 })

@@ -6,10 +6,13 @@ package cmd
 // swagger-jack:custom:end
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
+	"strings"
 
 	"devtrack/internal"
 	"devtrack/internal/client"
@@ -60,13 +63,65 @@ func (a *apiProjectClient) UpdateProject(id string, body map[string]interface{})
 	return resp, nil
 }
 
+// registerDeps holds injectable dependencies for runRegister, enabling unit tests
+// to stub out git, stdin, and hooks installation without spawning real processes.
+type registerDeps struct {
+	// getGitURL is called when manifest.RepoURL is empty to auto-detect the URL
+	// from the local git remote. When nil, auto-detection is skipped.
+	getGitURL func() (string, error)
+
+	// confirm prompts the user with the given message and returns true if they
+	// accept. When nil, a real stdin prompt is used.
+	confirm func(prompt string, out io.Writer) bool
+
+	// installHooks runs `devtrack hooks install` for the current repo.
+	// When nil, hooks installation is skipped even if the user accepts.
+	installHooks func() error
+}
+
+// defaultGetGitURL runs `git remote get-url origin` in the current directory.
+func defaultGetGitURL() (string, error) {
+	out, err := exec.Command("git", "remote", "get-url", "origin").Output()
+	if err != nil {
+		return "", fmt.Errorf("git remote get-url origin: %w", err)
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// stdinConfirm prompts the user on out and reads a y/n answer from os.Stdin.
+func stdinConfirm(prompt string, out io.Writer) bool {
+	fmt.Fprintf(out, "%s [y/N]: ", prompt)
+	scanner := bufio.NewScanner(os.Stdin)
+	if scanner.Scan() {
+		answer := strings.TrimSpace(strings.ToLower(scanner.Text()))
+		return answer == "y" || answer == "yes"
+	}
+	return false
+}
+
 // runRegister is the testable core of the register command. It reads the manifest
 // at manifestPath, finds or creates the project via the API, and writes the UUID
 // to out. When quiet is true, only the UUID is written.
-func runRegister(manifestPath string, api ProjectAPI, quiet bool, out io.Writer) error {
+//
+// The optional deps parameter allows tests to inject fakes for git, stdin, and
+// hooks installation. Callers that omit deps (legacy 4-arg calls) get zero values,
+// which means auto-detection and prompting are skipped in those call sites.
+func runRegister(manifestPath string, api ProjectAPI, quiet bool, out io.Writer, deps ...registerDeps) error {
+	var d registerDeps
+	if len(deps) > 0 {
+		d = deps[0]
+	}
+
 	manifest, err := internal.ReadManifest(manifestPath)
 	if err != nil {
 		return err
+	}
+
+	// Auto-detect repo_url when not set in manifest.
+	if manifest.RepoURL == "" && d.getGitURL != nil {
+		if url, gitErr := d.getGitURL(); gitErr == nil {
+			manifest.RepoURL = url
+		}
 	}
 
 	projects, err := api.ListProjects()
@@ -79,7 +134,7 @@ func runRegister(manifestPath string, api ProjectAPI, quiet bool, out io.Writer)
 	if existingID != "" {
 		return updateExistingProject(api, existingID, manifest, quiet, out)
 	}
-	return createNewProject(api, manifest, quiet, out)
+	return createNewProject(api, manifest, quiet, out, d)
 }
 
 // manifestToBody converts a Manifest into the request body map for the API.
@@ -100,12 +155,6 @@ func manifestToBody(manifest *internal.Manifest) map[string]interface{} {
 	if manifest.PrdPath != "" {
 		body["prd_path"] = manifest.PrdPath
 	}
-	if manifest.ContentPath != "" {
-		body["content_path"] = manifest.ContentPath
-	}
-	if manifest.DraftPath != "" {
-		body["draft_path"] = manifest.DraftPath
-	}
 	if len(manifest.Tags) > 0 {
 		body["tags"] = manifest.Tags
 	}
@@ -125,7 +174,7 @@ func extractProjectID(resp []byte) (string, error) {
 	return id, nil
 }
 
-func createNewProject(api ProjectAPI, manifest *internal.Manifest, quiet bool, out io.Writer) error {
+func createNewProject(api ProjectAPI, manifest *internal.Manifest, quiet bool, out io.Writer, d registerDeps) error {
 	resp, err := api.CreateProject(manifestToBody(manifest))
 	if err != nil {
 		return fmt.Errorf("create project: %w", err)
@@ -135,6 +184,17 @@ func createNewProject(api ProjectAPI, manifest *internal.Manifest, quiet bool, o
 		return err
 	}
 	writeProjectOutput(out, id, "created", quiet)
+
+	// After a successful create, offer to install hooks (skip in quiet mode).
+	if !quiet && d.confirm != nil {
+		confirmFn := d.confirm
+		if confirmFn("Install DevTrack git hooks for this project?", out) && d.installHooks != nil {
+			if hookErr := d.installHooks(); hookErr != nil {
+				fmt.Fprintf(out, "Warning: hooks install failed: %v\n", hookErr)
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -179,7 +239,20 @@ var registerCmd = &cobra.Command{
 
 		quiet, _ := cmd.Flags().GetBool("quiet")
 
-		return runRegister(manifestPath, api, quiet, cmd.OutOrStdout())
+		cwd, err := os.Getwd()
+		if err != nil {
+			cwd = "."
+		}
+
+		deps := registerDeps{
+			getGitURL: defaultGetGitURL,
+			confirm:   stdinConfirm,
+			installHooks: func() error {
+				return installHooks(cwd, quiet)
+			},
+		}
+
+		return runRegister(manifestPath, api, quiet, cmd.OutOrStdout(), deps)
 	},
 }
 

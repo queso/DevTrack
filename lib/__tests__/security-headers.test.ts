@@ -12,8 +12,21 @@ function findHeader(headers: SecurityHeader[], key: string): string {
 }
 
 describe("getSecurityHeaders", () => {
-  it("should return all 6 required security headers", () => {
-    const headers = getSecurityHeaders()
+  it("should return all 5 base security headers in non-production", () => {
+    const headers = getSecurityHeaders("development")
+    const keys = headers.map((h) => h.key)
+
+    expect(keys).toContain("Content-Security-Policy")
+    expect(keys).not.toContain("Strict-Transport-Security")
+    expect(keys).toContain("X-Frame-Options")
+    expect(keys).toContain("X-Content-Type-Options")
+    expect(keys).toContain("Referrer-Policy")
+    expect(keys).toContain("Permissions-Policy")
+    expect(headers).toHaveLength(5)
+  })
+
+  it("should return all 6 security headers including HSTS in production", () => {
+    const headers = getSecurityHeaders("production")
     const keys = headers.map((h) => h.key)
 
     expect(keys).toContain("Content-Security-Policy")
@@ -58,9 +71,16 @@ describe("getSecurityHeaders", () => {
   describe("other security headers", () => {
     const headers = getSecurityHeaders()
 
-    it("should set HSTS with max-age, includeSubDomains, and preload", () => {
-      const hsts = findHeader(headers, "Strict-Transport-Security")
+    it("should set HSTS with max-age, includeSubDomains, and preload in production", () => {
+      const prodHeaders = getSecurityHeaders("production")
+      const hsts = findHeader(prodHeaders, "Strict-Transport-Security")
       expect(hsts).toBe("max-age=63072000; includeSubDomains; preload")
+    })
+
+    it("should not include HSTS in non-production environments", () => {
+      const devHeaders = getSecurityHeaders("development")
+      const keys = devHeaders.map((h) => h.key)
+      expect(keys).not.toContain("Strict-Transport-Security")
     })
 
     it("should set X-Frame-Options to DENY", () => {

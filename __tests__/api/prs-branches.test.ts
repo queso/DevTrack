@@ -47,10 +47,18 @@ describe("GET /api/v1/prs", () => {
   it("should return paginated PR list in envelope", async () => {
     mockPrisma.pullRequest.findMany.mockResolvedValue([
       {
-        id: "pr-1", projectId: "proj-1", githubId: 101, number: 1,
-        title: "Fix bug", status: "open", url: "https://github.com/org/repo/pull/1",
-        author: "dev", checkStatus: "passing", openedAt: new Date(),
-        createdAt: new Date(), updatedAt: new Date(),
+        id: "pr-1",
+        projectId: "proj-1",
+        githubId: 101,
+        number: 1,
+        title: "Fix bug",
+        status: "open",
+        url: "https://github.com/org/repo/pull/1",
+        author: "dev",
+        checkStatus: "passing",
+        openedAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
       },
     ])
     mockPrisma.pullRequest.count.mockResolvedValue(1)
@@ -88,7 +96,14 @@ describe("GET /api/v1/projects/:id/branches", () => {
   it("should return branch list for a project", async () => {
     mockPrisma.project.findUnique.mockResolvedValue({ id: "proj-1" })
     mockPrisma.branch.findMany.mockResolvedValue([
-      { id: "br-1", projectId: "proj-1", name: "feature/thing", isActive: true, createdAt: new Date(), updatedAt: new Date() },
+      {
+        id: "br-1",
+        projectId: "proj-1",
+        name: "feature/thing",
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
     ])
     mockPrisma.branch.count.mockResolvedValue(1)
 
@@ -118,10 +133,18 @@ describe("PATCH /api/v1/prs/:id", () => {
 
   it("should update PR status and return updated PR", async () => {
     const pr = {
-      id: "pr-1", projectId: "proj-1", githubId: 101, number: 1,
-      title: "Fix bug", status: "open", url: "https://github.com/org/repo/pull/1",
-      author: "dev", checkStatus: "passing", openedAt: new Date(),
-      createdAt: new Date(), updatedAt: new Date(),
+      id: "pr-1",
+      projectId: "proj-1",
+      githubId: 101,
+      number: 1,
+      title: "Fix bug",
+      status: "open",
+      url: "https://github.com/org/repo/pull/1",
+      author: "dev",
+      checkStatus: "passing",
+      openedAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
     }
     mockPrisma.pullRequest.findUnique.mockResolvedValue(pr)
     mockPrisma.pullRequest.update.mockResolvedValue({ ...pr, status: "merged" })

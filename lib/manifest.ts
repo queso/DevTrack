@@ -10,7 +10,7 @@ const deploySchema = z.object({
 
 const manifestSchema = z.object({
   name: z.string().min(1),
-  workflow: z.enum(["sdlc", "content"]),
+  workflow: z.literal("sdlc").default("sdlc"),
   domain: z.string().min(1),
   owner: z.string().min(1),
   tags: z.array(z.string()).optional(),
@@ -18,8 +18,6 @@ const manifestSchema = z.object({
   branch_prefix: z.string().optional(),
   prd_path: z.string().optional(),
   test_pattern: z.string().optional(),
-  content_path: z.string().optional(),
-  draft_path: z.string().optional(),
   deploy: deploySchema.optional(),
 })
 

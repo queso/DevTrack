@@ -17,10 +17,23 @@
 
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { type ReactNode, createElement } from "react"
+import { createElement, type ReactNode } from "react"
 import { SWRConfig } from "swr"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import type { PullRequest } from "@/lib/mock-data"
+
+interface PullRequest {
+  id: string
+  projectSlug?: string
+  number: number
+  title: string
+  branch: string
+  status: string
+  checkStatus: string
+  createdAt: string
+  url: string
+  author: string
+  unresolvedComments: number
+}
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -68,17 +81,19 @@ vi.mock("@/lib/hooks", () => ({
 // Fixtures — raw API PR shape (what usePRs returns before mapping via mapPR)
 // ---------------------------------------------------------------------------
 
-function makeApiPR(overrides: Partial<{
-  id: string
-  number: number
-  title: string
-  status: string
-  check_status: string | null
-  branch_id: string | null
-  url: string
-  author: string
-  opened_at: Date
-}> = {}) {
+function makeApiPR(
+  overrides: Partial<{
+    id: string
+    number: number
+    title: string
+    status: string
+    check_status: string | null
+    branch_id: string | null
+    url: string
+    author: string
+    opened_at: Date
+  }> = {},
+) {
   return {
     id: overrides.id ?? "pr-1",
     number: overrides.number ?? 42,
@@ -186,9 +201,7 @@ describe("AC1: PR list from live API via SWR", () => {
   })
 
   it("displays PR number alongside title", async () => {
-    mockUsePRsReturn.data = [
-      makeApiPR({ id: "pr-1", number: 99, title: "chore: update deps" }),
-    ]
+    mockUsePRsReturn.data = [makeApiPR({ id: "pr-1", number: 99, title: "chore: update deps" })]
 
     const PRQueuePage = await importPRQueuePage()
     render(
@@ -204,9 +217,7 @@ describe("AC1: PR list from live API via SWR", () => {
 
   it("does not render static mock PR data (ALL_PRS)", async () => {
     // When usePRs returns only one specific PR, static mock names must not appear
-    mockUsePRsReturn.data = [
-      makeApiPR({ id: "live-1", title: "live-api-pr-title-xyz" }),
-    ]
+    mockUsePRsReturn.data = [makeApiPR({ id: "live-1", title: "live-api-pr-title-xyz" })]
 
     const PRQueuePage = await importPRQueuePage()
     render(
@@ -276,9 +287,7 @@ describe("AC1: PR list from live API via SWR", () => {
   })
 
   it("handles singular '1 open pull request' correctly", async () => {
-    mockUsePRsReturn.data = [
-      makeApiPR({ id: "pr-single", title: "solo PR" }),
-    ]
+    mockUsePRsReturn.data = [makeApiPR({ id: "pr-single", title: "solo PR" })]
 
     const PRQueuePage = await importPRQueuePage()
     render(
@@ -301,7 +310,11 @@ describe("AC1: PR list from live API via SWR", () => {
 describe("AC2: Age color coding", () => {
   it("renders green color for PR opened less than 1 day ago", async () => {
     mockUsePRsReturn.data = [
-      makeApiPR({ id: "pr-green", title: "fresh PR", opened_at: new Date(Date.now() - 2 * 60 * 60 * 1000) }), // 2h ago
+      makeApiPR({
+        id: "pr-green",
+        title: "fresh PR",
+        opened_at: new Date(Date.now() - 2 * 60 * 60 * 1000),
+      }), // 2h ago
     ]
 
     const PRQueuePage = await importPRQueuePage()
@@ -320,7 +333,11 @@ describe("AC2: Age color coding", () => {
 
   it("renders yellow color for PR opened 1-3 days ago", async () => {
     mockUsePRsReturn.data = [
-      makeApiPR({ id: "pr-yellow", title: "aging PR", opened_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000) }), // 2 days ago
+      makeApiPR({
+        id: "pr-yellow",
+        title: "aging PR",
+        opened_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+      }), // 2 days ago
     ]
 
     const PRQueuePage = await importPRQueuePage()
@@ -338,7 +355,11 @@ describe("AC2: Age color coding", () => {
 
   it("renders red color for PR opened more than 3 days ago", async () => {
     mockUsePRsReturn.data = [
-      makeApiPR({ id: "pr-red", title: "stale PR", opened_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000) }), // 5 days ago
+      makeApiPR({
+        id: "pr-red",
+        title: "stale PR",
+        opened_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+      }), // 5 days ago
     ]
 
     const PRQueuePage = await importPRQueuePage()
@@ -356,7 +377,11 @@ describe("AC2: Age color coding", () => {
 
   it("age label shows hours for PR less than 1 day old", async () => {
     mockUsePRsReturn.data = [
-      makeApiPR({ id: "pr-hrs", title: "hourly PR", opened_at: new Date(Date.now() - 6 * 60 * 60 * 1000) }), // 6h ago
+      makeApiPR({
+        id: "pr-hrs",
+        title: "hourly PR",
+        opened_at: new Date(Date.now() - 6 * 60 * 60 * 1000),
+      }), // 6h ago
     ]
 
     const PRQueuePage = await importPRQueuePage()
@@ -373,7 +398,11 @@ describe("AC2: Age color coding", () => {
 
   it("age label shows days for PR older than 1 day", async () => {
     mockUsePRsReturn.data = [
-      makeApiPR({ id: "pr-days", title: "old PR", opened_at: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000) }), // 4 days
+      makeApiPR({
+        id: "pr-days",
+        title: "old PR",
+        opened_at: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000),
+      }), // 4 days
     ]
 
     const PRQueuePage = await importPRQueuePage()
@@ -432,9 +461,7 @@ describe("AC3: PR title links to GitHub PR URL", () => {
   })
 
   it("PR link has rel=noopener noreferrer for security", async () => {
-    mockUsePRsReturn.data = [
-      makeApiPR({ id: "pr-rel", title: "secure link PR" }),
-    ]
+    mockUsePRsReturn.data = [makeApiPR({ id: "pr-rel", title: "secure link PR" })]
 
     const PRQueuePage = await importPRQueuePage()
     render(
@@ -451,8 +478,18 @@ describe("AC3: PR title links to GitHub PR URL", () => {
 
   it("each PR row links to its own distinct GitHub URL", async () => {
     mockUsePRsReturn.data = [
-      makeApiPR({ id: "pr-u1", number: 1, title: "first PR", url: "https://github.com/org/a/pull/1" }),
-      makeApiPR({ id: "pr-u2", number: 2, title: "second PR", url: "https://github.com/org/b/pull/2" }),
+      makeApiPR({
+        id: "pr-u1",
+        number: 1,
+        title: "first PR",
+        url: "https://github.com/org/a/pull/1",
+      }),
+      makeApiPR({
+        id: "pr-u2",
+        number: 2,
+        title: "second PR",
+        url: "https://github.com/org/b/pull/2",
+      }),
     ]
 
     const PRQueuePage = await importPRQueuePage()
@@ -479,8 +516,18 @@ describe("AC4: Sort and filter controls with URL query params", () => {
   describe("Sort by age", () => {
     it("sorts PRs oldest-first by default", async () => {
       mockUsePRsReturn.data = [
-        makeApiPR({ id: "pr-new", number: 1, title: "new PR", opened_at: new Date(Date.now() - 1 * 60 * 60 * 1000) }),
-        makeApiPR({ id: "pr-old", number: 2, title: "old PR", opened_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000) }),
+        makeApiPR({
+          id: "pr-new",
+          number: 1,
+          title: "new PR",
+          opened_at: new Date(Date.now() - 1 * 60 * 60 * 1000),
+        }),
+        makeApiPR({
+          id: "pr-old",
+          number: 2,
+          title: "old PR",
+          opened_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+        }),
       ]
 
       const PRQueuePage = await importPRQueuePage()
@@ -499,8 +546,18 @@ describe("AC4: Sort and filter controls with URL query params", () => {
 
     it("clicking Age header updates sort to age and toggles direction", async () => {
       mockUsePRsReturn.data = [
-        makeApiPR({ id: "pr-a1", number: 1, title: "PR one", opened_at: new Date(Date.now() - 1 * 60 * 60 * 1000) }),
-        makeApiPR({ id: "pr-a2", number: 2, title: "PR two", opened_at: new Date(Date.now() - 25 * 60 * 60 * 1000) }),
+        makeApiPR({
+          id: "pr-a1",
+          number: 1,
+          title: "PR one",
+          opened_at: new Date(Date.now() - 1 * 60 * 60 * 1000),
+        }),
+        makeApiPR({
+          id: "pr-a2",
+          number: 2,
+          title: "PR two",
+          opened_at: new Date(Date.now() - 25 * 60 * 60 * 1000),
+        }),
       ]
       const user = userEvent.setup()
 
@@ -692,9 +749,7 @@ describe("AC4: Sort and filter controls with URL query params", () => {
     })
 
     it("clicking a sort header updates URL with sort param", async () => {
-      mockUsePRsReturn.data = [
-        makeApiPR({ id: "pr-p1", number: 1, title: "PR one" }),
-      ]
+      mockUsePRsReturn.data = [makeApiPR({ id: "pr-p1", number: 1, title: "PR one" })]
       const user = userEvent.setup()
 
       const PRQueuePage = await importPRQueuePage()
@@ -756,9 +811,7 @@ describe("AC5: Loading and error states", () => {
 
   it("hides loading skeleton once data arrives", async () => {
     mockUsePRsReturn.isLoading = false
-    mockUsePRsReturn.data = [
-      makeApiPR({ id: "pr-loaded", title: "loaded PR" }),
-    ]
+    mockUsePRsReturn.data = [makeApiPR({ id: "pr-loaded", title: "loaded PR" })]
 
     const PRQueuePage = await importPRQueuePage()
     const { container } = render(
@@ -789,8 +842,8 @@ describe("AC5: Loading and error states", () => {
     await waitFor(() => {
       expect(
         screen.getByText(/something went wrong/i) ||
-        screen.getByText(/failed to load/i) ||
-        screen.getByText(/error/i),
+          screen.getByText(/failed to load/i) ||
+          screen.getByText(/error/i),
       ).toBeTruthy()
     })
   })
@@ -865,17 +918,13 @@ describe("AC6: Empty state when no open PRs", () => {
     )
 
     await waitFor(() => {
-      expect(
-        screen.getByText(/no open pull requests/i),
-      ).toBeInTheDocument()
+      expect(screen.getByText(/no open pull requests/i)).toBeInTheDocument()
     })
   })
 
   it("renders empty state when domain filter excludes all PRs", async () => {
     mockSearchParams = new URLSearchParams("domain=wendyowensbooks")
-    mockUsePRsReturn.data = [
-      makeApiPR({ id: "pr-e1", title: "PR in arcanelayer" }),
-    ]
+    mockUsePRsReturn.data = [makeApiPR({ id: "pr-e1", title: "PR in arcanelayer" })]
 
     const PRQueuePage = await importPRQueuePage()
     render(
@@ -991,7 +1040,12 @@ describe("Integration: PR row fields wired from mapPR", () => {
 
   it("maps 'review_requested' API status to 'open' UI status", async () => {
     mockUsePRsReturn.data = [
-      makeApiPR({ id: "pr-rr", number: 8, title: "review requested PR", status: "review_requested" }),
+      makeApiPR({
+        id: "pr-rr",
+        number: 8,
+        title: "review requested PR",
+        status: "review_requested",
+      }),
     ]
 
     const PRQueuePage = await importPRQueuePage()
@@ -1010,7 +1064,12 @@ describe("Integration: PR row fields wired from mapPR", () => {
 
   it("maps 'changes_requested' API status to 'changes-requested' UI status", async () => {
     mockUsePRsReturn.data = [
-      makeApiPR({ id: "pr-cr", number: 9, title: "changes requested PR", status: "changes_requested" }),
+      makeApiPR({
+        id: "pr-cr",
+        number: 9,
+        title: "changes requested PR",
+        status: "changes_requested",
+      }),
     ]
 
     const PRQueuePage = await importPRQueuePage()
@@ -1213,7 +1272,12 @@ describe("Edge cases: status badge labels", () => {
 
   it("'changes-requested' status renders 'Rev. Needed' badge label", async () => {
     mockUsePRsReturn.data = [
-      makeApiPR({ id: "pr-cr2", number: 3, title: "needs changes PR", status: "changes_requested" }),
+      makeApiPR({
+        id: "pr-cr2",
+        number: 3,
+        title: "needs changes PR",
+        status: "changes_requested",
+      }),
     ]
 
     const PRQueuePage = await importPRQueuePage()

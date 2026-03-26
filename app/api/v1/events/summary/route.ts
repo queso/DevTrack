@@ -1,6 +1,6 @@
+import { apiSuccess } from "@/lib/api/response"
 import { authenticateRequest } from "@/lib/auth"
 import { prisma } from "@/lib/db"
-import { apiSuccess } from "@/lib/api/response"
 
 export async function GET(request: Request) {
   const auth = authenticateRequest(request)
@@ -24,7 +24,10 @@ export async function GET(request: Request) {
   })
 
   // Group by project and count by type
-  const byProject: Record<string, { projectId: string; counts: Record<string, number>; total: number }> = {}
+  const byProject: Record<
+    string,
+    { projectId: string; counts: Record<string, number>; total: number }
+  > = {}
 
   for (const event of events) {
     if (!byProject[event.projectId]) {
@@ -35,7 +38,28 @@ export async function GET(request: Request) {
     group.total++
   }
 
-  const summary = Object.values(byProject)
+  // Compute global day summary string
+  const commitCount = events.filter((e) => e.type === "commit").length
+  const projectCount = new Set(events.filter((e) => e.type === "commit").map((e) => e.projectId))
+    .size
+  const prMergedCount = events.filter((e) => e.type === "pr_merged").length
+  const prdCompletedCount = events.filter((e) => e.type === "prd_completed").length
 
-  return Response.json(apiSuccess(summary))
+  const parts: string[] = []
+  if (commitCount > 0) {
+    parts.push(
+      `${commitCount} ${commitCount === 1 ? "commit" : "commits"} across ${projectCount} ${projectCount === 1 ? "project" : "projects"}`,
+    )
+  }
+  if (prMergedCount > 0) {
+    parts.push(`${prMergedCount} ${prMergedCount === 1 ? "PR" : "PRs"} merged`)
+  }
+  if (prdCompletedCount > 0) {
+    parts.push(`${prdCompletedCount} ${prdCompletedCount === 1 ? "PRD" : "PRDs"} completed`)
+  }
+  const daySummary = parts.join(", ")
+
+  const result = Object.values(byProject).map((entry) => ({ ...entry, summary: daySummary }))
+
+  return Response.json(apiSuccess(result))
 }

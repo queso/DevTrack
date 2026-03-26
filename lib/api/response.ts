@@ -1,4 +1,9 @@
-import type { ApiEnvelope, PaginationMeta, PaginationParams, PrismaQueryPagination } from "@/types/api"
+import type {
+  ApiEnvelope,
+  PaginationMeta,
+  PaginationParams,
+  PrismaQueryPagination,
+} from "@/types/api"
 
 const DEFAULT_PAGE = 1
 const DEFAULT_PER_PAGE = 20

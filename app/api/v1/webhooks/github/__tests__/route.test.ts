@@ -667,7 +667,9 @@ describe("POST /api/v1/webhooks/github — pull_request events", () => {
     // The handler re-throws non-Prisma errors, so the POST itself will reject.
     // We verify this bubbles as an error (not a silent swallow), which is the
     // correct resilience contract for unhandled DB failures.
-    await expect(POST(makeWebhookRequest(prOpenedPayload, "pull_request"))).rejects.toThrow("DB write failed")
+    await expect(POST(makeWebhookRequest(prOpenedPayload, "pull_request"))).rejects.toThrow(
+      "DB write failed",
+    )
   })
 
   it("returns 200 even when event.create fails with a DB error (error is contained)", async () => {
@@ -679,6 +681,8 @@ describe("POST /api/v1/webhooks/github — pull_request events", () => {
     const { POST } = await import("@/app/api/v1/webhooks/github/route")
 
     // Same contract: non-Prisma errors from event.create are re-thrown
-    await expect(POST(makeWebhookRequest(prOpenedPayload, "pull_request"))).rejects.toThrow("Event write failed")
+    await expect(POST(makeWebhookRequest(prOpenedPayload, "pull_request"))).rejects.toThrow(
+      "Event write failed",
+    )
   })
 })

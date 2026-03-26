@@ -1,15 +1,28 @@
 "use client"
 
+import {
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  GitPullRequest,
+  LayoutDashboard,
+  Terminal,
+} from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, Clock, GitPullRequest, Settings, Terminal, ChevronLeft, ChevronRight } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { useProjects, usePRs } from "@/lib/hooks"
+import { useEffect, useState } from "react"
 import { ProjectCardSkeleton } from "@/components/features/dashboard/loading-states"
-import type { Project } from "@/lib/mock-data"
-import { useState, useEffect } from "react"
+import { usePRs, useProjects } from "@/lib/hooks"
+import type { Project } from "@/lib/ui-types"
+import { cn } from "@/lib/utils"
 
-const DOMAIN_ORDER = ["arcanelayer", "aiteam", "joshowensdev", "infrastructure", "wendyowensbooks"] as const
+const DOMAIN_ORDER = [
+  "arcanelayer",
+  "aiteam",
+  "joshowensdev",
+  "infrastructure",
+  "wendyowensbooks",
+] as const
 
 const domainLabels: Record<string, string> = {
   arcanelayer: "Arcane Layer",
@@ -28,9 +41,9 @@ export default function Sidebar() {
   const { data: projectsRaw, isLoading: projectsLoading } = useProjects()
   const { data: prsRaw } = usePRs()
 
-  const projects = (projectsRaw ?? []) as Project[]
+  const projects = (projectsRaw ?? []) as unknown as Project[]
   const openPRCount = (prsRaw ?? []).filter(
-    (pr) => pr.status === "open" || pr.status === "draft"
+    (pr) => pr.status === "open" || pr.status === "draft",
   ).length
 
   // Default to expanded; apply localStorage/viewport preference after mount to avoid hydration mismatch
@@ -81,7 +94,7 @@ export default function Sidebar() {
     <aside
       data-collapsed={collapsed ? "true" : undefined}
       className={cn(
-        "shrink-0 flex flex-col h-screen bg-sidebar border-r border-sidebar-border sticky top-0 overflow-y-auto transition-all",
+        "shrink-0 flex flex-col h-screen bg-sidebar border-r border-sidebar-border sticky top-0 overflow-y-auto overflow-x-hidden transition-all",
         collapsed ? "w-14" : "w-56",
       )}
     >
@@ -178,13 +191,6 @@ export default function Sidebar() {
 
       {/* Bottom */}
       <div className="px-2 pb-3 border-t border-sidebar-border pt-2 flex flex-col gap-0.5">
-        <NavItem
-          href="/settings"
-          icon={<Settings className="w-4 h-4" />}
-          label="Settings"
-          active={pathname === "/settings"}
-          collapsed={collapsed}
-        />
         <button
           type="button"
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}

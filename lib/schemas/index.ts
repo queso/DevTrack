@@ -29,10 +29,8 @@ export const envelopeSchema = <T extends z.ZodTypeAny>(dataSchema: T) =>
 // Enums (must match Prisma enum values exactly)
 // ---------------------------------------------------------------------------
 
-const workflowEnum = z.enum(["sdlc", "content"])
 const prdStatusEnum = z.enum(["queued", "in_progress", "completed"])
 const workItemStatusEnum = z.enum(["todo", "in_progress", "done"])
-const contentItemStatusEnum = z.enum(["idea", "draft", "published"])
 const pullRequestStatusEnum = z.enum([
   "open",
   "closed",
@@ -57,13 +55,11 @@ const eventTypeEnum = z.enum([
   "prd_completed",
   "work_item_created",
   "work_item_completed",
-  "content_published",
   "commit",
   "push",
   "session_start",
   "session_end",
   "pr_reviewed",
-  "content_updated",
   "prd_synced",
 ])
 
@@ -73,7 +69,7 @@ const eventTypeEnum = z.enum([
 
 export const createProjectSchema = z.object({
   name: z.string().min(1),
-  workflow: workflowEnum,
+  workflow: z.literal("sdlc").default("sdlc"),
   domain: z.string().optional(),
   owner: z.string().optional(),
   tags: z.array(z.string()).default([]),
@@ -82,8 +78,6 @@ export const createProjectSchema = z.object({
   branch_prefix: z.string().optional(),
   prd_path: z.string().optional(),
   test_pattern: z.string().optional(),
-  content_path: z.string().optional(),
-  draft_path: z.string().optional(),
   deploy_environment: z.string().optional(),
   deploy_url: z.string().url().optional(),
   deploy_health_check: z.string().optional(),
@@ -100,7 +94,6 @@ export const projectResponseSchema = createProjectSchema.extend({
 
 export const projectListQuerySchema = paginationQuerySchema.extend({
   domain: z.string().optional(),
-  workflow: workflowEnum.optional(),
   tags: z.array(z.string()).optional(),
 })
 
@@ -141,32 +134,6 @@ export const workItemResponseSchema = createWorkItemSchema.extend({
   id: z.string().uuid(),
   created_at: z.string().datetime(),
   updated_at: z.string().datetime(),
-})
-
-// ---------------------------------------------------------------------------
-// ContentItem
-// ---------------------------------------------------------------------------
-
-export const createContentSchema = z.object({
-  project_id: z.string().uuid(),
-  title: z.string().min(1),
-  summary: z.string().optional(),
-  status: contentItemStatusEnum.default("idea"),
-  source_path: z.string().optional().nullable(),
-  tags: z.array(z.string()).default([]),
-  published_at: z.string().datetime().optional().nullable(),
-})
-
-export const updateContentSchema = createContentSchema.partial()
-
-export const contentResponseSchema = createContentSchema.extend({
-  id: z.string().uuid(),
-  created_at: z.string().datetime(),
-  updated_at: z.string().datetime(),
-})
-
-export const contentListQuerySchema = paginationQuerySchema.extend({
-  status: contentItemStatusEnum.optional(),
 })
 
 // ---------------------------------------------------------------------------
@@ -231,7 +198,7 @@ export const createEventSchema = z.object({
   pull_request_id: z.string().uuid().optional().nullable(),
   type: eventTypeEnum,
   title: z.string().min(1),
-  metadata: z.record(z.unknown()).default({}),
+  metadata: z.record(z.string(), z.unknown()).default({}),
   occurred_at: z.string().datetime(),
 })
 

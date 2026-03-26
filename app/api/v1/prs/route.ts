@@ -1,6 +1,6 @@
+import { buildPagination, paginatedResponse, parsePagination } from "@/lib/api/response"
 import { authenticateRequest } from "@/lib/auth"
 import { prisma } from "@/lib/db"
-import { paginatedResponse, parsePagination, buildPagination } from "@/lib/api/response"
 
 export async function GET(request: Request) {
   const auth = authenticateRequest(request)
@@ -11,7 +11,18 @@ export async function GET(request: Request) {
   const { skip, take } = buildPagination(page, per_page)
 
   const status = url.searchParams.get("status") ?? undefined
-  const where = status ? { status: status as "open" | "closed" | "merged" | "draft" | "review_requested" | "changes_requested" | "approved" } : {}
+  const where = status
+    ? {
+        status: status as
+          | "open"
+          | "closed"
+          | "merged"
+          | "draft"
+          | "review_requested"
+          | "changes_requested"
+          | "approved",
+      }
+    : {}
 
   const [prs, total] = await Promise.all([
     prisma.pullRequest.findMany({ where, skip, take, orderBy: { openedAt: "desc" } }),

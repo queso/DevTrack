@@ -1,5 +1,3 @@
-export type WorkflowType = "sdlc" | "content"
-
 export interface ManifestDeploy {
   environment: string
   url: string
@@ -8,7 +6,7 @@ export interface ManifestDeploy {
 
 export interface ManifestConfig {
   name: string
-  workflow: WorkflowType
+  workflow: "sdlc"
   domain: string
   owner: string
   tags?: string[]
@@ -16,7 +14,5 @@ export interface ManifestConfig {
   branch_prefix?: string
   prd_path?: string
   test_pattern?: string
-  content_path?: string
-  draft_path?: string
   deploy?: ManifestDeploy
 }

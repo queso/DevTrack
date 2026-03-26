@@ -92,7 +92,6 @@ curl -X POST http://localhost:3000/api/v1/projects \
 
 - **Projects:** `/api/v1/projects` - Register and manage tracked projects
 - **PRDs & Work Items:** `/api/v1/projects/{id}/prds` - Track features and tasks
-- **Content Pipeline:** `/api/v1/projects/{id}/content` - Manage ideas, drafts, and published content
 - **Pull Requests:** `/api/v1/prs` - Monitor PR queue across all projects
 - **Events & Timeline:** `/api/v1/events` - Track activity and create a unified timeline
 - **GitHub Webhooks:** `/api/v1/webhooks/github` - Receive GitHub events
@@ -152,10 +151,6 @@ devtrack dashboard
 - `devtrack hooks install` — Install git hooks for automatic tracking
 - `devtrack hooks uninstall` — Remove installed hooks
 
-**Content Pipeline:**
-- `devtrack ideas list` — List content ideas
-- `devtrack ideas add` — Add a new idea
-
 For all available commands and options:
 
 ```bash
@@ -181,7 +176,7 @@ prd_path: "prd/"
 test_pattern: "**/*.test.ts"
 ```
 
-The manifest defines the project's workflow type (SDLC or content), structure, and integration points.
+The manifest defines the project's configuration, structure, and integration points.
 
 ### Claude Code Hooks
 

@@ -84,20 +84,20 @@
   --sidebar-ring: oklch(0.45 0 0);
 
   /* Domain badge colors — WCAG AA compliant (4.5:1 contrast) */
-  --domain-arcanelayer-bg: oklch(0.30 0.10 295);
-  --domain-arcanelayer-text: oklch(0.88 0.10 295);
+  --domain-arcanelayer-bg: oklch(0.3 0.1 295);
+  --domain-arcanelayer-text: oklch(0.88 0.1 295);
   --domain-aiteam-bg: oklch(0.28 0.08 250);
-  --domain-aiteam-text: oklch(0.85 0.10 250);
+  --domain-aiteam-text: oklch(0.85 0.1 250);
   --domain-joshowensdev-bg: oklch(0.26 0.08 155);
   --domain-joshowensdev-text: oklch(0.82 0.12 155);
   --domain-infrastructure-bg: oklch(0.28 0.08 50);
   --domain-infrastructure-text: oklch(0.85 0.12 55);
   --domain-wendyowensbooks-bg: oklch(0.28 0.08 15);
-  --domain-wendyowensbooks-text: oklch(0.85 0.10 15);
+  --domain-wendyowensbooks-text: oklch(0.85 0.1 15);
 
   /* Workflow type pills */
   --workflow-sdlc-bg: oklch(0.32 0.12 250);
-  --workflow-sdlc-text: oklch(0.88 0.10 250);
+  --workflow-sdlc-text: oklch(0.88 0.1 250);
   --workflow-content-bg: oklch(0.32 0.14 145);
   --workflow-content-text: oklch(0.88 0.12 145);
 
@@ -182,8 +182,17 @@
 }
 
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 0 0 oklch(0.72 0.2 145 / 0.4), 0 0 8px 2px oklch(0.72 0.2 145 / 0.15); }
-  50% { box-shadow: 0 0 0 3px oklch(0.72 0.2 145 / 0.1), 0 0 16px 4px oklch(0.72 0.2 145 / 0.25); }
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 oklch(0.72 0.2 145 / 0.4),
+      0 0 8px 2px oklch(0.72 0.2 145 / 0.15);
+  }
+  50% {
+    box-shadow:
+      0 0 0 3px oklch(0.72 0.2 145 / 0.1),
+      0 0 16px 4px oklch(0.72 0.2 145 / 0.25);
+  }
 }
 
 .animate-pulse-glow {

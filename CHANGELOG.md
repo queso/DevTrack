@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-03-24
+
+### Added
+
+#### Dashboard API Integration
+- Real-time project data wiring via useProjects() SWR hook replacing mock data (#WI-001)
+- Loading skeleton state for dashboard component (#WI-001)
+- Error state with retry capability for failed API calls (#WI-001)
+- Empty state messaging when no projects available (#WI-001)
+
+#### Events API Enhancements
+- Domain filtering on GET /api/v1/events endpoint (#WI-002)
+- Human-readable summaries for events summary endpoint via buildDaySummary helper (#WI-003)
+- Timeline day headers displaying computed summaries (#WI-003)
+
+#### CLI Enhancements
+- CLI register auto-detects repo_url from git remote origin (#WI-004)
+- Interactive prompt for hooks installation after project registration (#WI-004)
+- CLI sync performs full re-sync with PRDs and pull requests (#WI-005)
+- CLI hooks test subcommand verifying git hooks, Claude Code hooks, and API health (#WI-006)
+
+#### Deployment
+- Removed reactive-swr patching hack from Dockerfile, now using npm ^0.2.0 (#WI-007)
+
+### Removed
+
+#### Content Workflow
+- Entire content workflow stripped from codebase following deprecation decision (#WI-008)
+- Content endpoints removed: GET /api/v1/projects/{id}/content, POST, PATCH, DELETE (#WI-008)
+- Content endpoint removed: GET /api/v1/content/{id} (#WI-008)
+- ContentItem model removed from Prisma schema (#WI-008)
+- Content-related CLI commands removed: devtrack ideas list/add, devtrack projects create-content (#WI-008)
+- Content type definitions and parsers removed (#WI-008)
+- Content sync and validation removed (#WI-008)
+- Mock data removed: lib/mock-data.ts and all imports (#WI-009)
+
 ## [0.4.0] - 2026-03-18
 
 ### Added

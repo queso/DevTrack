@@ -1,16 +1,35 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import {
+  ArrowUpDown,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
+  MessageSquareWarning,
+} from "lucide-react"
 import Link from "next/link"
-import { useRouter, useSearchParams, usePathname } from "next/navigation"
-import { ExternalLink, ArrowUpDown, MessageSquareWarning } from "lucide-react"
-import { getPRAge, type Domain } from "@/lib/mock-data"
-import { PRStatusBadge, CheckStatusBadge } from "@/components/features/dashboard/status-badges"
-import { PRRowSkeleton, ErrorState, EmptyState } from "@/components/features/dashboard/loading-states"
-import { usePRs } from "@/lib/hooks"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { useMemo, useState } from "react"
+import type { Domain } from "@/lib/constants"
+
+function getPRAge(createdAt: string): { label: string; color: string } {
+  const hours = (Date.now() - new Date(createdAt).getTime()) / 3600000
+  if (hours < 24) return { label: `${Math.floor(hours)}h`, color: "text-emerald-400" }
+  const days = Math.floor(hours / 24)
+  if (days <= 3) return { label: `${days}d`, color: "text-amber-400" }
+  return { label: `${days}d`, color: "text-red-400" }
+}
+
+import {
+  EmptyState,
+  ErrorState,
+  PRRowSkeleton,
+} from "@/components/features/dashboard/loading-states"
+import { CheckStatusBadge, PRStatusBadge } from "@/components/features/dashboard/status-badges"
+import { DOMAIN_LABELS, DOMAIN_ORDER } from "@/lib/constants"
+import { usePRs, useProjects } from "@/lib/hooks"
 import { mapPR } from "@/lib/mappers"
 import { cn } from "@/lib/utils"
-import { DOMAIN_ORDER, DOMAIN_LABELS } from "@/lib/constants"
 
 type SortKey = "age" | "project" | "status"
 
@@ -32,16 +51,22 @@ export default function PRQueuePage() {
 
   // Initialize state from URL params
   const [sortKey, setSortKey] = useState<SortKey>(
-    () => (searchParams.get("sort") as SortKey) ?? "age"
+    () => (searchParams.get("sort") as SortKey) ?? "age",
   )
-  const [sortAsc, setSortAsc] = useState<boolean>(
-    () => searchParams.get("dir") !== "desc"
-  )
+  const [sortAsc, setSortAsc] = useState<boolean>(() => searchParams.get("dir") !== "desc")
   const [domainFilter, setDomainFilter] = useState<Domain | "all">(
-    () => (searchParams.get("domain") as Domain) ?? "all"
+    () => (searchParams.get("domain") as Domain) ?? "all",
   )
 
   const { data: rawData, isLoading, error, mutate } = usePRs()
+  const { data: rawProjects } = useProjects()
+
+  // Build a set of project names (slugs) that belong to the selected domain
+  const domainProjectSlugs = useMemo(() => {
+    if (domainFilter === "all") return null
+    const projects = rawProjects ?? []
+    return new Set(projects.filter((p) => p.domain === domainFilter).map((p) => p.name))
+  }, [domainFilter, rawProjects])
 
   function updateURL(newSort: SortKey, newAsc: boolean, newDomain: Domain | "all") {
     const params = new URLSearchParams()
@@ -66,16 +91,14 @@ export default function PRQueuePage() {
 
   const mappedPRs = useMemo(() => {
     if (!rawData) return []
-    return rawData.map((pr) =>
-      mapPR(pr, pr.project_id ?? "")
-    )
+    return rawData.map((pr) => mapPR(pr, pr.project_id ?? ""))
   }, [rawData])
 
   const sorted = useMemo(() => {
     let prs = [...mappedPRs]
 
-    if (domainFilter !== "all") {
-      prs = prs.filter((pr) => pr.projectSlug === domainFilter)
+    if (domainFilter !== "all" && domainProjectSlugs) {
+      prs = prs.filter((pr) => domainProjectSlugs.has(pr.projectSlug))
     }
 
     prs.sort((a, b) => {
@@ -90,7 +113,7 @@ export default function PRQueuePage() {
       return sortAsc ? diff : -diff
     })
     return prs
-  }, [mappedPRs, domainFilter, sortKey, sortAsc])
+  }, [mappedPRs, domainFilter, domainProjectSlugs, sortKey, sortAsc])
 
   const prCount = sorted.length
 
@@ -141,12 +164,24 @@ export default function PRQueuePage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/20">
-                <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Project</th>
-                <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Pull Request</th>
-                <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</th>
-                <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Age</th>
-                <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Checks</th>
-                <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Comments</th>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Project
+                </th>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Pull Request
+                </th>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Status
+                </th>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Age
+                </th>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Checks
+                </th>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Comments
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -158,10 +193,7 @@ export default function PRQueuePage() {
           </table>
         </div>
       ) : error ? (
-        <ErrorState
-          message={error.message}
-          onRetry={() => mutate()}
-        />
+        <ErrorState message={error.message} onRetry={() => mutate()} />
       ) : sorted.length === 0 ? (
         <EmptyState message="No open pull requests" />
       ) : (
@@ -169,12 +201,30 @@ export default function PRQueuePage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/20">
-                <SortTh label="Project" sortKey="project" current={sortKey} asc={sortAsc} onSort={handleSort} />
+                <SortTh
+                  label="Project"
+                  sortKey="project"
+                  current={sortKey}
+                  asc={sortAsc}
+                  onSort={handleSort}
+                />
                 <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Pull Request
                 </th>
-                <SortTh label="Status" sortKey="status" current={sortKey} asc={sortAsc} onSort={handleSort} />
-                <SortTh label="Age" sortKey="age" current={sortKey} asc={sortAsc} onSort={handleSort} />
+                <SortTh
+                  label="Status"
+                  sortKey="status"
+                  current={sortKey}
+                  asc={sortAsc}
+                  onSort={handleSort}
+                />
+                <SortTh
+                  label="Age"
+                  sortKey="age"
+                  current={sortKey}
+                  asc={sortAsc}
+                  onSort={handleSort}
+                />
                 <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Checks
                 </th>
@@ -211,10 +261,14 @@ export default function PRQueuePage() {
                           rel="noopener noreferrer"
                           className="flex items-center gap-1 font-medium text-sky-400 hover:text-sky-300 transition-colors"
                         >
-                          <span>#{pr.number} {pr.title}</span>
+                          <span>
+                            #{pr.number} {pr.title}
+                          </span>
                           <ExternalLink className="w-3 h-3 opacity-60 shrink-0" />
                         </a>
-                        <code className="text-[11px] text-muted-foreground font-mono">{pr.branch}</code>
+                        <code className="text-[11px] text-muted-foreground font-mono">
+                          {pr.branch}
+                        </code>
                         <span className="text-xs text-muted-foreground">{pr.author}</span>
                       </div>
                     </td>
@@ -222,7 +276,9 @@ export default function PRQueuePage() {
                       <PRStatusBadge status={pr.status} />
                     </td>
                     <td className="px-4 py-3">
-                      <span className={cn("font-mono text-sm font-semibold", age.color)}>{age.label}</span>
+                      <span className={cn("font-mono text-sm font-semibold", age.color)}>
+                        {age.label}
+                      </span>
                     </td>
                     <td className="px-4 py-3">
                       <CheckStatusBadge status={pr.checkStatus} />
@@ -252,7 +308,7 @@ function SortTh({
   label,
   sortKey,
   current,
-  asc: _asc,
+  asc,
   onSort,
 }: {
   label: string
@@ -262,6 +318,7 @@ function SortTh({
   onSort: (k: SortKey) => void
 }) {
   const active = current === sortKey
+  const Icon = active ? (asc ? ChevronUp : ChevronDown) : ArrowUpDown
   return (
     <th className="px-4 py-2.5 text-left">
       <button
@@ -273,7 +330,7 @@ function SortTh({
         )}
       >
         {label}
-        <ArrowUpDown className={cn("w-3 h-3", active && "opacity-100", !active && "opacity-40")} />
+        <Icon className={cn("w-3 h-3", active && "opacity-100", !active && "opacity-40")} />
       </button>
     </th>
   )

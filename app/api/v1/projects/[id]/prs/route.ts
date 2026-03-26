@@ -1,7 +1,7 @@
+import { badRequest, handlePrismaError, notFound, unprocessableEntity } from "@/lib/api"
+import { apiSuccess, buildPagination, paginatedResponse, parsePagination } from "@/lib/api/response"
 import { authenticateRequest } from "@/lib/auth"
-import { notFound, badRequest, unprocessableEntity, handlePrismaError } from "@/lib/api"
 import { prisma } from "@/lib/db"
-import { apiSuccess, paginatedResponse, parsePagination, buildPagination } from "@/lib/api/response"
 import { createPrSchema } from "@/lib/schemas"
 
 type RouteContext = { params: Promise<{ id: string }> }
@@ -42,15 +42,14 @@ export async function POST(request: Request, { params }: RouteContext) {
     return badRequest("Invalid JSON in request body")
   }
 
-  const parsed = createPrSchema.safeParse({ ...body as object, project_id: id })
+  const parsed = createPrSchema.safeParse({ ...(body as object), project_id: id })
   if (!parsed.success) {
-    const fields = Object.fromEntries(
-      parsed.error.issues.map((i) => [i.path.join("."), i.message]),
-    )
+    const fields = Object.fromEntries(parsed.error.issues.map((i) => [i.path.join("."), i.message]))
     return unprocessableEntity(fields)
   }
 
-  const { project_id, branch_id, prd_id, github_id, check_status, opened_at, merged_at, ...rest } = parsed.data
+  const { project_id, branch_id, prd_id, github_id, check_status, opened_at, merged_at, ...rest } =
+    parsed.data
   try {
     const pr = await prisma.pullRequest.create({
       data: {

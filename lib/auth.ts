@@ -1,6 +1,6 @@
 import { timingSafeEqual } from "node:crypto"
-import { unauthorized } from "@/lib/api"
 import type { ValidationResult } from "@/lib/api"
+import { unauthorized } from "@/lib/api"
 import { getEnv } from "@/lib/env"
 import { getLogger } from "@/lib/logger"
 
@@ -17,19 +17,27 @@ function timingSafeCompare(a: string, b: string): boolean {
 
 export function authenticateRequest(request: Request): ValidationResult<{ authenticated: true }> {
   const logger = getLogger()
+
+  // Accept X-Api-Key header (used by frontend SWR fetcher) or Authorization: Bearer
+  const xApiKey = request.headers.get("X-Api-Key")
   const authHeader = request.headers.get("Authorization")
 
-  if (!authHeader) {
-    logger.warn({ url: request.url }, "Auth failure: missing Authorization header")
-    return { success: false, response: unauthorized("Missing Authorization header") }
+  let providedKey: string | undefined
+
+  if (xApiKey) {
+    providedKey = xApiKey
+  } else if (authHeader) {
+    if (!authHeader.startsWith("Bearer ")) {
+      logger.warn({ url: request.url }, "Auth failure: unsupported auth scheme")
+      return { success: false, response: unauthorized("Invalid authorization scheme") }
+    }
+    providedKey = authHeader.slice(7)
   }
 
-  if (!authHeader.startsWith("Bearer ")) {
-    logger.warn({ url: request.url }, "Auth failure: unsupported auth scheme")
-    return { success: false, response: unauthorized("Invalid authorization scheme") }
+  if (!providedKey) {
+    logger.warn({ url: request.url }, "Auth failure: missing auth credentials")
+    return { success: false, response: unauthorized("Missing Authorization header or X-Api-Key") }
   }
-
-  const providedKey = authHeader.slice(7)
   const expectedKey = getEnv().DEVTRACK_API_KEY ?? ""
 
   if (!expectedKey || !timingSafeCompare(providedKey, expectedKey)) {

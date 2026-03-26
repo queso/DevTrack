@@ -101,9 +101,7 @@ describe("cacheHeaders", () => {
     })
 
     it("should handle staleWhileRevalidate=0", () => {
-      expect(cacheHeaders({ staleWhileRevalidate: 0 })).toBe(
-        "private, stale-while-revalidate=0",
-      )
+      expect(cacheHeaders({ staleWhileRevalidate: 0 })).toBe("private, stale-while-revalidate=0")
     })
   })
 

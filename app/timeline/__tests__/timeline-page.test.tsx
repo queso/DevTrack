@@ -18,7 +18,7 @@
 
 import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { type ReactNode, createElement } from "react"
+import { createElement, type ReactNode } from "react"
 import { SWRConfig } from "swr"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -79,16 +79,18 @@ function daysAgo(d: number): Date {
   return new Date(NOW.getTime() - d * 24 * 60 * 60 * 1000)
 }
 
-function makeEvent(overrides: Partial<{
-  id: string
-  projectId: string
-  type: string
-  title: string
-  metadata: Record<string, unknown>
-  occurredAt: Date
-  createdAt: Date
-  updatedAt: Date
-}> = {}) {
+function makeEvent(
+  overrides: Partial<{
+    id: string
+    projectId: string
+    type: string
+    title: string
+    metadata: Record<string, unknown>
+    occurredAt: Date
+    createdAt: Date
+    updatedAt: Date
+  }> = {},
+) {
   return {
     id: overrides.id ?? "te-1",
     projectId: overrides.projectId ?? "proj-1",
@@ -101,19 +103,21 @@ function makeEvent(overrides: Partial<{
   }
 }
 
-function makeProject(overrides: Partial<{
-  id: string
-  name: string
-  workflow: "sdlc" | "content"
-  domain: string | null
-  tags: string[]
-  repoUrl: string | null
-  lastActivityAt: Date | null
-  prds: unknown[]
-  pullRequests: unknown[]
-  createdAt: Date
-  updatedAt: Date
-}> = {}) {
+function makeProject(
+  overrides: Partial<{
+    id: string
+    name: string
+    workflow: "sdlc" | "content"
+    domain: string | null
+    tags: string[]
+    repoUrl: string | null
+    lastActivityAt: Date | null
+    prds: unknown[]
+    pullRequests: unknown[]
+    createdAt: Date
+    updatedAt: Date
+  }> = {},
+) {
   return {
     id: overrides.id ?? "proj-1",
     name: overrides.name ?? "picking-app",
@@ -130,15 +134,60 @@ function makeProject(overrides: Partial<{
 }
 
 // Fixture events across different days
-const todayEvent1 = makeEvent({ id: "te-today-1", type: "commit", title: "add multi-barcode batch scan mode", occurredAt: hoursAgo(2), projectId: "proj-1" })
-const todayEvent2 = makeEvent({ id: "te-today-2", type: "pr_opened", title: "Opened PR #47: feat: barcode scanner integration", occurredAt: hoursAgo(5), projectId: "proj-2" })
-const yesterdayEvent1 = makeEvent({ id: "te-yest-1", type: "pr_approved", title: "PR #23 approved: redesign: full landing page refresh", occurredAt: hoursAgo(26), projectId: "proj-1" })
-const _yesterdayEvent2 = makeEvent({ id: "te-yest-2", type: "prd_updated", title: "PRD updated: Barcode scanning — 3/5 items done", occurredAt: hoursAgo(30), projectId: "proj-2" })
-const twoDaysAgoEvent = makeEvent({ id: "te-2d-1", type: "content_published", title: "Published: Ship It: K8s Upgrade Story", occurredAt: daysAgo(2), projectId: "proj-3" })
+const todayEvent1 = makeEvent({
+  id: "te-today-1",
+  type: "commit",
+  title: "add multi-barcode batch scan mode",
+  occurredAt: hoursAgo(2),
+  projectId: "proj-1",
+})
+const todayEvent2 = makeEvent({
+  id: "te-today-2",
+  type: "pr_opened",
+  title: "Opened PR #47: feat: barcode scanner integration",
+  occurredAt: hoursAgo(5),
+  projectId: "proj-2",
+})
+const yesterdayEvent1 = makeEvent({
+  id: "te-yest-1",
+  type: "pr_approved",
+  title: "PR #23 approved: redesign: full landing page refresh",
+  occurredAt: hoursAgo(26),
+  projectId: "proj-1",
+})
+const _yesterdayEvent2 = makeEvent({
+  id: "te-yest-2",
+  type: "prd_updated",
+  title: "PRD updated: Barcode scanning — 3/5 items done",
+  occurredAt: hoursAgo(30),
+  projectId: "proj-2",
+})
+const twoDaysAgoEvent = makeEvent({
+  id: "te-2d-1",
+  type: "commit",
+  title: "Published: Ship It: K8s Upgrade Story",
+  occurredAt: daysAgo(2),
+  projectId: "proj-3",
+})
 
-const projectAlpha = makeProject({ id: "proj-1", name: "picking-app", domain: "arcanelayer", workflow: "sdlc" })
-const projectBeta = makeProject({ id: "proj-2", name: "aiteam-brand", domain: "aiteam", workflow: "sdlc" })
-const projectGamma = makeProject({ id: "proj-3", name: "joshowens-dev", domain: "joshowensdev", workflow: "content" })
+const projectAlpha = makeProject({
+  id: "proj-1",
+  name: "picking-app",
+  domain: "arcanelayer",
+  workflow: "sdlc",
+})
+const projectBeta = makeProject({
+  id: "proj-2",
+  name: "aiteam-brand",
+  domain: "aiteam",
+  workflow: "sdlc",
+})
+const projectGamma = makeProject({
+  id: "proj-3",
+  name: "joshowens-dev",
+  domain: "joshowensdev",
+  workflow: "sdlc",
+})
 
 const paginationMeta = { total: 30, page: 1, per_page: 20 }
 
@@ -160,7 +209,7 @@ function SWRWrapper({ children }: { children: ReactNode }) {
 
 async function importTimelinePage() {
   const mod = await import("@/app/timeline/TimelinePageClient")
-  return mod.default ?? mod.TimelinePageClient
+  return mod.default
 }
 
 // ---------------------------------------------------------------------------
@@ -304,7 +353,7 @@ describe("AC2: Date headers use relative labels for recent days", () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByText(/today/i)).toBeInTheDocument()
+      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument()
     })
   })
 
@@ -321,7 +370,7 @@ describe("AC2: Date headers use relative labels for recent days", () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByText(/yesterday/i)).toBeInTheDocument()
+      expect(screen.getByRole("heading", { name: /yesterday/i })).toBeInTheDocument()
     })
   })
 
@@ -342,8 +391,8 @@ describe("AC2: Date headers use relative labels for recent days", () => {
     })
 
     // The header for 2 days ago should not say "Today" or "Yesterday"
-    expect(screen.queryByText(/^today$/i)).not.toBeInTheDocument()
-    expect(screen.queryByText(/^yesterday$/i)).not.toBeInTheDocument()
+    expect(screen.queryByRole("heading", { name: /^today$/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole("heading", { name: /^yesterday$/i })).not.toBeInTheDocument()
   })
 
   it("shows both Today and Yesterday headers when events span two days", async () => {
@@ -359,8 +408,8 @@ describe("AC2: Date headers use relative labels for recent days", () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByText(/today/i)).toBeInTheDocument()
-      expect(screen.getByText(/yesterday/i)).toBeInTheDocument()
+      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument()
+      expect(screen.getByRole("heading", { name: /yesterday/i })).toBeInTheDocument()
     })
   })
 })
@@ -383,8 +432,8 @@ describe("AC3: Day summary computed from actual events", () => {
     )
 
     await waitFor(() => {
-      // Should show event count for the day (e.g. "2 events")
-      expect(screen.getByText(/2 events?/i)).toBeInTheDocument()
+      // Should show human-readable summary: todayEvent1 is "commit", todayEvent2 is "pr_opened"
+      expect(screen.getByText(/1 commit across 1 project/i)).toBeInTheDocument()
     })
   })
 
@@ -401,15 +450,26 @@ describe("AC3: Day summary computed from actual events", () => {
     )
 
     await waitFor(() => {
-      // Today has 2 events, yesterday has 1
-      expect(screen.getByText(/2 events?/i)).toBeInTheDocument()
-      expect(screen.getByText(/1 events?/i)).toBeInTheDocument()
+      // Today has commit + pr_opened → "1 commit across 1 project"
+      expect(screen.getByText(/1 commit across 1 project/i)).toBeInTheDocument()
+      // Yesterday has pr_approved → fallback to "1 event"
+      expect(screen.getByText("1 event")).toBeInTheDocument()
     })
   })
 
   it("summary reflects different event types in the day", async () => {
-    const commitEvent = makeEvent({ id: "c1", type: "commit", title: "feat: add button", occurredAt: hoursAgo(1) })
-    const prEvent = makeEvent({ id: "p1", type: "pr_opened", title: "Opened PR #10", occurredAt: hoursAgo(2) })
+    const commitEvent = makeEvent({
+      id: "c1",
+      type: "commit",
+      title: "feat: add button",
+      occurredAt: hoursAgo(1),
+    })
+    const prEvent = makeEvent({
+      id: "p1",
+      type: "pr_opened",
+      title: "Opened PR #10",
+      occurredAt: hoursAgo(2),
+    })
 
     mockUseTimelineReturn.data = [commitEvent, prEvent]
     mockUseTimelineReturn.meta = { total: 2, page: 1, per_page: 20 }
@@ -480,7 +540,11 @@ describe("AC4: Filters — date range", () => {
       await waitFor(() => {
         const calls = [...mockReplace.mock.calls, ...mockPush.mock.calls]
         const urlStrings = calls.map((c) => String(c[0]))
-        expect(urlStrings.some((url) => url.includes("range=") || url.includes("from=") || url.includes("week"))).toBe(true)
+        expect(
+          urlStrings.some(
+            (url) => url.includes("range=") || url.includes("from=") || url.includes("week"),
+          ),
+        ).toBe(true)
       })
     } else {
       // If no preset buttons, there should at least be date input controls
@@ -537,7 +601,9 @@ describe("AC4: Filters — project", () => {
       await waitFor(() => {
         const calls = [...mockReplace.mock.calls, ...mockPush.mock.calls]
         const urlStrings = calls.map((c) => String(c[0]))
-        expect(urlStrings.some((url) => url.includes("project=") || url.includes("projectId="))).toBe(true)
+        expect(
+          urlStrings.some((url) => url.includes("project=") || url.includes("projectId=")),
+        ).toBe(true)
       })
     } else if (projectSelect) {
       await user.selectOptions(projectSelect, "picking-app")
@@ -617,7 +683,9 @@ describe("AC4: Filters — domain", () => {
       await waitFor(() => {
         const calls = [...mockReplace.mock.calls, ...mockPush.mock.calls]
         const urlStrings = calls.map((c) => String(c[0]))
-        expect(urlStrings.some((url) => url.includes("domain=arcanelayer") || url.includes("domain="))).toBe(true)
+        expect(
+          urlStrings.some((url) => url.includes("domain=arcanelayer") || url.includes("domain=")),
+        ).toBe(true)
       })
     } else {
       const domainSelect = screen.queryByRole("combobox", { name: /domain/i })
@@ -688,7 +756,9 @@ describe("AC4: Filters — event type", () => {
       await waitFor(() => {
         const calls = [...mockReplace.mock.calls, ...mockPush.mock.calls]
         const urlStrings = calls.map((c) => String(c[0]))
-        expect(urlStrings.some((url) => url.includes("type=commit") || url.includes("eventType=commit"))).toBe(true)
+        expect(
+          urlStrings.some((url) => url.includes("type=commit") || url.includes("eventType=commit")),
+        ).toBe(true)
       })
     } else {
       const typeSelect = screen.queryByRole("combobox", { name: /type|event type/i })
@@ -925,9 +995,7 @@ describe("AC6: Error state", () => {
     )
 
     await waitFor(() => {
-      expect(
-        screen.getByText(/something went wrong|failed to load|error/i),
-      ).toBeInTheDocument()
+      expect(screen.getByText(/something went wrong|failed to load|error/i)).toBeInTheDocument()
     })
   })
 
@@ -1002,9 +1070,7 @@ describe("AC7: Empty state when no events", () => {
     )
 
     await waitFor(() => {
-      expect(
-        screen.getByText(/no events|nothing here|all quiet|no activity/i),
-      ).toBeInTheDocument()
+      expect(screen.getByText(/no events|nothing here|all quiet|no activity/i)).toBeInTheDocument()
     })
   })
 
@@ -1021,8 +1087,8 @@ describe("AC7: Empty state when no events", () => {
     )
 
     await waitFor(() => {
-      expect(screen.queryByText(/today/i)).not.toBeInTheDocument()
-      expect(screen.queryByText(/yesterday/i)).not.toBeInTheDocument()
+      expect(screen.queryByRole("heading", { name: /today/i })).not.toBeInTheDocument()
+      expect(screen.queryByRole("heading", { name: /yesterday/i })).not.toBeInTheDocument()
     })
   })
 
@@ -1040,9 +1106,7 @@ describe("AC7: Empty state when no events", () => {
     )
 
     await waitFor(() => {
-      expect(
-        screen.getByText(/no events|nothing here|all quiet|no activity/i),
-      ).toBeInTheDocument()
+      expect(screen.getByText(/no events|nothing here|all quiet|no activity/i)).toBeInTheDocument()
     })
   })
 
@@ -1084,7 +1148,7 @@ describe("Integration: filters, grouping, and pagination together", () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByText(/today/i)).toBeInTheDocument()
+      expect(screen.getByRole("heading", { name: /today/i })).toBeInTheDocument()
       expect(screen.getByText(/add multi-barcode batch scan mode/i)).toBeInTheDocument()
     })
   })
@@ -1115,7 +1179,10 @@ describe("Integration: filters, grouping, and pagination together", () => {
         const urlStrings = calls.map((c) => String(c[0]))
         // Should have reset to page 1 (no page param, or page=1)
         expect(
-          urlStrings.some((url) => !url.includes("page=2") && (url.includes("type=") || url.includes("eventType="))),
+          urlStrings.some(
+            (url) =>
+              !url.includes("page=2") && (url.includes("type=") || url.includes("eventType=")),
+          ),
         ).toBe(true)
       })
     }
@@ -1246,8 +1313,8 @@ describe("Edge cases: day grouping", () => {
     )
 
     await waitFor(() => {
-      // Singular: "1 event" (not "1 events")
-      expect(screen.getByText("1 event")).toBeInTheDocument()
+      // todayEvent1 is "commit" → "1 commit across 1 project"
+      expect(screen.getByText(/1 commit across 1 project/i)).toBeInTheDocument()
     })
   })
 })
@@ -1259,8 +1326,18 @@ describe("Edge cases: day grouping", () => {
 describe("Bug regression: client-side filters hide non-matching events", () => {
   it("event type filter hides events that don't match the selected type", async () => {
     // Both events today, different types
-    const commitEvent = makeEvent({ id: "ev-commit", type: "commit", title: "commit event title", projectId: "proj-1" })
-    const prOpenEvent = makeEvent({ id: "ev-pr", type: "pr_opened", title: "pr opened event title", projectId: "proj-1" })
+    const commitEvent = makeEvent({
+      id: "ev-commit",
+      type: "commit",
+      title: "commit event title",
+      projectId: "proj-1",
+    })
+    const prOpenEvent = makeEvent({
+      id: "ev-pr",
+      type: "pr_opened",
+      title: "pr opened event title",
+      projectId: "proj-1",
+    })
 
     mockUseTimelineReturn.data = [commitEvent, prOpenEvent]
     mockUseTimelineReturn.meta = { total: 2, page: 1, per_page: 20 }
@@ -1293,7 +1370,11 @@ describe("Bug regression: client-side filters hide non-matching events", () => {
   })
 
   it("project filter hides events from other projects", async () => {
-    const eventForAlpha = makeEvent({ id: "ev-a", title: "alpha project event", projectId: "proj-1" })
+    const eventForAlpha = makeEvent({
+      id: "ev-a",
+      title: "alpha project event",
+      projectId: "proj-1",
+    })
     const eventForBeta = makeEvent({ id: "ev-b", title: "beta project event", projectId: "proj-2" })
 
     mockUseTimelineReturn.data = [eventForAlpha, eventForBeta]
@@ -1324,8 +1405,16 @@ describe("Bug regression: client-side filters hide non-matching events", () => {
   })
 
   it("domain filter hides events from projects in other domains", async () => {
-    const eventForAlpha = makeEvent({ id: "ev-domain-a", title: "arcanelayer event", projectId: "proj-1" })
-    const eventForBeta = makeEvent({ id: "ev-domain-b", title: "aiteam event", projectId: "proj-2" })
+    const eventForAlpha = makeEvent({
+      id: "ev-domain-a",
+      title: "arcanelayer event",
+      projectId: "proj-1",
+    })
+    const eventForBeta = makeEvent({
+      id: "ev-domain-b",
+      title: "aiteam event",
+      projectId: "proj-2",
+    })
 
     mockUseTimelineReturn.data = [eventForAlpha, eventForBeta]
     mockUseTimelineReturn.meta = { total: 2, page: 1, per_page: 20 }
@@ -1356,7 +1445,12 @@ describe("Bug regression: client-side filters hide non-matching events", () => {
 
   it("empty state shown when event type filter matches no events", async () => {
     // Only has a commit event; selecting deploy type should show empty state
-    const commitEvent = makeEvent({ id: "ev-no-deploy", type: "commit", title: "just a commit", projectId: "proj-1" })
+    const commitEvent = makeEvent({
+      id: "ev-no-deploy",
+      type: "commit",
+      title: "just a commit",
+      projectId: "proj-1",
+    })
     mockUseTimelineReturn.data = [commitEvent]
     mockUseTimelineReturn.meta = { total: 1, page: 1, per_page: 20 }
     mockUseProjectsReturn.data = [projectAlpha]

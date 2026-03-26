@@ -11,8 +11,7 @@ export function logHookError(hookName: string, error: unknown): void {
       fs.mkdirSync(DEVTRACK_DIR, { recursive: true })
     }
 
-    const errorMessage =
-      error instanceof Error ? error.message : String(error ?? "unknown error")
+    const errorMessage = error instanceof Error ? error.message : String(error ?? "unknown error")
 
     const entry: HookErrorEntry = {
       hookName,
@@ -27,10 +26,7 @@ export function logHookError(hookName: string, error: unknown): void {
   }
 }
 
-export async function wrapHookCall(
-  hookName: string,
-  fn: () => Promise<void>,
-): Promise<void> {
+export async function wrapHookCall(hookName: string, fn: () => Promise<void>): Promise<void> {
   try {
     await fn()
   } catch (error) {

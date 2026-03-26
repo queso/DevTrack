@@ -38,10 +38,12 @@ describe("Robots", () => {
     expect(result).toHaveProperty("sitemap")
 
     // Rules should allow all user agents to crawl from root
-    const rules = Array.isArray(result.rules) ? result.rules : [result.rules]
+    const rules: Array<{ userAgent?: string | string[]; allow?: string | string[] }> =
+      Array.isArray(result.rules) ? result.rules : [result.rules]
     const allowAllRule = rules.find(
-      (rule: { userAgent?: string | string[]; allow?: string }) =>
-        (rule.userAgent === "*" || (Array.isArray(rule.userAgent) && rule.userAgent.includes("*"))) &&
+      (rule) =>
+        (rule.userAgent === "*" ||
+          (Array.isArray(rule.userAgent) && rule.userAgent.includes("*"))) &&
         rule.allow === "/",
     )
     expect(allowAllRule).toBeDefined()

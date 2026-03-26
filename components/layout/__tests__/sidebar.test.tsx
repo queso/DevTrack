@@ -12,9 +12,9 @@
  *  8. Handles zero projects gracefully
  */
 
-import { render, screen, fireEvent, waitFor } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 // ---------------------------------------------------------------------------
 // Mock next/navigation
@@ -40,7 +40,19 @@ vi.mock("@/lib/hooks", () => ({
 // Fixture data
 // ---------------------------------------------------------------------------
 
-import type { Project } from "@/lib/mock-data"
+interface Project {
+  slug: string
+  name: string
+  domain: string
+  workflow: string
+  tags: string[]
+  activityLevel: string
+  repoUrl: string
+  openPRCount: number
+  checkStatus: string
+  daysSinceActivity: number
+  summaryLine: string
+}
 
 const PROJECT_ARCANELAYER: Project = {
   slug: "picking-app",
@@ -290,7 +302,12 @@ describe("Sidebar — loading state", () => {
 
   it("renders project list once loading completes", async () => {
     // Start loading
-    mockUseProjects.mockReturnValue({ data: undefined, isLoading: true, error: undefined, meta: undefined })
+    mockUseProjects.mockReturnValue({
+      data: undefined,
+      isLoading: true,
+      error: undefined,
+      meta: undefined,
+    })
     mockUsePRs.mockReturnValue({ data: [], isLoading: false, error: undefined, meta: undefined })
 
     const { rerender } = render(<SidebarModule.default />)
@@ -535,12 +552,6 @@ describe("Sidebar — static nav items", () => {
     expect(link).toHaveAttribute("href", "/prs")
   })
 
-  it("renders Settings link pointing to /settings", () => {
-    render(<SidebarModule.default />)
-    const link = screen.getByRole("link", { name: /settings/i })
-    expect(link).toHaveAttribute("href", "/settings")
-  })
-
   it("renders the DevTrack logo link to /", () => {
     render(<SidebarModule.default />)
     const logo = screen.getByRole("link", { name: /devtrack/i })
@@ -660,7 +671,12 @@ describe("Sidebar — PR badge zero count", () => {
   it("shows badge when PR count transitions from zero to one", async () => {
     const _user = userEvent.setup()
     mockUsePRs.mockReturnValue({ data: [], isLoading: false, error: undefined, meta: undefined })
-    mockUseProjects.mockReturnValue({ data: [PROJECT_ARCANELAYER], isLoading: false, error: undefined, meta: undefined })
+    mockUseProjects.mockReturnValue({
+      data: [PROJECT_ARCANELAYER],
+      isLoading: false,
+      error: undefined,
+      meta: undefined,
+    })
 
     const { rerender } = render(<SidebarModule.default />)
 
@@ -668,7 +684,12 @@ describe("Sidebar — PR badge zero count", () => {
     expect(screen.queryByText("1")).not.toBeInTheDocument()
 
     // Now one PR arrives
-    mockUsePRs.mockReturnValue({ data: [OPEN_PR], isLoading: false, error: undefined, meta: undefined })
+    mockUsePRs.mockReturnValue({
+      data: [OPEN_PR],
+      isLoading: false,
+      error: undefined,
+      meta: undefined,
+    })
     rerender(<SidebarModule.default />)
 
     await waitFor(() => {

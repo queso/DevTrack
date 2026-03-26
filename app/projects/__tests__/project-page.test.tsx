@@ -31,7 +31,12 @@ const mockUseTimeline = vi.fn()
 vi.mock("@/lib/hooks", () => ({
   useProject: (...args: unknown[]) => mockUseProject(...args),
   useTimeline: (...args: unknown[]) => mockUseTimeline(...args),
-  useActivity: vi.fn(() => ({ data: undefined, error: undefined, isLoading: false, meta: undefined })),
+  useActivity: vi.fn(() => ({
+    data: undefined,
+    error: undefined,
+    isLoading: false,
+    meta: undefined,
+  })),
 }))
 
 // ---------------------------------------------------------------------------
@@ -95,23 +100,6 @@ const sdlcProject = {
   updatedAt: new Date(),
 }
 
-const contentProject = {
-  ...sdlcProject,
-  id: "proj-2",
-  name: "joshowens-dev",
-  workflow: "content" as const,
-  domain: "joshowensdev",
-  tags: ["blog", "nextjs"],
-  prds: [],
-  pullRequests: [],
-  contentItems: [
-    { id: "d-1", project_id: "proj-2", title: "How I Use Claude Code", status: "draft" as const, created_at: new Date(), updated_at: new Date() },
-    { id: "d-2", project_id: "proj-2", title: "K8s Home Lab in 2025", status: "review" as const, created_at: new Date(), updated_at: new Date() },
-    { id: "i-1", project_id: "proj-2", title: "Next.js 16 Cache Primitives", summary: "Deep dive into caching.", status: "idea" as const, created_at: new Date(), updated_at: new Date() },
-    { id: "p-1", project_id: "proj-2", title: "Ship It: K8s Upgrade Story", status: "published" as const, published_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), created_at: new Date(), updated_at: new Date() },
-  ],
-}
-
 const timelineEvents = [
   {
     id: "te-1",
@@ -142,8 +130,18 @@ const paginationMeta = { total: 20, page: 1, per_page: 10 }
 // ---------------------------------------------------------------------------
 
 beforeEach(() => {
-  mockUseProject.mockReturnValue({ data: undefined, error: undefined, isLoading: true, meta: undefined })
-  mockUseTimeline.mockReturnValue({ data: undefined, error: undefined, isLoading: true, meta: undefined })
+  mockUseProject.mockReturnValue({
+    data: undefined,
+    error: undefined,
+    isLoading: true,
+    meta: undefined,
+  })
+  mockUseTimeline.mockReturnValue({
+    data: undefined,
+    error: undefined,
+    isLoading: true,
+    meta: undefined,
+  })
 })
 
 afterEach(() => {
@@ -156,8 +154,18 @@ afterEach(() => {
 
 describe("Project page — header section", () => {
   it("displays the project name from API data", async () => {
-    mockUseProject.mockReturnValue({ data: sdlcProject, error: undefined, isLoading: false, meta: undefined })
-    mockUseTimeline.mockReturnValue({ data: [], error: undefined, isLoading: false, meta: paginationMeta })
+    mockUseProject.mockReturnValue({
+      data: sdlcProject,
+      error: undefined,
+      isLoading: false,
+      meta: undefined,
+    })
+    mockUseTimeline.mockReturnValue({
+      data: [],
+      error: undefined,
+      isLoading: false,
+      meta: paginationMeta,
+    })
 
     render(<ProjectPageClient slug={SLUG} />)
 
@@ -165,8 +173,18 @@ describe("Project page — header section", () => {
   })
 
   it("renders a link to the repo URL", async () => {
-    mockUseProject.mockReturnValue({ data: sdlcProject, error: undefined, isLoading: false, meta: undefined })
-    mockUseTimeline.mockReturnValue({ data: [], error: undefined, isLoading: false, meta: paginationMeta })
+    mockUseProject.mockReturnValue({
+      data: sdlcProject,
+      error: undefined,
+      isLoading: false,
+      meta: undefined,
+    })
+    mockUseTimeline.mockReturnValue({
+      data: [],
+      error: undefined,
+      isLoading: false,
+      meta: paginationMeta,
+    })
 
     render(<ProjectPageClient slug={SLUG} />)
 
@@ -175,8 +193,18 @@ describe("Project page — header section", () => {
   })
 
   it("renders a link to the deploy URL when present", async () => {
-    mockUseProject.mockReturnValue({ data: sdlcProject, error: undefined, isLoading: false, meta: undefined })
-    mockUseTimeline.mockReturnValue({ data: [], error: undefined, isLoading: false, meta: paginationMeta })
+    mockUseProject.mockReturnValue({
+      data: sdlcProject,
+      error: undefined,
+      isLoading: false,
+      meta: undefined,
+    })
+    mockUseTimeline.mockReturnValue({
+      data: [],
+      error: undefined,
+      isLoading: false,
+      meta: paginationMeta,
+    })
 
     render(<ProjectPageClient slug={SLUG} />)
 
@@ -186,8 +214,18 @@ describe("Project page — header section", () => {
 
   it("does not render a deploy link when deployUrl is absent", async () => {
     const projectWithoutDeploy = { ...sdlcProject, deployUrl: undefined }
-    mockUseProject.mockReturnValue({ data: projectWithoutDeploy, error: undefined, isLoading: false, meta: undefined })
-    mockUseTimeline.mockReturnValue({ data: [], error: undefined, isLoading: false, meta: paginationMeta })
+    mockUseProject.mockReturnValue({
+      data: projectWithoutDeploy,
+      error: undefined,
+      isLoading: false,
+      meta: undefined,
+    })
+    mockUseTimeline.mockReturnValue({
+      data: [],
+      error: undefined,
+      isLoading: false,
+      meta: paginationMeta,
+    })
 
     render(<ProjectPageClient slug={SLUG} />)
 
@@ -195,8 +233,18 @@ describe("Project page — header section", () => {
   })
 
   it("shows a passing check-status health indicator when PRs are green", async () => {
-    mockUseProject.mockReturnValue({ data: sdlcProject, error: undefined, isLoading: false, meta: undefined })
-    mockUseTimeline.mockReturnValue({ data: [], error: undefined, isLoading: false, meta: paginationMeta })
+    mockUseProject.mockReturnValue({
+      data: sdlcProject,
+      error: undefined,
+      isLoading: false,
+      meta: undefined,
+    })
+    mockUseTimeline.mockReturnValue({
+      data: [],
+      error: undefined,
+      isLoading: false,
+      meta: paginationMeta,
+    })
 
     render(<ProjectPageClient slug={SLUG} />)
 
@@ -206,12 +254,20 @@ describe("Project page — header section", () => {
   it("shows a failing check-status indicator when a PR check is failing", async () => {
     const failingProject = {
       ...sdlcProject,
-      pullRequests: [
-        { ...sdlcProject.pullRequests[0], check_status: "failing" as const },
-      ],
+      pullRequests: [{ ...sdlcProject.pullRequests[0], check_status: "failing" as const }],
     }
-    mockUseProject.mockReturnValue({ data: failingProject, error: undefined, isLoading: false, meta: undefined })
-    mockUseTimeline.mockReturnValue({ data: [], error: undefined, isLoading: false, meta: paginationMeta })
+    mockUseProject.mockReturnValue({
+      data: failingProject,
+      error: undefined,
+      isLoading: false,
+      meta: undefined,
+    })
+    mockUseTimeline.mockReturnValue({
+      data: [],
+      error: undefined,
+      isLoading: false,
+      meta: paginationMeta,
+    })
 
     render(<ProjectPageClient slug={SLUG} />)
 
@@ -219,8 +275,18 @@ describe("Project page — header section", () => {
   })
 
   it("passes slug to useProject hook", async () => {
-    mockUseProject.mockReturnValue({ data: sdlcProject, error: undefined, isLoading: false, meta: undefined })
-    mockUseTimeline.mockReturnValue({ data: [], error: undefined, isLoading: false, meta: paginationMeta })
+    mockUseProject.mockReturnValue({
+      data: sdlcProject,
+      error: undefined,
+      isLoading: false,
+      meta: undefined,
+    })
+    mockUseTimeline.mockReturnValue({
+      data: [],
+      error: undefined,
+      isLoading: false,
+      meta: paginationMeta,
+    })
 
     render(<ProjectPageClient slug={SLUG} />)
 
@@ -234,8 +300,18 @@ describe("Project page — header section", () => {
 
 describe("Project page — current work section (SDLC)", () => {
   beforeEach(() => {
-    mockUseProject.mockReturnValue({ data: sdlcProject, error: undefined, isLoading: false, meta: undefined })
-    mockUseTimeline.mockReturnValue({ data: timelineEvents, error: undefined, isLoading: false, meta: paginationMeta })
+    mockUseProject.mockReturnValue({
+      data: sdlcProject,
+      error: undefined,
+      isLoading: false,
+      meta: undefined,
+    })
+    mockUseTimeline.mockReturnValue({
+      data: timelineEvents,
+      error: undefined,
+      isLoading: false,
+      meta: paginationMeta,
+    })
   })
 
   it("displays the active PRD title", async () => {
@@ -290,11 +366,19 @@ describe("Project page — current work section (SDLC)", () => {
       prds: [
         {
           ...sdlcProject.prds[0],
-          workItems: sdlcProject.prds[0].workItems.map((wi) => ({ ...wi, status: "done" as const })),
+          workItems: sdlcProject.prds[0].workItems.map((wi) => ({
+            ...wi,
+            status: "done" as const,
+          })),
         },
       ],
     }
-    mockUseProject.mockReturnValue({ data: allDoneProject, error: undefined, isLoading: false, meta: undefined })
+    mockUseProject.mockReturnValue({
+      data: allDoneProject,
+      error: undefined,
+      isLoading: false,
+      meta: undefined,
+    })
 
     render(<ProjectPageClient slug={SLUG} />)
 
@@ -309,11 +393,19 @@ describe("Project page — current work section (SDLC)", () => {
       prds: [
         {
           ...sdlcProject.prds[0],
-          workItems: sdlcProject.prds[0].workItems.map((wi) => ({ ...wi, status: "pending" as const })),
+          workItems: sdlcProject.prds[0].workItems.map((wi) => ({
+            ...wi,
+            status: "pending" as const,
+          })),
         },
       ],
     }
-    mockUseProject.mockReturnValue({ data: noDoneProject, error: undefined, isLoading: false, meta: undefined })
+    mockUseProject.mockReturnValue({
+      data: noDoneProject,
+      error: undefined,
+      isLoading: false,
+      meta: undefined,
+    })
 
     render(<ProjectPageClient slug={SLUG} />)
 
@@ -329,8 +421,18 @@ describe("Project page — current work section (SDLC)", () => {
 
 describe("Project page — pipeline section (SDLC workflow)", () => {
   beforeEach(() => {
-    mockUseProject.mockReturnValue({ data: sdlcProject, error: undefined, isLoading: false, meta: undefined })
-    mockUseTimeline.mockReturnValue({ data: [], error: undefined, isLoading: false, meta: paginationMeta })
+    mockUseProject.mockReturnValue({
+      data: sdlcProject,
+      error: undefined,
+      isLoading: false,
+      meta: undefined,
+    })
+    mockUseTimeline.mockReturnValue({
+      data: [],
+      error: undefined,
+      isLoading: false,
+      meta: paginationMeta,
+    })
   })
 
   it("renders the 'Up Next' PRD queue", async () => {
@@ -355,49 +457,23 @@ describe("Project page — pipeline section (SDLC workflow)", () => {
 })
 
 // ===========================================================================
-// 4. Section: Pipeline — Content variant
-// ===========================================================================
-
-describe("Project page — pipeline section (Content workflow)", () => {
-  beforeEach(() => {
-    mockUseProject.mockReturnValue({ data: contentProject, error: undefined, isLoading: false, meta: undefined })
-    mockUseTimeline.mockReturnValue({ data: [], error: undefined, isLoading: false, meta: paginationMeta })
-  })
-
-  it("renders the drafts section for content workflow", async () => {
-    render(<ProjectPageClient slug="joshowens-dev" />)
-
-    expect(screen.getByText(/how i use claude code/i)).toBeInTheDocument()
-    expect(screen.getByText(/k8s home lab in 2025/i)).toBeInTheDocument()
-  })
-
-  it("renders the ideas section for content workflow", async () => {
-    render(<ProjectPageClient slug="joshowens-dev" />)
-
-    expect(screen.getByText(/next\.js 16 cache primitives/i)).toBeInTheDocument()
-  })
-
-  it("renders the published section for content workflow", async () => {
-    render(<ProjectPageClient slug="joshowens-dev" />)
-
-    expect(screen.getByText(/ship it.*k8s upgrade story/i)).toBeInTheDocument()
-  })
-
-  it("does NOT render SDLC-specific PRD pipeline UI for content projects", async () => {
-    render(<ProjectPageClient slug="joshowens-dev" />)
-
-    expect(screen.queryByText(/batch picking optimization/i)).not.toBeInTheDocument()
-  })
-})
-
-// ===========================================================================
-// 5. Section: Activity timeline
+// 4. Section: Activity timeline
 // ===========================================================================
 
 describe("Project page — activity timeline", () => {
   it("renders timeline events from API data", async () => {
-    mockUseProject.mockReturnValue({ data: sdlcProject, error: undefined, isLoading: false, meta: undefined })
-    mockUseTimeline.mockReturnValue({ data: timelineEvents, error: undefined, isLoading: false, meta: paginationMeta })
+    mockUseProject.mockReturnValue({
+      data: sdlcProject,
+      error: undefined,
+      isLoading: false,
+      meta: undefined,
+    })
+    mockUseTimeline.mockReturnValue({
+      data: timelineEvents,
+      error: undefined,
+      isLoading: false,
+      meta: paginationMeta,
+    })
 
     render(<ProjectPageClient slug={SLUG} />)
 
@@ -406,8 +482,18 @@ describe("Project page — activity timeline", () => {
   })
 
   it("passes project_id filter to useTimeline", async () => {
-    mockUseProject.mockReturnValue({ data: sdlcProject, error: undefined, isLoading: false, meta: undefined })
-    mockUseTimeline.mockReturnValue({ data: timelineEvents, error: undefined, isLoading: false, meta: paginationMeta })
+    mockUseProject.mockReturnValue({
+      data: sdlcProject,
+      error: undefined,
+      isLoading: false,
+      meta: undefined,
+    })
+    mockUseTimeline.mockReturnValue({
+      data: timelineEvents,
+      error: undefined,
+      isLoading: false,
+      meta: paginationMeta,
+    })
 
     render(<ProjectPageClient slug={SLUG} />)
 
@@ -418,9 +504,19 @@ describe("Project page — activity timeline", () => {
   })
 
   it("shows a 'Load more' button when there are more events than current page", async () => {
-    mockUseProject.mockReturnValue({ data: sdlcProject, error: undefined, isLoading: false, meta: undefined })
+    mockUseProject.mockReturnValue({
+      data: sdlcProject,
+      error: undefined,
+      isLoading: false,
+      meta: undefined,
+    })
     // total: 20, per_page: 10 — there are more events to load
-    mockUseTimeline.mockReturnValue({ data: timelineEvents, error: undefined, isLoading: false, meta: paginationMeta })
+    mockUseTimeline.mockReturnValue({
+      data: timelineEvents,
+      error: undefined,
+      isLoading: false,
+      meta: paginationMeta,
+    })
 
     render(<ProjectPageClient slug={SLUG} />)
 
@@ -428,9 +524,19 @@ describe("Project page — activity timeline", () => {
   })
 
   it("does NOT show 'Load more' when all events fit on the current page", async () => {
-    mockUseProject.mockReturnValue({ data: sdlcProject, error: undefined, isLoading: false, meta: undefined })
+    mockUseProject.mockReturnValue({
+      data: sdlcProject,
+      error: undefined,
+      isLoading: false,
+      meta: undefined,
+    })
     // total equals number of events — no more pages
-    mockUseTimeline.mockReturnValue({ data: timelineEvents, error: undefined, isLoading: false, meta: { total: 2, page: 1, per_page: 10 } })
+    mockUseTimeline.mockReturnValue({
+      data: timelineEvents,
+      error: undefined,
+      isLoading: false,
+      meta: { total: 2, page: 1, per_page: 10 },
+    })
 
     render(<ProjectPageClient slug={SLUG} />)
 
@@ -439,8 +545,18 @@ describe("Project page — activity timeline", () => {
 
   it("loads the next page when 'Load more' is clicked", async () => {
     const user = userEvent.setup()
-    mockUseProject.mockReturnValue({ data: sdlcProject, error: undefined, isLoading: false, meta: undefined })
-    mockUseTimeline.mockReturnValue({ data: timelineEvents, error: undefined, isLoading: false, meta: paginationMeta })
+    mockUseProject.mockReturnValue({
+      data: sdlcProject,
+      error: undefined,
+      isLoading: false,
+      meta: undefined,
+    })
+    mockUseTimeline.mockReturnValue({
+      data: timelineEvents,
+      error: undefined,
+      isLoading: false,
+      meta: paginationMeta,
+    })
 
     render(<ProjectPageClient slug={SLUG} />)
 
@@ -463,8 +579,18 @@ describe("Project page — activity timeline", () => {
 
 describe("Project page — event type filter", () => {
   it("renders event type filter controls", async () => {
-    mockUseProject.mockReturnValue({ data: sdlcProject, error: undefined, isLoading: false, meta: undefined })
-    mockUseTimeline.mockReturnValue({ data: timelineEvents, error: undefined, isLoading: false, meta: paginationMeta })
+    mockUseProject.mockReturnValue({
+      data: sdlcProject,
+      error: undefined,
+      isLoading: false,
+      meta: undefined,
+    })
+    mockUseTimeline.mockReturnValue({
+      data: timelineEvents,
+      error: undefined,
+      isLoading: false,
+      meta: paginationMeta,
+    })
 
     render(<ProjectPageClient slug={SLUG} />)
 
@@ -479,8 +605,18 @@ describe("Project page — event type filter", () => {
 
   it("passes event type filter to useTimeline when a filter is selected", async () => {
     const user = userEvent.setup()
-    mockUseProject.mockReturnValue({ data: sdlcProject, error: undefined, isLoading: false, meta: undefined })
-    mockUseTimeline.mockReturnValue({ data: timelineEvents, error: undefined, isLoading: false, meta: paginationMeta })
+    mockUseProject.mockReturnValue({
+      data: sdlcProject,
+      error: undefined,
+      isLoading: false,
+      meta: undefined,
+    })
+    mockUseTimeline.mockReturnValue({
+      data: timelineEvents,
+      error: undefined,
+      isLoading: false,
+      meta: paginationMeta,
+    })
 
     render(<ProjectPageClient slug={SLUG} />)
 
@@ -498,8 +634,18 @@ describe("Project page — event type filter", () => {
 
   it("resets pagination to page 1 when event type filter changes", async () => {
     const user = userEvent.setup()
-    mockUseProject.mockReturnValue({ data: sdlcProject, error: undefined, isLoading: false, meta: undefined })
-    mockUseTimeline.mockReturnValue({ data: timelineEvents, error: undefined, isLoading: false, meta: paginationMeta })
+    mockUseProject.mockReturnValue({
+      data: sdlcProject,
+      error: undefined,
+      isLoading: false,
+      meta: undefined,
+    })
+    mockUseTimeline.mockReturnValue({
+      data: timelineEvents,
+      error: undefined,
+      isLoading: false,
+      meta: paginationMeta,
+    })
 
     render(<ProjectPageClient slug={SLUG} />)
 
@@ -526,8 +672,18 @@ describe("Project page — event type filter", () => {
 
 describe("Project page — loading states", () => {
   it("shows skeleton elements while project data is loading", async () => {
-    mockUseProject.mockReturnValue({ data: undefined, error: undefined, isLoading: true, meta: undefined })
-    mockUseTimeline.mockReturnValue({ data: undefined, error: undefined, isLoading: true, meta: undefined })
+    mockUseProject.mockReturnValue({
+      data: undefined,
+      error: undefined,
+      isLoading: true,
+      meta: undefined,
+    })
+    mockUseTimeline.mockReturnValue({
+      data: undefined,
+      error: undefined,
+      isLoading: true,
+      meta: undefined,
+    })
 
     render(<ProjectPageClient slug={SLUG} />)
 
@@ -536,8 +692,18 @@ describe("Project page — loading states", () => {
   })
 
   it("shows multiple skeleton areas while all data is loading", async () => {
-    mockUseProject.mockReturnValue({ data: undefined, error: undefined, isLoading: true, meta: undefined })
-    mockUseTimeline.mockReturnValue({ data: undefined, error: undefined, isLoading: true, meta: undefined })
+    mockUseProject.mockReturnValue({
+      data: undefined,
+      error: undefined,
+      isLoading: true,
+      meta: undefined,
+    })
+    mockUseTimeline.mockReturnValue({
+      data: undefined,
+      error: undefined,
+      isLoading: true,
+      meta: undefined,
+    })
 
     render(<ProjectPageClient slug={SLUG} />)
 
@@ -546,8 +712,18 @@ describe("Project page — loading states", () => {
   })
 
   it("shows a timeline skeleton while timeline data is loading but project data is ready", async () => {
-    mockUseProject.mockReturnValue({ data: sdlcProject, error: undefined, isLoading: false, meta: undefined })
-    mockUseTimeline.mockReturnValue({ data: undefined, error: undefined, isLoading: true, meta: undefined })
+    mockUseProject.mockReturnValue({
+      data: sdlcProject,
+      error: undefined,
+      isLoading: false,
+      meta: undefined,
+    })
+    mockUseTimeline.mockReturnValue({
+      data: undefined,
+      error: undefined,
+      isLoading: true,
+      meta: undefined,
+    })
 
     render(<ProjectPageClient slug={SLUG} />)
 
@@ -555,8 +731,18 @@ describe("Project page — loading states", () => {
   })
 
   it("removes skeletons and shows content once data loads", async () => {
-    mockUseProject.mockReturnValue({ data: sdlcProject, error: undefined, isLoading: false, meta: undefined })
-    mockUseTimeline.mockReturnValue({ data: timelineEvents, error: undefined, isLoading: false, meta: paginationMeta })
+    mockUseProject.mockReturnValue({
+      data: sdlcProject,
+      error: undefined,
+      isLoading: false,
+      meta: undefined,
+    })
+    mockUseTimeline.mockReturnValue({
+      data: timelineEvents,
+      error: undefined,
+      isLoading: false,
+      meta: paginationMeta,
+    })
 
     render(<ProjectPageClient slug={SLUG} />)
 
@@ -581,17 +767,25 @@ describe("Project page — error states", () => {
       isLoading: false,
       meta: undefined,
     })
-    mockUseTimeline.mockReturnValue({ data: undefined, error: undefined, isLoading: false, meta: undefined })
+    mockUseTimeline.mockReturnValue({
+      data: undefined,
+      error: undefined,
+      isLoading: false,
+      meta: undefined,
+    })
 
     render(<ProjectPageClient slug={SLUG} />)
 
-    expect(
-      screen.getByText(/something went wrong|failed to load|error/i)
-    ).toBeInTheDocument()
+    expect(screen.getByText(/something went wrong|failed to load|error/i)).toBeInTheDocument()
   })
 
   it("shows an error state for the timeline when timeline fetch fails", async () => {
-    mockUseProject.mockReturnValue({ data: sdlcProject, error: undefined, isLoading: false, meta: undefined })
+    mockUseProject.mockReturnValue({
+      data: sdlcProject,
+      error: undefined,
+      isLoading: false,
+      meta: undefined,
+    })
     mockUseTimeline.mockReturnValue({
       data: undefined,
       error: new Error("HTTP 503"),
@@ -604,9 +798,7 @@ describe("Project page — error states", () => {
     // The project header should still render
     expect(screen.getByRole("heading", { name: /picking-app/i })).toBeInTheDocument()
     // But the timeline section should show an error
-    expect(
-      screen.getByText(/something went wrong|failed to load|error/i)
-    ).toBeInTheDocument()
+    expect(screen.getByText(/something went wrong|failed to load|error/i)).toBeInTheDocument()
   })
 
   it("shows a retry button in the project error state", async () => {
@@ -616,7 +808,12 @@ describe("Project page — error states", () => {
       isLoading: false,
       meta: undefined,
     })
-    mockUseTimeline.mockReturnValue({ data: undefined, error: undefined, isLoading: false, meta: undefined })
+    mockUseTimeline.mockReturnValue({
+      data: undefined,
+      error: undefined,
+      isLoading: false,
+      meta: undefined,
+    })
 
     render(<ProjectPageClient slug={SLUG} />)
 
@@ -631,13 +828,16 @@ describe("Project page — error states", () => {
       isLoading: false,
       meta: undefined,
     })
-    mockUseTimeline.mockReturnValue({ data: undefined, error: undefined, isLoading: false, meta: undefined })
+    mockUseTimeline.mockReturnValue({
+      data: undefined,
+      error: undefined,
+      isLoading: false,
+      meta: undefined,
+    })
 
     render(<ProjectPageClient slug={SLUG} />)
 
-    expect(
-      screen.getByText(/not found|does not exist|404/i)
-    ).toBeInTheDocument()
+    expect(screen.getByText(/not found|does not exist|404/i)).toBeInTheDocument()
   })
 })
 
@@ -649,12 +849,20 @@ describe("Project page — health indicator computation", () => {
   it("shows 'action needed' indicator when a PR has failing checks", async () => {
     const failingCheckProject = {
       ...sdlcProject,
-      pullRequests: [
-        { ...sdlcProject.pullRequests[0], check_status: "failing" as const },
-      ],
+      pullRequests: [{ ...sdlcProject.pullRequests[0], check_status: "failing" as const }],
     }
-    mockUseProject.mockReturnValue({ data: failingCheckProject, error: undefined, isLoading: false, meta: undefined })
-    mockUseTimeline.mockReturnValue({ data: [], error: undefined, isLoading: false, meta: paginationMeta })
+    mockUseProject.mockReturnValue({
+      data: failingCheckProject,
+      error: undefined,
+      isLoading: false,
+      meta: undefined,
+    })
+    mockUseTimeline.mockReturnValue({
+      data: [],
+      error: undefined,
+      isLoading: false,
+      meta: paginationMeta,
+    })
 
     render(<ProjectPageClient slug={SLUG} />)
 
@@ -664,12 +872,20 @@ describe("Project page — health indicator computation", () => {
   it("shows 'action needed' indicator when a PR has changes requested", async () => {
     const changesRequestedProject = {
       ...sdlcProject,
-      pullRequests: [
-        { ...sdlcProject.pullRequests[0], status: "changes_requested" as const },
-      ],
+      pullRequests: [{ ...sdlcProject.pullRequests[0], status: "changes_requested" as const }],
     }
-    mockUseProject.mockReturnValue({ data: changesRequestedProject, error: undefined, isLoading: false, meta: undefined })
-    mockUseTimeline.mockReturnValue({ data: [], error: undefined, isLoading: false, meta: paginationMeta })
+    mockUseProject.mockReturnValue({
+      data: changesRequestedProject,
+      error: undefined,
+      isLoading: false,
+      meta: undefined,
+    })
+    mockUseTimeline.mockReturnValue({
+      data: [],
+      error: undefined,
+      isLoading: false,
+      meta: paginationMeta,
+    })
 
     render(<ProjectPageClient slug={SLUG} />)
 
@@ -677,8 +893,18 @@ describe("Project page — health indicator computation", () => {
   })
 
   it("shows open PR count from API data", async () => {
-    mockUseProject.mockReturnValue({ data: sdlcProject, error: undefined, isLoading: false, meta: undefined })
-    mockUseTimeline.mockReturnValue({ data: [], error: undefined, isLoading: false, meta: paginationMeta })
+    mockUseProject.mockReturnValue({
+      data: sdlcProject,
+      error: undefined,
+      isLoading: false,
+      meta: undefined,
+    })
+    mockUseTimeline.mockReturnValue({
+      data: [],
+      error: undefined,
+      isLoading: false,
+      meta: paginationMeta,
+    })
 
     render(<ProjectPageClient slug={SLUG} />)
 
@@ -688,8 +914,18 @@ describe("Project page — health indicator computation", () => {
 
   it("shows 0 open PRs when no PRs are open", async () => {
     const noPRProject = { ...sdlcProject, pullRequests: [] }
-    mockUseProject.mockReturnValue({ data: noPRProject, error: undefined, isLoading: false, meta: undefined })
-    mockUseTimeline.mockReturnValue({ data: [], error: undefined, isLoading: false, meta: paginationMeta })
+    mockUseProject.mockReturnValue({
+      data: noPRProject,
+      error: undefined,
+      isLoading: false,
+      meta: undefined,
+    })
+    mockUseTimeline.mockReturnValue({
+      data: [],
+      error: undefined,
+      isLoading: false,
+      meta: paginationMeta,
+    })
 
     render(<ProjectPageClient slug={SLUG} />)
 
@@ -704,8 +940,18 @@ describe("Project page — health indicator computation", () => {
 describe("Project page — timeline defers until project id is available", () => {
   it("does not call useTimeline with the slug string while project is loading", () => {
     // Project is still loading — rawProject is undefined.
-    mockUseProject.mockReturnValue({ data: undefined, error: undefined, isLoading: true, meta: undefined })
-    mockUseTimeline.mockReturnValue({ data: undefined, error: undefined, isLoading: false, meta: undefined })
+    mockUseProject.mockReturnValue({
+      data: undefined,
+      error: undefined,
+      isLoading: true,
+      meta: undefined,
+    })
+    mockUseTimeline.mockReturnValue({
+      data: undefined,
+      error: undefined,
+      isLoading: false,
+      meta: undefined,
+    })
 
     render(<ProjectPageClient slug={SLUG} />)
 
@@ -718,8 +964,18 @@ describe("Project page — timeline defers until project id is available", () =>
   })
 
   it("calls useTimeline with the real project id once project data is ready", () => {
-    mockUseProject.mockReturnValue({ data: sdlcProject, error: undefined, isLoading: false, meta: undefined })
-    mockUseTimeline.mockReturnValue({ data: [], error: undefined, isLoading: false, meta: paginationMeta })
+    mockUseProject.mockReturnValue({
+      data: sdlcProject,
+      error: undefined,
+      isLoading: false,
+      meta: undefined,
+    })
+    mockUseTimeline.mockReturnValue({
+      data: [],
+      error: undefined,
+      isLoading: false,
+      meta: paginationMeta,
+    })
 
     render(<ProjectPageClient slug={SLUG} />)
 
@@ -750,12 +1006,27 @@ describe("Project page — load more appends events", () => {
       },
     ]
 
-    mockUseProject.mockReturnValue({ data: sdlcProject, error: undefined, isLoading: false, meta: undefined })
+    mockUseProject.mockReturnValue({
+      data: sdlcProject,
+      error: undefined,
+      isLoading: false,
+      meta: undefined,
+    })
 
     // First call: page 1, second call: page 2
     mockUseTimeline
-      .mockReturnValueOnce({ data: timelineEvents, error: undefined, isLoading: false, meta: paginationMeta })
-      .mockReturnValue({ data: page2Events, error: undefined, isLoading: false, meta: { total: 20, page: 2, per_page: 10 } })
+      .mockReturnValueOnce({
+        data: timelineEvents,
+        error: undefined,
+        isLoading: false,
+        meta: paginationMeta,
+      })
+      .mockReturnValue({
+        data: page2Events,
+        error: undefined,
+        isLoading: false,
+        meta: { total: 20, page: 2, per_page: 10 },
+      })
 
     render(<ProjectPageClient slug={SLUG} />)
 

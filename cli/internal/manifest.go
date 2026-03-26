@@ -15,11 +15,9 @@ type Manifest struct {
 	Workflow    string   `yaml:"workflow"`
 	Domain      string   `yaml:"domain"`
 	Tags        []string `yaml:"tags"`
-	RepoURL     string   `yaml:"repo_url"`
-	MainBranch  string   `yaml:"main_branch"`
-	PrdPath     string   `yaml:"prd_path"`
-	ContentPath string   `yaml:"content_path"`
-	DraftPath   string   `yaml:"draft_path"`
+	RepoURL    string   `yaml:"repo_url"`
+	MainBranch string   `yaml:"main_branch"`
+	PrdPath    string   `yaml:"prd_path"`
 }
 
 // ProjectLister is the interface ResolveProjectID accepts so callers can
@@ -53,8 +51,10 @@ func ReadManifest(path string) (*Manifest, error) {
 		return nil, fmt.Errorf("manifest %q: name field is required", path)
 	}
 
-	if m.Workflow != "sdlc" && m.Workflow != "content" {
-		return nil, fmt.Errorf("manifest %q: workflow must be \"sdlc\" or \"content\", got %q", path, m.Workflow)
+	if m.Workflow == "" {
+		m.Workflow = "sdlc"
+	} else if m.Workflow != "sdlc" {
+		return nil, fmt.Errorf("manifest %q: workflow must be \"sdlc\", got %q", path, m.Workflow)
 	}
 
 	return &m, nil

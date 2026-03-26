@@ -6,14 +6,14 @@
  * Renders the full project detail view wired to live API data via SWR hooks.
  */
 
-import { useState, useRef } from "react"
-import { useProject, useTimeline } from "@/lib/hooks"
-import { mapProject, mapTimelineEvent, mapPR } from "@/lib/mappers"
+import { useRef, useState } from "react"
 import {
+  ErrorState,
   ProjectDetailHeaderSkeleton,
   TimelineEntrySkeleton,
-  ErrorState,
 } from "@/components/features/dashboard/loading-states"
+import { useProject, useTimeline } from "@/lib/hooks"
+import { mapPR, mapProject, mapTimelineEvent } from "@/lib/mappers"
 
 interface ProjectPageClientProps {
   slug: string
@@ -61,11 +61,7 @@ export function ProjectPageClient({ slug }: ProjectPageClientProps) {
     events: import("@/types/api-responses").ApiEvent[]
   }>({ page: 1, eventType: undefined, events: [] })
 
-  const {
-    data: rawProject,
-    error: projectError,
-    isLoading: projectLoading,
-  } = useProject(slug, {})
+  const { data: rawProject, error: projectError, isLoading: projectLoading } = useProject(slug, {})
 
   // Only fetch timeline once we have the real project id. Passing null to
   // useTimeline defers the fetch (SWR skips null keys).
@@ -117,12 +113,7 @@ export function ProjectPageClient({ slug }: ProjectPageClientProps) {
         </div>
       )
     }
-    return (
-      <ErrorState
-        message={projectError.message}
-        onRetry={() => window.location.reload()}
-      />
-    )
+    return <ErrorState message={projectError.message} onRetry={() => window.location.reload()} />
   }
 
   // --- Project loading state ---
@@ -143,21 +134,11 @@ export function ProjectPageClient({ slug }: ProjectPageClientProps) {
   const project = mapProject(rawProject)
 
   // Map timeline events — use accumulated list so "Load more" appends rather than replaces.
-  const timelineEvents = accumulatedEvents.map((e) =>
-    mapTimelineEvent(e, slug)
-  )
+  const timelineEvents = accumulatedEvents.map((e) => mapTimelineEvent(e, slug))
 
   // Map pull requests from raw project
   const rawPRs = rawProject.pullRequests ?? []
-  const pullRequests = rawPRs.map((pr) =>
-    mapPR(pr, slug)
-  )
-
-  // Content items from raw project
-  const rawContentItems = rawProject.contentItems ?? []
-  const drafts = rawContentItems.filter((ci) => ci.status === "draft" || ci.status === "review")
-  const ideas = rawContentItems.filter((ci) => ci.status === "idea")
-  const published = rawContentItems.filter((ci) => ci.status === "published")
+  const pullRequests = rawPRs.map((pr) => mapPR(pr, slug))
 
   // Compute health indicators
   const openPRCount = project.openPRCount
@@ -173,8 +154,7 @@ export function ProjectPageClient({ slug }: ProjectPageClientProps) {
 
   // Load more pagination
   const hasMore =
-    timelineMeta != null &&
-    timelineMeta.total > timelineMeta.page * timelineMeta.per_page
+    timelineMeta != null && timelineMeta.total > timelineMeta.page * timelineMeta.per_page
 
   function handleLoadMore() {
     setPage((p) => p + 1)
@@ -239,14 +219,16 @@ export function ProjectPageClient({ slug }: ProjectPageClientProps) {
 
           {/* Check status */}
           <span className={`text-sm font-medium ${getCheckStatusColor(checkStatus)}`}>
-            {checkStatus === "failing" ? "Failing" : checkStatus === "pending" ? "Pending" : "Passing"}
+            {checkStatus === "failing"
+              ? "Failing"
+              : checkStatus === "pending"
+                ? "Pending"
+                : "Passing"}
           </span>
 
           {/* Action needed */}
           {actionNeeded && (
-            <span className="text-sm font-semibold text-orange-500">
-              Action Needed
-            </span>
+            <span className="text-sm font-semibold text-orange-500">Action Needed</span>
           )}
         </div>
       </div>
@@ -293,8 +275,8 @@ export function ProjectPageClient({ slug }: ProjectPageClientProps) {
                       wi.status === "done"
                         ? "text-green-500"
                         : wi.status === "in-progress"
-                        ? "text-blue-500"
-                        : "text-muted-foreground"
+                          ? "text-blue-500"
+                          : "text-muted-foreground"
                     }
                   >
                     {getWorkItemStatusLabel(wi.status)}
@@ -310,9 +292,7 @@ export function ProjectPageClient({ slug }: ProjectPageClientProps) {
             <div className="mt-3 flex flex-col gap-2">
               {pullRequests.map((pr) => (
                 <div key={pr.id} className="flex flex-col gap-1 text-sm">
-                  <span className="font-mono text-xs text-muted-foreground">
-                    {pr.branch}
-                  </span>
+                  <span className="font-mono text-xs text-muted-foreground">{pr.branch}</span>
                   <div className="flex items-center gap-2">
                     <a
                       href={pr.url}
@@ -377,61 +357,6 @@ export function ProjectPageClient({ slug }: ProjectPageClientProps) {
       )}
 
       {/* ------------------------------------------------------------------ */}
-      {/* Pipeline — Content variant                                            */}
-      {/* ------------------------------------------------------------------ */}
-      {project.workflow === "content" && (
-        <section aria-label="Content Pipeline">
-          <h2 className="text-lg font-semibold mb-3">Content Pipeline</h2>
-
-          {/* Drafts */}
-          {drafts.length > 0 && (
-            <div className="mb-4">
-              <h3 className="text-sm font-medium text-muted-foreground mb-2">Drafts in Progress</h3>
-              <ul className="flex flex-col gap-2">
-                {drafts.map((item) => (
-                  <li key={item.id} className="border border-border rounded p-3">
-                    <p className="font-medium text-sm">{item.title}</p>
-                    <span className="text-xs text-muted-foreground">{item.status}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Ideas */}
-          {ideas.length > 0 && (
-            <div className="mb-4">
-              <h3 className="text-sm font-medium text-muted-foreground mb-2">Ideas</h3>
-              <ul className="flex flex-col gap-2">
-                {ideas.map((item) => (
-                  <li key={item.id} className="border border-border rounded p-3">
-                    <p className="font-medium text-sm">{item.title}</p>
-                    {item.summary && (
-                      <p className="text-xs text-muted-foreground mt-1">{item.summary}</p>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Published */}
-          {published.length > 0 && (
-            <div>
-              <h3 className="text-sm font-medium text-muted-foreground mb-2">Recently Published</h3>
-              <ul className="flex flex-col gap-2">
-                {published.map((item) => (
-                  <li key={item.id} className="border border-border rounded p-3">
-                    <p className="font-medium text-sm">{item.title}</p>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </section>
-      )}
-
-      {/* ------------------------------------------------------------------ */}
       {/* Activity Timeline                                                     */}
       {/* ------------------------------------------------------------------ */}
       <section aria-label="Activity Timeline">
@@ -439,10 +364,7 @@ export function ProjectPageClient({ slug }: ProjectPageClientProps) {
           <h2 className="text-lg font-semibold">Activity</h2>
 
           {/* Event type filter */}
-          <fieldset
-            aria-label="Filter by event type"
-            className="flex gap-1 border-0 p-0 m-0"
-          >
+          <fieldset aria-label="Filter by event type" className="flex gap-1 border-0 p-0 m-0">
             {EVENT_TYPE_OPTIONS.map((opt) => (
               <button
                 key={opt.label}
