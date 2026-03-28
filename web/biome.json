@@ -12,6 +12,7 @@
       "!node_modules",
       "!.next",
       "!prisma/migrations",
+      "!lib/generated",
       "!vitest.config.ts",
       "!postcss.config.mjs",
       "!prisma.config.ts",
