@@ -57,13 +57,13 @@ interface ApiPrdWithItems extends Prd {
 function makePrd(overrides: Partial<ApiPrdWithItems> = {}): ApiPrdWithItems {
   return {
     id: "prd-1",
-    project_id: "proj-1",
+    projectId: "proj-1",
     title: "My PRD",
     summary: "A summary",
     status: "in_progress",
-    source_path: null,
-    created_at: new Date("2024-01-01"),
-    updated_at: new Date("2024-01-02"),
+    sourcePath: null,
+    createdAt: new Date("2024-01-01"),
+    updatedAt: new Date("2024-01-02"),
     workItems: [],
     ...overrides,
   }
@@ -72,12 +72,12 @@ function makePrd(overrides: Partial<ApiPrdWithItems> = {}): ApiPrdWithItems {
 function makeWorkItem(overrides: Partial<ApiWorkItem> = {}): ApiWorkItem {
   return {
     id: "wi-1",
-    prd_id: "prd-1",
+    prdId: "prd-1",
     title: "Do a thing",
     status: "todo",
     order: 0,
-    created_at: new Date("2024-01-01"),
-    updated_at: new Date("2024-01-01"),
+    createdAt: new Date("2024-01-01"),
+    updatedAt: new Date("2024-01-01"),
     ...overrides,
   }
 }
