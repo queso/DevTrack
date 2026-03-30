@@ -1013,20 +1013,23 @@ describe("Project page — load more appends events", () => {
       meta: undefined,
     })
 
-    // First call: page 1, second call: page 2
-    mockUseTimeline
-      .mockReturnValueOnce({
+    // Return page-appropriate data based on the requested page argument
+    mockUseTimeline.mockImplementation((opts: { page?: number } | undefined) => {
+      if (opts?.page === 2) {
+        return {
+          data: page2Events,
+          error: undefined,
+          isLoading: false,
+          meta: { total: 20, page: 2, per_page: 10 },
+        }
+      }
+      return {
         data: timelineEvents,
         error: undefined,
         isLoading: false,
         meta: paginationMeta,
-      })
-      .mockReturnValue({
-        data: page2Events,
-        error: undefined,
-        isLoading: false,
-        meta: { total: 20, page: 2, per_page: 10 },
-      })
+      }
+    })
 
     render(<ProjectPageClient slug={SLUG} />)
 

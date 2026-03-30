@@ -652,6 +652,70 @@ describe("Sidebar — unknown domain projects", () => {
   })
 })
 
+// ---------------------------------------------------------------------------
+// Suite: localStorage unavailable (private mode / security policy)
+// ---------------------------------------------------------------------------
+
+describe("Sidebar — localStorage unavailable", () => {
+  beforeEach(() => {
+    setupHooks()
+    Object.defineProperty(window, "innerWidth", { writable: true, configurable: true, value: 1200 })
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it("does not crash when localStorage.getItem throws on mount", () => {
+    vi.spyOn(window.localStorage, "getItem").mockImplementation(() => {
+      throw new Error("localStorage is disabled")
+    })
+
+    expect(() => render(<SidebarModule.default />)).not.toThrow()
+  })
+
+  it("falls back to viewport-based collapse when localStorage.getItem throws", () => {
+    // Small viewport — fallback should collapse
+    Object.defineProperty(window, "innerWidth", { writable: true, configurable: true, value: 400 })
+    vi.spyOn(window.localStorage, "getItem").mockImplementation(() => {
+      throw new Error("localStorage is disabled")
+    })
+
+    render(<SidebarModule.default />)
+
+    const sidebar = screen.getByRole("complementary")
+    expect(sidebar.getAttribute("data-collapsed")).toBe("true")
+  })
+
+  it("falls back to expanded when localStorage.getItem throws and viewport is large", () => {
+    Object.defineProperty(window, "innerWidth", { writable: true, configurable: true, value: 1200 })
+    vi.spyOn(window.localStorage, "getItem").mockImplementation(() => {
+      throw new Error("localStorage is disabled")
+    })
+
+    render(<SidebarModule.default />)
+
+    const sidebar = screen.getByRole("complementary")
+    expect(sidebar.getAttribute("data-collapsed")).not.toBe("true")
+  })
+
+  it("does not crash when localStorage.setItem throws on toggle", async () => {
+    const user = userEvent.setup()
+    vi.spyOn(window.localStorage, "setItem").mockImplementation(() => {
+      throw new Error("localStorage is disabled")
+    })
+
+    render(<SidebarModule.default />)
+
+    const toggle = screen.getByRole("button", { name: /collapse|expand|toggle/i })
+    await expect(user.click(toggle)).resolves.not.toThrow()
+
+    // Sidebar state should still toggle even if persistence fails
+    const sidebar = screen.getByRole("complementary")
+    expect(sidebar.getAttribute("data-collapsed")).toBe("true")
+  })
+})
+
 describe("Sidebar — PR badge zero count", () => {
   beforeEach(() => {
     clearLocalStorage()

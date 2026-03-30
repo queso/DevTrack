@@ -15,9 +15,21 @@ export async function GET(request: Request) {
 
   const projectId = url.searchParams.get("project_id") ?? undefined
   const type = url.searchParams.get("type") ?? undefined
-  const from = url.searchParams.get("from") ?? undefined
-  const to = url.searchParams.get("to") ?? undefined
+  const fromParam = url.searchParams.get("from") ?? undefined
+  const toParam = url.searchParams.get("to") ?? undefined
   const domain = url.searchParams.get("domain") ?? undefined
+
+  if (fromParam !== undefined) {
+    const d = new Date(fromParam)
+    if (Number.isNaN(d.getTime())) return badRequest("Invalid 'from' date")
+  }
+  if (toParam !== undefined) {
+    const d = new Date(toParam)
+    if (Number.isNaN(d.getTime())) return badRequest("Invalid 'to' date")
+  }
+
+  const from = fromParam
+  const to = toParam
 
   const where = {
     ...(projectId ? { projectId } : {}),

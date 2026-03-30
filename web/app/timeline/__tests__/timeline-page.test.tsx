@@ -1194,25 +1194,24 @@ describe("Integration: filters, grouping, and pagination together", () => {
 // ===========================================================================
 
 describe("Edge cases: day grouping", () => {
-  it("events at local midnight boundary land in separate day groups", async () => {
+  it("events at UTC midnight boundary land in separate day groups", async () => {
     // Use fixed NOW = 2026-03-17T12:00:00.000Z (UTC noon)
-    // In UTC, 23:59 on Mar 16 vs 00:01 on Mar 17 are different local days
-    // These two events are in the same UTC date-range but local dates can differ
+    // Day grouping uses UTC dates, so UTC midnight is the boundary.
+    // An event at 2026-03-16T23:58:00Z → UTC March 16 → "Yesterday"
+    // An event at 2026-03-17T00:02:00Z → UTC March 17 → "Today"
 
-    // An event just before local midnight → "Yesterday"
-    const justBeforeMidnight = makeEvent({
+    const justBeforeUTCMidnight = makeEvent({
       id: "te-b4-mid",
       title: "late night event",
-      occurredAt: new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate() - 1, 23, 58, 0),
+      occurredAt: new Date("2026-03-16T23:58:00.000Z"),
     })
-    // An event just after local midnight → "Today"
-    const justAfterMidnight = makeEvent({
+    const justAfterUTCMidnight = makeEvent({
       id: "te-after-mid",
       title: "early morning event",
-      occurredAt: new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate(), 0, 2, 0),
+      occurredAt: new Date("2026-03-17T00:02:00.000Z"),
     })
 
-    mockUseTimelineReturn.data = [justBeforeMidnight, justAfterMidnight]
+    mockUseTimelineReturn.data = [justBeforeUTCMidnight, justAfterUTCMidnight]
     mockUseTimelineReturn.meta = { total: 2, page: 1, per_page: 20 }
     mockUseProjectsReturn.data = [projectAlpha]
 
@@ -1229,7 +1228,9 @@ describe("Edge cases: day grouping", () => {
       expect(screen.getByText(/early morning event/i)).toBeInTheDocument()
     })
 
-    // They should be in separate day groups
+    // They should be in separate day groups (Today and Yesterday)
+    expect(screen.getByRole("heading", { name: /^today$/i })).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: /^yesterday$/i })).toBeInTheDocument()
     const groups = screen.getAllByRole("region")
     expect(groups.length).toBeGreaterThanOrEqual(2)
   })
@@ -1316,6 +1317,106 @@ describe("Edge cases: day grouping", () => {
       // todayEvent1 is "commit" → "1 commit across 1 project"
       expect(screen.getByText(/1 commit across 1 project/i)).toBeInTheDocument()
     })
+  })
+})
+
+// ===========================================================================
+// UTC timezone: getDayLabel uses UTC methods for consistent day grouping
+// ===========================================================================
+
+describe("UTC timezone: getDayLabel handles UTC timestamps correctly", () => {
+  it("labels a UTC-today event as 'Today' regardless of local timezone offset", async () => {
+    // NOW = 2026-03-17T12:00:00Z. An event at 01:00 UTC is still March 17 UTC (today).
+    // With local-time code, on a UTC-2 or further-west machine, getDate() returns 16 → "Yesterday".
+    // The UTC fix ensures we always compare UTC dates, so this must be "Today".
+    const earlyUTCTodayEvent = makeEvent({
+      id: "te-utc-today",
+      title: "utc today boundary event",
+      occurredAt: new Date("2026-03-17T01:00:00.000Z"),
+    })
+
+    mockUseTimelineReturn.data = [earlyUTCTodayEvent]
+    mockUseTimelineReturn.meta = { total: 1, page: 1, per_page: 20 }
+    mockUseProjectsReturn.data = [projectAlpha]
+
+    const TimelinePage = await importTimelinePage()
+    render(
+      <SWRWrapper>
+        <TimelinePage />
+      </SWRWrapper>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText(/utc today boundary event/i)).toBeInTheDocument()
+    })
+
+    // Must be grouped under "Today" — not "Yesterday"
+    expect(screen.getByRole("heading", { name: /^today$/i })).toBeInTheDocument()
+    expect(screen.queryByRole("heading", { name: /^yesterday$/i })).not.toBeInTheDocument()
+  })
+
+  it("labels a UTC-yesterday event as 'Yesterday' regardless of local timezone offset", async () => {
+    // NOW = 2026-03-17T12:00:00Z. An event at 2026-03-16T23:00:00Z is still March 16 UTC (yesterday).
+    // With local-time code, on a UTC+2 or further-east machine, getDate() returns 17 → "Today".
+    // The UTC fix ensures we always compare UTC dates, so this must be "Yesterday".
+    const lateUTCYesterdayEvent = makeEvent({
+      id: "te-utc-yesterday",
+      title: "utc yesterday boundary event",
+      occurredAt: new Date("2026-03-16T23:00:00.000Z"),
+    })
+
+    mockUseTimelineReturn.data = [lateUTCYesterdayEvent]
+    mockUseTimelineReturn.meta = { total: 1, page: 1, per_page: 20 }
+    mockUseProjectsReturn.data = [projectAlpha]
+
+    const TimelinePage = await importTimelinePage()
+    render(
+      <SWRWrapper>
+        <TimelinePage />
+      </SWRWrapper>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText(/utc yesterday boundary event/i)).toBeInTheDocument()
+    })
+
+    // Must be grouped under "Yesterday" — not "Today"
+    expect(screen.getByRole("heading", { name: /^yesterday$/i })).toBeInTheDocument()
+    expect(screen.queryByRole("heading", { name: /^today$/i })).not.toBeInTheDocument()
+  })
+
+  it("separates UTC-today and UTC-yesterday events into distinct day groups", async () => {
+    const utcTodayEvent = makeEvent({
+      id: "te-utc-t",
+      title: "utc today event",
+      occurredAt: new Date("2026-03-17T01:00:00.000Z"),
+    })
+    const utcYesterdayEvent = makeEvent({
+      id: "te-utc-y",
+      title: "utc yesterday event",
+      occurredAt: new Date("2026-03-16T23:00:00.000Z"),
+    })
+
+    mockUseTimelineReturn.data = [utcTodayEvent, utcYesterdayEvent]
+    mockUseTimelineReturn.meta = { total: 2, page: 1, per_page: 20 }
+    mockUseProjectsReturn.data = [projectAlpha]
+
+    const TimelinePage = await importTimelinePage()
+    render(
+      <SWRWrapper>
+        <TimelinePage />
+      </SWRWrapper>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /^today$/i })).toBeInTheDocument()
+      expect(screen.getByRole("heading", { name: /^yesterday$/i })).toBeInTheDocument()
+    })
+
+    const todayGroup = screen.getByRole("region", { name: /^today$/i })
+    const yesterdayGroup = screen.getByRole("region", { name: /^yesterday$/i })
+    expect(within(todayGroup).getByText(/utc today event/i)).toBeInTheDocument()
+    expect(within(yesterdayGroup).getByText(/utc yesterday event/i)).toBeInTheDocument()
   })
 })
 

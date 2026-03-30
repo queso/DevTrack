@@ -16,8 +16,9 @@ PROJECT_YAML="$(git rev-parse --show-toplevel)/project.yaml"
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 HASH=$(git rev-parse HEAD)
 MESSAGE=$(git log -1 --pretty=%s)
+printf -v SAFE_MESSAGE '%q' "$MESSAGE"
 
-devtrack event commit --branch "$BRANCH" --hash "$HASH" --message "$MESSAGE" --project-yaml "$PROJECT_YAML" || true
+devtrack event commit --branch "$BRANCH" --hash "$HASH" --message $SAFE_MESSAGE --project-yaml "$PROJECT_YAML" || true
 `,
 
   "post-push": `#!/bin/bash

@@ -168,6 +168,24 @@ describe("installHooks", () => {
     })
   })
 
+  describe("security", () => {
+    it("post-commit.sh shell-escapes $MESSAGE to prevent command injection via commit messages containing double quotes", async () => {
+      await installHooks({ projectDir: PROJECT_DIR })
+
+      const call = vi
+        .mocked(fs.writeFileSync)
+        .mock.calls.find(([p]) => (p as string).endsWith("post-commit.sh"))
+      const content = call?.[1] as string
+
+      // Vulnerable pattern: --message "$MESSAGE" allows a commit message containing
+      // a double quote to break out of the argument, e.g.:
+      //   MESSAGE='x" --injected-flag "y'
+      // expands to: devtrack ... --message "x" --injected-flag "y" ...
+      // which injects an extra flag into the CLI call.
+      expect(content).not.toMatch(/--message "\$MESSAGE"/)
+    })
+  })
+
   describe("file permissions", () => {
     it("makes all four scripts executable (chmod +x)", async () => {
       await installHooks({ projectDir: PROJECT_DIR })

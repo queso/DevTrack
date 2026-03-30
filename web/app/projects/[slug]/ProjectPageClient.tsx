@@ -6,7 +6,7 @@
  * Renders the full project detail view wired to live API data via SWR hooks.
  */
 
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import {
   ErrorState,
   ProjectDetailHeaderSkeleton,
@@ -60,6 +60,9 @@ export function ProjectPageClient({ slug }: ProjectPageClientProps) {
     eventType: string | undefined
     events: import("@/types/api-responses").ApiEvent[]
   }>({ page: 1, eventType: undefined, events: [] })
+  const [accumulatedEvents, setAccumulatedEvents] = useState<
+    import("@/types/api-responses").ApiEvent[]
+  >([])
 
   const { data: rawProject, error: projectError, isLoading: projectLoading } = useProject(slug, {})
 
@@ -83,10 +86,11 @@ export function ProjectPageClient({ slug }: ProjectPageClientProps) {
     {},
   )
 
-  // Accumulate timeline pages inline (during render) using a ref so we don't
-  // need an extra useEffect + state update cycle. When page/eventType change
-  // we reset; otherwise we append the new page's events to the prior list.
-  if (rawTimeline) {
+  // Accumulate timeline pages in an effect to avoid mutating a ref during render.
+  // When page/eventType change we reset; otherwise we append the new page's events.
+  useEffect(() => {
+    if (!rawTimeline) return
+
     const prev = accumulatedRef.current
     if (page === 1 || prev.eventType !== eventType) {
       // Filter reset or first page — start fresh
@@ -99,9 +103,8 @@ export function ProjectPageClient({ slug }: ProjectPageClientProps) {
         events: [...prev.events, ...rawTimeline],
       }
     }
-  }
-
-  const accumulatedEvents = rawTimeline ? accumulatedRef.current.events : []
+    setAccumulatedEvents(accumulatedRef.current.events)
+  }, [rawTimeline, page, eventType])
 
   // --- Project error state ---
   if (projectError) {

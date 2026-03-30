@@ -51,10 +51,14 @@ export default function Sidebar() {
 
   // Apply localStorage/viewport preference after mount to avoid hydration mismatch
   useEffect(() => {
-    const stored = window.localStorage.getItem(STORAGE_KEY)
-    if (stored !== null) {
-      setCollapsed(stored === "true")
-    } else {
+    try {
+      const stored = window.localStorage.getItem(STORAGE_KEY)
+      if (stored !== null) {
+        setCollapsed(stored === "true")
+      } else {
+        setCollapsed(window.innerWidth < MD_BREAKPOINT)
+      }
+    } catch {
       setCollapsed(window.innerWidth < MD_BREAKPOINT)
     }
   }, [])
@@ -63,8 +67,12 @@ export default function Sidebar() {
   useEffect(() => {
     function handleResize() {
       // Only auto-collapse/expand if no localStorage preference is set
-      const stored = window.localStorage.getItem(STORAGE_KEY)
-      if (stored === null) {
+      try {
+        const stored = window.localStorage.getItem(STORAGE_KEY)
+        if (stored === null) {
+          setCollapsed(window.innerWidth < MD_BREAKPOINT)
+        }
+      } catch {
         setCollapsed(window.innerWidth < MD_BREAKPOINT)
       }
     }
@@ -75,7 +83,11 @@ export default function Sidebar() {
   function toggleCollapsed() {
     setCollapsed((prev) => {
       const next = !prev
-      window.localStorage.setItem(STORAGE_KEY, String(next))
+      try {
+        window.localStorage.setItem(STORAGE_KEY, String(next))
+      } catch {
+        // localStorage unavailable — state toggled in memory only
+      }
       return next
     })
   }

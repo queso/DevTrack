@@ -23,9 +23,9 @@ type QuickRange = "today" | "yesterday" | "week" | "all"
 function getDayLabel(timestamp: string): string {
   const d = new Date(timestamp)
   const now = new Date()
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
   const yesterday = new Date(today.getTime() - 86400000)
-  const eventDay = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+  const eventDay = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
 
   if (eventDay.getTime() === today.getTime()) return "Today"
   if (eventDay.getTime() === yesterday.getTime()) return "Yesterday"
@@ -46,8 +46,8 @@ function getDayLabel(timestamp: string): string {
     "Dec",
   ]
   const diff = today.getTime() - eventDay.getTime()
-  if (diff < 7 * 86400000) return days[eventDay.getDay()]
-  return `${days[eventDay.getDay()]}, ${months[eventDay.getMonth()]} ${eventDay.getDate()}`
+  if (diff < 7 * 86400000) return days[eventDay.getUTCDay()]
+  return `${days[eventDay.getUTCDay()]}, ${months[eventDay.getUTCMonth()]} ${eventDay.getUTCDate()}`
 }
 
 function buildDaySummary(events: { type: string; projectSlug: string }[]): string {
