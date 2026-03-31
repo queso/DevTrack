@@ -1,24 +1,24 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-/node_modules
-/.pnp
+/web/node_modules
+/web/.pnp
 .pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
+/web/.yarn/*
+!/web/.yarn/patches
+!/web/.yarn/plugins
+!/web/.yarn/releases
+!/web/.yarn/versions
 
 # testing
-/coverage
+/web/coverage
 
 # next.js
-/.next/
-/out/
+/web/.next/
+/web/out/
 
 # production
-/build
+/web/build
 
 # misc
 .DS_Store
@@ -43,8 +43,11 @@ yarn-error.log*
 next-env.d.ts
 
 # Prisma
-/lib/generated/prisma
+/web/lib/generated/prisma
 
 # IDE
 .idea/
 .vscode/
+
+# CLI binary (downloaded, not committed)
+bin/devtrack-bin

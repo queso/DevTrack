@@ -1,0 +1,53 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    restart: unless-stopped
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+      - /app/lib/generated
+    environment:
+      DATABASE_URL: postgresql://dev_track:dev_track@postgres:5432/dev_track
+      SITE_URL: http://devtrack.magi.theowens.casa
+      DEVTRACK_API_KEY: devtrack-local-dev-key
+      NEXT_PUBLIC_DEVTRACK_API_KEY: devtrack-local-dev-key
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.devtrack.rule=Host(`devtrack.magi.theowens.casa`)
+      - traefik.http.routers.devtrack.entrypoints=web
+      - traefik.http.services.devtrack.loadbalancer.server.port=3000
+      - traefik.docker.network=traefik_default
+    networks:
+      - traefik
+      - default
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: dev_track
+      POSTGRES_PASSWORD: dev_track
+      POSTGRES_DB: dev_track
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dev_track"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
+
+networks:
+  traefik:
+    external: true
+    name: traefik_default

@@ -20,19 +20,28 @@ Mission control for multi-repo development. Track SDLC state, content pipelines,
 ## Directory Structure
 
 ```
-app/                    Next.js App Router pages and layouts
-components/             React components (shadcn/ui)
-lib/                    Shared utilities, database, logging
-prisma/                 Prisma schema and migrations
-specs/                  OpenAPI/FlowSpec specifications
-__tests__/              Test files
-types/                  TypeScript type definitions
+web/                    Next.js application (run all pnpm commands from here)
+web/app/                Next.js App Router pages and layouts
+web/components/         React components (shadcn/ui)
+web/lib/                Shared utilities, database, logging
+web/prisma/             Prisma schema and migrations
+web/specs/              OpenAPI/FlowSpec specifications
+web/__tests__/          Test files
+web/types/              TypeScript type definitions
+web/public/             Static assets
+cli/                    Go CLI (auto-generated from OpenAPI spec)
 prd/                    Product Requirements Documents (NNNN-slug.md)
 docs/                   Technical documentation, architecture decisions, API specs
-public/                 Static assets
+.claude-plugin/         Claude Code plugin manifest and metadata
+bin/                    Plugin executables and entry points
+commands/               Slash command definitions (devtrack:*)
+hooks/                  Claude Code hook scripts (post-commit, post-push, etc.)
+scripts/                Build, release, and utility scripts
 ```
 
 ## Commands
+
+All pnpm commands must be run from the `web/` directory:
 
 - `pnpm run dev` - Start development server
 - `pnpm run lint` - Run Biome linter
@@ -72,3 +81,41 @@ The A(i)-Team will:
 - Update documentation and commit
 
 **Do NOT** work on PRD features directly without using `/ai-team:plan` first.
+
+## DevTrack Plugin
+
+DevTrack ships as a Claude Code plugin that installs slash commands and hooks into your development environment.
+
+### Installation
+
+```bash
+# Install the DevTrack plugin
+claude plugin install devtrack
+
+# Run setup to register the current repo and install hooks
+/devtrack:setup
+```
+
+### Slash Commands
+
+| Command | Description |
+|---|---|
+| `/devtrack:setup` | Register the current repo and install git/Claude hooks |
+| `/devtrack:status` | Show current project status (branch, open PRs, active PRD) |
+| `/devtrack:dashboard` | Display cross-project dashboard summary |
+| `/devtrack:sync` | Force-sync project state (PRDs, PRs, events) with DevTrack API |
+| `/devtrack:prs` | List open pull requests across all tracked projects |
+
+### Environment Variables
+
+| Variable | Description |
+|---|---|
+| `DEVTRACK_API_URL` | Base URL of the DevTrack API (e.g. `https://devtrack.example.com`) |
+| `DEVTRACK_API_KEY` | API key for authenticating requests to the DevTrack API |
+
+Set these in your shell profile or `.env.local`:
+
+```bash
+export DEVTRACK_API_URL="https://devtrack.example.com"
+export DEVTRACK_API_KEY="your-secure-api-key-here"
+```

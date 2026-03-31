@@ -1,0 +1,35 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/devtrack event --type session-start --project-yaml \"$(git rev-parse --show-toplevel)/project.yaml\" --quiet 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/devtrack event --type session-end --project-yaml \"$(git rev-parse --show-toplevel)/project.yaml\" --quiet 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/devtrack event --type commit --project-yaml \"$(git rev-parse --show-toplevel)/project.yaml\" --quiet 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  }
+}

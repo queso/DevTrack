@@ -1,9 +1,9 @@
 {
   "packageManager": "pnpm",
   "checks": {
-    "lint": "pnpm run lint",
-    "unit": "pnpm test",
-    "e2e": "pnpm run test:e2e"
+    "lint": "cd web && pnpm run lint",
+    "unit": "cd web && pnpm test",
+    "e2e": "cd web && pnpm run test:e2e"
   },
   "precheck": ["lint", "unit"],
   "postcheck": ["lint", "unit", "e2e"],

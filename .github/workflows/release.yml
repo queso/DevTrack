@@ -1,0 +1,119 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  # ── Step 1: Semantic Release (only on push to main) ─────────────────
+  semantic-release:
+    name: Semantic Release
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      new-release: ${{ steps.release.outputs.new_release_published }}
+      version: ${{ steps.release.outputs.new_release_git_tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - uses: cycjimmy/semantic-release-action@v4
+        id: release
+        with:
+          extra_plugins: |
+            @semantic-release/commit-analyzer
+            @semantic-release/release-notes-generator
+            @semantic-release/exec
+            @semantic-release/git
+            @semantic-release/github
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Release result
+        if: steps.release.outputs.new_release_published == 'true'
+        run: echo "Released ${{ steps.release.outputs.new_release_git_tag }}"
+
+  # ── Step 2: Resolve version ─────────────────────────────────────────
+  resolve-version:
+    name: Resolve Version
+    needs: [semantic-release]
+    if: |
+      !failure() && !cancelled() && (
+        startsWith(github.ref, 'refs/tags/v') ||
+        needs.semantic-release.outputs.new-release == 'true'
+      )
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - id: version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "version=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${{ needs.semantic-release.outputs.version }}" >> "$GITHUB_OUTPUT"
+          fi
+      - run: echo "Version → ${{ steps.version.outputs.version }}"
+
+  # ── Step 3: Build CLI binaries ──────────────────────────────────────
+  build:
+    name: Build ${{ matrix.goos }}/${{ matrix.goarch }}
+    needs: [resolve-version]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: darwin
+            goarch: arm64
+          - goos: darwin
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: linux
+            goarch: amd64
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+          cache-dependency-path: cli/go.sum
+
+      - name: Build binary
+        working-directory: cli
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+        run: go build -ldflags="-s -w -X devtrack/cmd.Version=${{ needs.resolve-version.outputs.version }}" -o devtrack-${{ matrix.goos }}-${{ matrix.goarch }} .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: devtrack-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: cli/devtrack-${{ matrix.goos }}-${{ matrix.goarch }}
+
+  # ── Step 4: Upload release assets ───────────────────────────────────
+  upload-assets:
+    name: Upload Release Assets
+    needs: [build, resolve-version]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Attach binaries to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.resolve-version.outputs.version }}
+          files: artifacts/devtrack-*

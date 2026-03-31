@@ -1,0 +1,7 @@
+{
+  "name": "devtrack",
+  "version": "0.1.0",
+  "minCliVersion": "0.1.0",
+  "description": "Mission control for multi-repo development. Track SDLC state, content pipelines, and PR queues across all your projects from one dashboard.",
+  "repository": "https://github.com/queso/DevTrack"
+}

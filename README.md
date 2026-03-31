@@ -18,6 +18,30 @@ Built on [context-kit](https://github.com/queso/context-kit):
 - **Deployment:** Docker, Kubernetes (OVH Cloud)
 - **CLI:** Auto-generated from OpenAPI spec via swagger-jack
 
+## Installation
+
+DevTrack is distributed as a Claude Code plugin. Install it once and use slash commands in any registered project.
+
+```bash
+# Install the plugin
+claude plugin install devtrack
+
+# In your project directory, run setup
+/devtrack:setup
+```
+
+`/devtrack:setup` registers the current repository, installs git hooks for automatic event tracking, and configures Claude Code hooks for session tracking.
+
+### Slash Commands
+
+| Command | Description |
+|---|---|
+| `/devtrack:setup` | Register the current repo and install git/Claude hooks |
+| `/devtrack:status` | Show current project status (branch, open PRs, active PRD) |
+| `/devtrack:dashboard` | Display cross-project dashboard summary |
+| `/devtrack:sync` | Force-sync project state (PRDs, PRs, events) with DevTrack API |
+| `/devtrack:prs` | List open pull requests across all tracked projects |
+
 ## Getting Started
 
 ### Prerequisites
@@ -209,6 +233,72 @@ Configure webhooks in GitHub repository settings or via `devtrack register --set
               ┌───────┴───────┐
               │               │
          [Dashboard]     [CLI Tool]
+```
+
+## Development
+
+### Repository Layout
+
+```
+/                       Plugin root — manifest, bin, commands, hooks
+.claude-plugin/         Claude Code plugin metadata
+bin/                    Plugin executables
+commands/               Slash command definitions (devtrack:*)
+hooks/                  Claude Code hook scripts
+scripts/                Build, release, and utility scripts
+web/                    Next.js application (dashboard + API)
+cli/                    Go CLI (auto-generated from OpenAPI spec)
+prd/                    Product Requirements Documents
+docs/                   Architecture decisions and API specs
+```
+
+### Running the Web App
+
+All `pnpm` commands run from `web/`:
+
+```bash
+cd web
+pnpm install
+pnpm run dev        # Start development server (http://localhost:3000)
+pnpm test           # Run unit tests
+pnpm run lint       # Lint with Biome
+pnpm run test:e2e   # Run FlowSpec e2e tests
+```
+
+### Building the CLI
+
+```bash
+go build -o devtrack ./cli
+go install ./cli
+```
+
+## Release Process
+
+DevTrack uses [semantic-release](https://semantic-release.gitbook.io) with [conventional commits](https://www.conventionalcommits.org) for automated versioning and publishing.
+
+### Commit Convention
+
+| Prefix | Effect |
+|---|---|
+| `feat:` | Minor version bump (new feature) |
+| `fix:` | Patch version bump (bug fix) |
+| `feat!:` or `BREAKING CHANGE:` | Major version bump |
+| `chore:`, `docs:`, `refactor:` | No release |
+
+### Triggering a Release
+
+Releases are triggered automatically by CI when commits land on `main`. The release workflow:
+
+1. Analyzes commits since the last release
+2. Bumps the version in `package.json` and plugin manifest
+3. Generates a changelog
+4. Creates a GitHub release and tags the commit
+5. Publishes the plugin
+
+To release manually:
+
+```bash
+pnpm run release      # from web/ — runs semantic-release locally
 ```
 
 ## PRDs

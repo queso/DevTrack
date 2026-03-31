@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+#### Claude Code Plugin Structure
+- Restructured repository as a Claude Code plugin with web/ subdirectory for Next.js app
+- Plugin metadata in `.claude-plugin/plugin.json` and `marketplace.json`
+- Declarative hooks in `hooks/hooks.json` for session and tool use tracking
+- 5 slash commands: `/devtrack:setup`, `/devtrack:status`, `/devtrack:dashboard`, `/devtrack:sync`, `/devtrack:prs`
+- Self-updating CLI wrapper script (`bin/devtrack`) with platform auto-detection and version checking
+- Version bump script (`scripts/bump-plugin-version.sh`) for release automation
+- CLI version variable (`cli/cmd/version.go`) for ldflags injection at build time
+
+#### Release Automation
+- GitHub Actions release workflow with semantic-release and Go cross-compilation (4 platforms)
+- Commitlint workflow enforcing conventional commits on PRs
+- Semantic-release configuration (`.releaserc.json`) with exec, git, and github plugins
+- Root `package.json` with release tooling devDependencies
+
+### Changed
+- Moved Next.js application from repo root to `web/` subdirectory (history preserved via git mv)
+- Updated CI workflow with `working-directory: web` for all steps
+- Updated `.gitignore` with `web/` path prefixes and `bin/devtrack-bin` exclusion
+- Updated `CLAUDE.md` and `README.md` with plugin structure, slash commands, and installation docs
+- Updated `ateam.config.json` check commands with `cd web &&` prefix
+
 ## [0.5.0] - 2026-03-24
 
 ### Added
