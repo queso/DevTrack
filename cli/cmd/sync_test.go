@@ -238,6 +238,10 @@ func (f *fakeSyncAPIFull) SyncPRDs(projectID string, prds []map[string]interface
 	return f.syncPRDsCount, f.syncPRDsErr
 }
 
+func (f *fakeSyncAPIFull) SyncContent(projectID string, items []map[string]interface{}) (int, error) {
+	return 0, nil
+}
+
 // validFullSyncManifest includes a prd_path so PRD scanning is triggered.
 const validFullSyncManifest = `
 name: my-project

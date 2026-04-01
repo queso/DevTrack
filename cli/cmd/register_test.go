@@ -423,6 +423,44 @@ func TestRegister_NoHooksPromptOnUpdate(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// WI-041: manifestToBody includes content_path and draft_path
+// ---------------------------------------------------------------------------
+
+func TestManifestToBody_IncludesContentPathAndDraftPath(t *testing.T) {
+	m := &internal.Manifest{
+		Name:        "my-project",
+		Workflow:    "sdlc",
+		ContentPath: "content/posts",
+		DraftPath:   "content/drafts",
+	}
+
+	body := manifestToBody(m)
+
+	if v, ok := body["content_path"]; !ok || v != "content/posts" {
+		t.Errorf("body[content_path] = %v, want %q", body["content_path"], "content/posts")
+	}
+	if v, ok := body["draft_path"]; !ok || v != "content/drafts" {
+		t.Errorf("body[draft_path] = %v, want %q", body["draft_path"], "content/drafts")
+	}
+}
+
+func TestManifestToBody_OmitsContentPathAndDraftPathWhenEmpty(t *testing.T) {
+	m := &internal.Manifest{
+		Name:     "my-project",
+		Workflow: "sdlc",
+	}
+
+	body := manifestToBody(m)
+
+	if _, ok := body["content_path"]; ok {
+		t.Errorf("body should not include content_path when empty, got %v", body["content_path"])
+	}
+	if _, ok := body["draft_path"]; ok {
+		t.Errorf("body should not include draft_path when empty, got %v", body["draft_path"])
+	}
+}
+
 // TestRegister_QuietModeSkipsHooksPrompt verifies that with quiet=true, the
 // hooks prompt is never shown and hooks are never installed after creation.
 func TestRegister_QuietModeSkipsHooksPrompt(t *testing.T) {

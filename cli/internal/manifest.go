@@ -17,7 +17,9 @@ type Manifest struct {
 	Tags        []string `yaml:"tags"`
 	RepoURL    string   `yaml:"repo_url"`
 	MainBranch string   `yaml:"main_branch"`
-	PrdPath    string   `yaml:"prd_path"`
+	PrdPath     string   `yaml:"prd_path"`
+	ContentPath string   `yaml:"content_path"`
+	DraftPath   string   `yaml:"draft_path"`
 }
 
 // ProjectLister is the interface ResolveProjectID accepts so callers can

@@ -32,12 +32,15 @@ type SyncAPI interface {
 	SyncPullRequests(projectID string) ([]byte, error)
 }
 
-// FullSyncAPI extends SyncAPI with project update and PRD sync capabilities.
+// FullSyncAPI extends SyncAPI with project update, PRD sync, and content sync capabilities.
 // runSync performs a full re-sync when the provided api satisfies this interface.
 type FullSyncAPI interface {
 	SyncAPI
 	UpdateProject(id string, body map[string]interface{}) ([]byte, error)
 	SyncPRDs(projectID string, prds []map[string]interface{}) (int, error)
+	// SyncContent syncs content items for a project.
+	// API endpoint: POST /api/v1/projects/:id/sync-content
+	SyncContent(projectID string, items []map[string]interface{}) (int, error)
 }
 
 // apiSyncClient adapts the HTTP client to satisfy FullSyncAPI.
@@ -85,6 +88,21 @@ func (a *apiSyncClient) SyncPRDs(projectID string, prds []map[string]interface{}
 	return result.Synced, nil
 }
 
+func (a *apiSyncClient) SyncContent(projectID string, items []map[string]interface{}) (int, error) {
+	body := map[string]interface{}{"items": items}
+	resp, err := a.c.Do("POST", "/projects/{id}/sync-content", map[string]string{"id": projectID}, map[string]string{}, body)
+	if err != nil {
+		return 0, fmt.Errorf("sync content: %w", err)
+	}
+	var result struct {
+		Synced int `json:"synced"`
+	}
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return 0, nil
+	}
+	return result.Synced, nil
+}
+
 // runSync is the testable core of the sync command. It reads the manifest at
 // manifestPath, resolves the project ID via the API, triggers a server-side
 // pull-request sync, and writes a result summary to out. When quiet is true,
@@ -104,6 +122,7 @@ func runSync(manifestPath string, api SyncAPI, quiet bool, out io.Writer) error 
 	}
 
 	prdCount := 0
+	contentCount := 0
 
 	if fullAPI, ok := api.(FullSyncAPI); ok {
 		// Step 1: update project from manifest.
@@ -118,15 +137,38 @@ func runSync(manifestPath string, api SyncAPI, quiet bool, out io.Writer) error 
 				prdCount, _ = fullAPI.SyncPRDs(projectID, prds)
 			}
 		}
+
+		// Step 3: sync published content from content_path when configured.
+		if manifest.ContentPath != "" {
+			contentDir := filepath.Join(filepath.Dir(manifestPath), manifest.ContentPath)
+			items, scanErr := scanContentDirectory(contentDir, "published")
+			if scanErr != nil {
+				fmt.Fprintf(out, "Warning: content_path %q not found, skipping\n", manifest.ContentPath)
+			} else if len(items) > 0 {
+				contentCount, _ = fullAPI.SyncContent(projectID, items)
+			}
+		}
+
+		// Step 4: sync drafts from draft_path when configured.
+		if manifest.DraftPath != "" {
+			draftDir := filepath.Join(filepath.Dir(manifestPath), manifest.DraftPath)
+			items, scanErr := scanContentDirectory(draftDir, "draft")
+			if scanErr != nil {
+				fmt.Fprintf(out, "Warning: draft_path %q not found, skipping\n", manifest.DraftPath)
+			} else if len(items) > 0 {
+				n, _ := fullAPI.SyncContent(projectID, items)
+				contentCount += n
+			}
+		}
 	}
 
-	// Step 3: sync pull requests.
+	// Final step: sync pull requests.
 	resp, err := api.SyncPullRequests(projectID)
 	if err != nil {
 		return fmt.Errorf("sync pull requests failed: %w", err)
 	}
 
-	return writeSyncOutput(out, projectID, resp, prdCount, quiet)
+	return writeSyncOutput(out, projectID, resp, prdCount, contentCount, quiet)
 }
 
 // scanPRDDirectory reads all *.md files in dir and returns a slice of PRD
@@ -168,6 +210,47 @@ func parsePRDMarkdown(filename, content string) map[string]interface{} {
 	}
 }
 
+// scanContentDirectory reads all *.md files in dir and returns a slice of content
+// item maps with the given status ("published" or "draft").
+func scanContentDirectory(dir, status string) ([]map[string]interface{}, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	var items []map[string]interface{}
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
+			continue
+		}
+		content, readErr := os.ReadFile(filepath.Join(dir, e.Name()))
+		if readErr != nil {
+			continue
+		}
+		item := parseContentMarkdown(e.Name(), string(content))
+		item["status"] = status
+		items = append(items, item)
+	}
+	return items, nil
+}
+
+// parseContentMarkdown extracts a title from the first H1 heading in content,
+// falling back to the filename (without extension) when no heading is found.
+func parseContentMarkdown(filename, content string) map[string]interface{} {
+	title := strings.TrimSuffix(filename, ".md")
+	for _, line := range strings.Split(content, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "# ") {
+			title = strings.TrimPrefix(line, "# ")
+			break
+		}
+	}
+	return map[string]interface{}{
+		"title":       title,
+		"source_path": filename,
+	}
+}
+
 // syncResult holds the fields returned by the server-side sync endpoint.
 type syncResult struct {
 	Synced  int `json:"synced"`
@@ -179,18 +262,18 @@ type syncResult struct {
 // writeSyncOutput writes the sync summary to out. In quiet mode a single
 // summary line is written; in verbose mode a human-readable multi-line
 // summary is written.
-func writeSyncOutput(out io.Writer, projectID string, body []byte, prdCount int, quiet bool) error {
+func writeSyncOutput(out io.Writer, projectID string, body []byte, prdCount int, contentCount int, quiet bool) error {
 	var result syncResult
 	json.Unmarshal(body, &result) //nolint:errcheck — fallback to zero values
 
 	if quiet {
-		fmt.Fprintf(out, "Synced: %d PRDs, %d PRs\n", prdCount, result.Synced)
+		fmt.Fprintf(out, "Synced: %d PRDs, %d PRs, %d content items\n", prdCount, result.Synced, contentCount)
 		return nil
 	}
 
 	fmt.Fprintf(out, "Project %s synced\n", projectID)
-	fmt.Fprintf(out, "Synced: %d PRDs, %d PRs (%d created, %d updated, %d closed)\n",
-		prdCount, result.Synced, result.Created, result.Updated, result.Closed)
+	fmt.Fprintf(out, "Synced: %d PRDs, %d PRs (%d created, %d updated, %d closed), %d content items\n",
+		prdCount, result.Synced, result.Created, result.Updated, result.Closed, contentCount)
 	return nil
 }
 

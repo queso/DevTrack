@@ -9,6 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+#### CLI Content Management
+- `devtrack ideas` command for listing and managing content ideas (#WI-043)
+  - List ideas for current project or across all projects with `--all` flag
+  - Add new ideas with titles, tags, and summaries via `devtrack ideas add`
+  - Quiet mode (`--quiet`) outputs only idea IDs for scripting
+- `devtrack ideas promote` subcommand for converting ideas to draft posts (#WI-044)
+  - Automatically generates URL-safe slugs from idea titles with YAML-compliant escaping
+  - Creates markdown files with YAML frontmatter in `draft_path` directory
+  - Guards against overwriting existing drafts with user-friendly warnings
+  - Validates `draft_path` is configured in project.yaml before proceeding
+
+#### Manifest Enhancements
+- Extended Manifest struct with `content_path` and `draft_path` fields (#WI-041)
+- Updated register and manifest commands to include new path configurations
+- Enables project-wide content organization for published and draft materials
+
+#### Enhanced Sync Command
+- `devtrack sync` now scans content directories for automated content tracking (#WI-045)
+- Scans `content_path` directory for published content items
+- Scans `draft_path` directory for draft items (created by ideas promote)
+- Syncs discovered content alongside PRDs and pull requests
+- Graceful handling when content/draft paths are not configured
+
 #### Claude Code Plugin Structure
 - Restructured repository as a Claude Code plugin with web/ subdirectory for Next.js app
 - Plugin metadata in `.claude-plugin/plugin.json` and `marketplace.json`

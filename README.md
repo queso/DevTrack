@@ -170,10 +170,18 @@ devtrack dashboard
 - `devtrack prs` — List open PRs across all projects
 - `devtrack pr-sync` — Trigger PR synchronization
 
+**Content Management:**
+- `devtrack ideas` — List content ideas for the current project
+- `devtrack ideas add <title>` — Create a new content idea with optional tags and summary
+- `devtrack ideas promote <idea-id>` — Convert an idea to a draft post with auto-generated slug
+
 **Activity Tracking:**
 - `devtrack event` — Record an event with type validation
 - `devtrack hooks install` — Install git hooks for automatic tracking
 - `devtrack hooks uninstall` — Remove installed hooks
+
+**Content Sync:**
+- `devtrack sync` — Sync PRDs, pull requests, and content items (published & drafts)
 
 For all available commands and options:
 
@@ -197,10 +205,12 @@ domain: my-domain
 owner: your-name
 main_branch: main
 prd_path: "prd/"
+content_path: "content/"           # For published content (optional)
+draft_path: "drafts/"              # For draft posts (optional)
 test_pattern: "**/*.test.ts"
 ```
 
-The manifest defines the project's configuration, structure, and integration points.
+The manifest defines the project's configuration, structure, and integration points. The `content_path` and `draft_path` fields enable automatic discovery and syncing of published and draft content items.
 
 ### Claude Code Hooks
 

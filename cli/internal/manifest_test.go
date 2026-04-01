@@ -496,3 +496,46 @@ func TestFindProjectIDByName_CaseSensitive(t *testing.T) {
 		t.Errorf("FindProjectIDByName case mismatch = %q, want empty string", got)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// WI-041: content_path and draft_path fields
+// ---------------------------------------------------------------------------
+
+func TestReadManifest_ContentPathAndDraftPath(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "project.yaml")
+	writeFile(t, path, `
+name: my-project
+workflow: sdlc
+content_path: content/posts
+draft_path: content/drafts
+`)
+
+	m, err := ReadManifest(path)
+	if err != nil {
+		t.Fatalf("ReadManifest returned unexpected error: %v", err)
+	}
+	if m.ContentPath != "content/posts" {
+		t.Errorf("ContentPath: got %q, want %q", m.ContentPath, "content/posts")
+	}
+	if m.DraftPath != "content/drafts" {
+		t.Errorf("DraftPath: got %q, want %q", m.DraftPath, "content/drafts")
+	}
+}
+
+func TestReadManifest_ContentPathAndDraftPathAbsent(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "project.yaml")
+	writeFile(t, path, "name: minimal-project\n")
+
+	m, err := ReadManifest(path)
+	if err != nil {
+		t.Fatalf("ReadManifest returned unexpected error when content_path/draft_path absent: %v", err)
+	}
+	if m.ContentPath != "" {
+		t.Errorf("ContentPath: expected empty when absent, got %q", m.ContentPath)
+	}
+	if m.DraftPath != "" {
+		t.Errorf("DraftPath: expected empty when absent, got %q", m.DraftPath)
+	}
+}

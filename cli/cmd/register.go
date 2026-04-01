@@ -155,6 +155,12 @@ func manifestToBody(manifest *internal.Manifest) map[string]interface{} {
 	if manifest.PrdPath != "" {
 		body["prd_path"] = manifest.PrdPath
 	}
+	if manifest.ContentPath != "" {
+		body["content_path"] = manifest.ContentPath
+	}
+	if manifest.DraftPath != "" {
+		body["draft_path"] = manifest.DraftPath
+	}
 	if len(manifest.Tags) > 0 {
 		body["tags"] = manifest.Tags
 	}
