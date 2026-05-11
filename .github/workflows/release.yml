@@ -19,12 +19,12 @@ jobs:
       new-release: ${{ steps.release.outputs.new_release_published }}
       version: ${{ steps.release.outputs.new_release_git_tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           persist-credentials: true
 
-      - uses: cycjimmy/semantic-release-action@v4
+      - uses: cycjimmy/semantic-release-action@v6
         id: release
         with:
           extra_plugins: |
@@ -79,9 +79,9 @@ jobs:
           - goos: linux
             goarch: amd64
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: "1.21"
           cache-dependency-path: cli/go.sum
@@ -95,7 +95,7 @@ jobs:
         run: go build -ldflags="-s -w -X devtrack/cmd.Version=${{ needs.resolve-version.outputs.version }}" -o devtrack-${{ matrix.goos }}-${{ matrix.goarch }} .
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: devtrack-${{ matrix.goos }}-${{ matrix.goarch }}
           path: cli/devtrack-${{ matrix.goos }}-${{ matrix.goarch }}
@@ -107,13 +107,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: artifacts
           merge-multiple: true
 
       - name: Attach binaries to release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.resolve-version.outputs.version }}
           files: artifacts/devtrack-*
