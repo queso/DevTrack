@@ -9,6 +9,7 @@ impact. Items marked ✅ were fixed in this branch and are listed for context.
 - ✅ **No local repo path on Project.** Added `Project.repoPath` + `repo_path` in the create/update Zod schemas, routes, and OpenAPI.
 - ✅ **Git-hook event flow was broken against the current API.** The CLI/hook `event` command posts `project_name`, but `POST /api/v1/events` only accepted `project_id` (422). It also sends an empty title for `session-start` (failed `title.min(1)`). The events endpoint now resolves `project_name`→id and backfills a title from the event type.
 - ✅ **Events never advanced `lastActivityAt`.** Staleness/activity tracking was inert. `POST /events` now advances the project's `lastActivityAt` (monotonically) so staleness is real.
+- ✅ **CLI / hook auth env var name mismatch.** The Go CLI read the key from `DEVTRACK_TOKEN` while every doc said `DEVTRACK_API_KEY`, so docs-following hook calls 401'd. The CLI now reads `DEVTRACK_API_KEY` as the canonical name (resolved centrally in `cmd/root.go`), falls back to `DEVTRACK_TOKEN` with a deprecation warning, and the docs/error messages were unified on `DEVTRACK_API_KEY`.
 
 ## Deferred (not fixed)
 
@@ -16,11 +17,6 @@ impact. Items marked ✅ were fixed in this branch and are listed for context.
 - `ContentItem` is documented (`docs/API.md`) and wired into the CLI (`ideas`, `sync` content) but **does not exist in `prisma/schema.prisma`**. Any CLI content command will fail against the API.
 - `prd/005-unified-document-model.md` is uncommitted in the working tree — the document-model refactor was in flight when work stopped. This is the most likely proximate cause of the stall.
 - **Recommendation:** either finish PRD 005 (unify PRD + ContentItem into a Document model) or explicitly cut content features for now. Not needed for the reveille brief.
-
-### CLI / hook auth env var name mismatch
-- The Go CLI reads the API key from **`DEVTRACK_TOKEN`** (`cmd/event.go`, `cmd/root.go` → `client.Token` → `Authorization: Bearer`).
-- README/CLAUDE.md and the hook docs tell users to set **`DEVTRACK_API_KEY`**.
-- Result: following the docs, every hook call 401s. **Recommendation:** make the CLI accept `DEVTRACK_API_KEY` (fall back to `DEVTRACK_TOKEN`), and update docs. Relevant to reveille if it shells out to the CLI.
 
 ### `project.yaml` manifest can't carry `repo_path`
 - `cli/internal/manifest.go` `Manifest` struct has no `repo_path` (or `owner`) field, so `devtrack register` / hooks can't populate the new `Project.repoPath` — only a direct API `POST/PATCH` can. **Recommendation:** add `repo_path` to the manifest and to `register`'s body mapping (and have `register` default it to the repo's absolute path).

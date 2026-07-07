@@ -98,8 +98,9 @@ All commands run from `web/`.
    ```
 
 > **Auth:** every `/api/v1/*` request needs the key via `Authorization: Bearer <key>`
-> or `X-Api-Key: <key>`. Note the DevTrack **CLI** currently reads the key from
-> `DEVTRACK_TOKEN` (not `DEVTRACK_API_KEY`) — see `FINDINGS.md`.
+> or `X-Api-Key: <key>`. Both the DevTrack API and the **CLI** use `DEVTRACK_API_KEY`
+> (the legacy `DEVTRACK_TOKEN` is still accepted by the CLI as a fallback, with a
+> deprecation warning).
 
 ### Agent / brief integration
 

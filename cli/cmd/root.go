@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 
 	"devtrack/internal"
@@ -26,7 +27,15 @@ var rootCmd = &cobra.Command{
 			}
 		}
 
-		if os.Getenv("DEVTRACK_TOKEN") == "" && cfg.Token != "" {
+		// Resolve the API key. DEVTRACK_API_KEY is the canonical name (it matches
+		// the server env var and all docs); DEVTRACK_TOKEN is the legacy name kept
+		// for backward compatibility. Downstream commands read
+		// os.Getenv("DEVTRACK_TOKEN"), so normalize the resolved key into it.
+		if apiKey := os.Getenv("DEVTRACK_API_KEY"); apiKey != "" {
+			os.Setenv("DEVTRACK_TOKEN", apiKey)
+		} else if os.Getenv("DEVTRACK_TOKEN") != "" {
+			fmt.Fprintln(os.Stderr, "devtrack: warning: DEVTRACK_TOKEN is deprecated; set DEVTRACK_API_KEY instead")
+		} else if cfg.Token != "" {
 			os.Setenv("DEVTRACK_TOKEN", cfg.Token)
 		}
 

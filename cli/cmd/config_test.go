@@ -174,12 +174,18 @@ func TestPersistentPreRunE_SetsTokenFromConfig(t *testing.T) {
 		t.Fatalf("SaveConfig: %v", err)
 	}
 
-	// Clear env var so config value wins
+	// Clear env vars so the config value wins over both the canonical
+	// DEVTRACK_API_KEY and the legacy DEVTRACK_TOKEN.
 	origToken := os.Getenv("DEVTRACK_TOKEN")
+	origAPIKey := os.Getenv("DEVTRACK_API_KEY")
 	os.Unsetenv("DEVTRACK_TOKEN")
+	os.Unsetenv("DEVTRACK_API_KEY")
 	defer func() {
 		if origToken != "" {
 			os.Setenv("DEVTRACK_TOKEN", origToken)
+		}
+		if origAPIKey != "" {
+			os.Setenv("DEVTRACK_API_KEY", origAPIKey)
 		}
 	}()
 
@@ -192,6 +198,46 @@ func TestPersistentPreRunE_SetsTokenFromConfig(t *testing.T) {
 
 	if got := os.Getenv("DEVTRACK_TOKEN"); got != "config-token-123" {
 		t.Errorf("DEVTRACK_TOKEN = %q, want %q", got, "config-token-123")
+	}
+	os.Unsetenv("DEVTRACK_TOKEN") // cleanup
+	rootCmd.SetOut(nil)
+}
+
+// TestPersistentPreRunE_APIKeyPopulatesToken verifies that the canonical
+// DEVTRACK_API_KEY is resolved into DEVTRACK_TOKEN (which every command reads),
+// and that it takes precedence over both the legacy env var and the config file.
+func TestPersistentPreRunE_APIKeyPopulatesToken(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.yaml")
+
+	cfg := internal.Config{Token: "config-token-123"}
+	if err := internal.SaveConfig(cfgPath, cfg); err != nil {
+		t.Fatalf("SaveConfig: %v", err)
+	}
+
+	origToken := os.Getenv("DEVTRACK_TOKEN")
+	origAPIKey := os.Getenv("DEVTRACK_API_KEY")
+	os.Unsetenv("DEVTRACK_TOKEN")
+	os.Setenv("DEVTRACK_API_KEY", "canonical-key-abc")
+	defer func() {
+		os.Unsetenv("DEVTRACK_API_KEY")
+		if origToken != "" {
+			os.Setenv("DEVTRACK_TOKEN", origToken)
+		}
+		if origAPIKey != "" {
+			os.Setenv("DEVTRACK_API_KEY", origAPIKey)
+		}
+	}()
+
+	var buf bytes.Buffer
+	rootCmd.SetOut(&buf)
+	rootCmd.SetArgs([]string{"config", "list", "--config", cfgPath})
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	if got := os.Getenv("DEVTRACK_TOKEN"); got != "canonical-key-abc" {
+		t.Errorf("DEVTRACK_TOKEN = %q, want %q (DEVTRACK_API_KEY should win)", got, "canonical-key-abc")
 	}
 	os.Unsetenv("DEVTRACK_TOKEN") // cleanup
 	rootCmd.SetOut(nil)
