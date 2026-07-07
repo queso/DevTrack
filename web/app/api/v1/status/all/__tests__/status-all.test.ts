@@ -64,9 +64,9 @@ function makeProject(overrides: Record<string, unknown> = {}) {
   }
 }
 
-async function callGet() {
+async function callGet(query = "") {
   const { GET } = await import("@/app/api/v1/status/all/route")
-  const request = new Request("http://localhost/api/v1/status/all", {
+  const request = new Request(`http://localhost/api/v1/status/all${query}`, {
     headers: { "X-Api-Key": "test-key" },
   })
   return GET(request)
@@ -197,6 +197,86 @@ describe("GET /api/v1/status/all", () => {
     expect(p.days_since_activity).toBe(0)
     expect(p.last_event.type).toBe("commit")
     expect(p.last_event.title).toBe("recent commit")
+  })
+
+  describe("?format=reveille", () => {
+    it("emits a bare reveille collector object (no data envelope)", async () => {
+      mockPrisma.project.findMany.mockResolvedValue([makeProject()])
+      const body = await (await callGet("?format=reveille")).json()
+      expect(body.collector).toBe("devtrack")
+      expect(body.ok).toBe(true)
+      expect(typeof body.generated_at).toBe("string")
+      expect(Array.isArray(body.projects)).toBe(true)
+      expect(body.data).toBeUndefined()
+    })
+
+    it("derives project slug from repo_url and maps PRs to age_days", async () => {
+      mockPrisma.project.findMany.mockResolvedValue([
+        makeProject({
+          repoUrl: "https://github.com/queso/content.git",
+          pullRequests: [
+            {
+              number: 7,
+              title: "feat: thing",
+              url: "https://github.com/queso/content/pull/7",
+              status: "open",
+              checkStatus: "passing",
+              author: "josh",
+              openedAt: daysAgo(2),
+            },
+          ],
+        }),
+      ])
+      const body = await (await callGet("?format=reveille")).json()
+      const p = body.projects[0]
+      expect(p.project).toBe("queso/content")
+      expect(p.sdlc_state).toBe("reviewing")
+      expect(p.open_prs[0].age_days).toBe(2)
+    })
+
+    it("maps planned->planning and shipped for recently completed work", async () => {
+      mockPrisma.project.findMany.mockResolvedValue([
+        makeProject({
+          id: "00000000-0000-4000-8000-00000000000e",
+          name: "planned-one",
+          repoUrl: null,
+          prds: [{ id: "p", title: "Q", summary: null, sourcePath: null, status: "queued", workItems: [] }],
+        }),
+        makeProject({
+          id: "00000000-0000-4000-8000-00000000000f",
+          name: "shipped-one",
+          repoUrl: null,
+          lastActivityAt: daysAgo(0),
+          prds: [{ id: "c", title: "Done", summary: null, sourcePath: null, status: "completed", workItems: [] }],
+        }),
+      ])
+      const body = await (await callGet("?format=reveille")).json()
+      const byName = Object.fromEntries(
+        body.projects.map((p: any) => [p.project, p.sdlc_state]),
+      )
+      expect(byName["planned-one"]).toBe("planning")
+      expect(byName["shipped-one"]).toBe("shipped")
+    })
+
+    it("surfaces blockers for failing PR checks", async () => {
+      mockPrisma.project.findMany.mockResolvedValue([
+        makeProject({
+          pullRequests: [
+            {
+              number: 9,
+              title: "flaky feature",
+              url: "https://github.com/queso/proj/pull/9",
+              status: "open",
+              checkStatus: "failing",
+              author: "josh",
+              openedAt: daysAgo(1),
+            },
+          ],
+        }),
+      ])
+      const body = await (await callGet("?format=reveille")).json()
+      expect(body.projects[0].blockers).toContain("PR #9 checks failing: flaky feature")
+    })
   })
 
   it("returns 401-style failure from auth without calling the DB", async () => {

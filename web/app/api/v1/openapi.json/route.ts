@@ -212,6 +212,46 @@ const spec = {
           },
         },
       },
+      ReveilleStatus: {
+        type: "object",
+        description: "The reveille collector shape (contracts/devtrack.schema.json)",
+        required: ["collector", "ok", "generated_at", "projects"],
+        properties: {
+          collector: { type: "string", enum: ["devtrack"] },
+          ok: { type: "boolean" },
+          note: { type: "string" },
+          generated_at: { type: "string", format: "date-time" },
+          projects: {
+            type: "array",
+            items: {
+              type: "object",
+              required: ["project", "sdlc_state", "open_prs"],
+              properties: {
+                project: { type: "string", description: "business/repo slug" },
+                sdlc_state: {
+                  type: "string",
+                  enum: ["idle", "planning", "building", "reviewing", "shipped"],
+                },
+                active_prd: { type: "string" },
+                open_prs: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    required: ["number", "title", "url", "age_days"],
+                    properties: {
+                      number: { type: "integer" },
+                      title: { type: "string" },
+                      url: { type: "string" },
+                      age_days: { type: "number" },
+                    },
+                  },
+                },
+                blockers: { type: "array", items: { type: "string" } },
+              },
+            },
+          },
+        },
+      },
       Prd: {
         type: "object",
         required: ["id", "projectId", "title", "status"],
@@ -320,17 +360,33 @@ const spec = {
         operationId: "getStatusAll",
         summary: "Aggregated machine-readable status for every project",
         description:
-          "Single status surface for automated consumers (e.g. the reveille morning-brief collector). Returns per-project SDLC state, staleness, active PRD, open PRs, and last event.",
+          "Single status surface for automated consumers (e.g. the reveille morning-brief collector). Returns per-project SDLC state, staleness, active PRD, open PRs, and last event. Pass ?format=reveille to emit the reveille collector shape as a bare object (no data envelope), suitable for snapshotting straight to reveille/data/devtrack.json.",
         tags: ["Status"],
+        parameters: [
+          {
+            name: "format",
+            in: "query",
+            required: false,
+            schema: { type: "string", enum: ["reveille"] },
+            description:
+              "When 'reveille', return the reveille collector shape (bare object) instead of the default enveloped StatusAll.",
+          },
+        ],
         responses: {
           200: {
-            description: "Aggregated status for all projects",
+            description:
+              "Aggregated status. Default shape is { data: StatusAll }; with ?format=reveille it is a bare ReveilleStatus object.",
             content: {
               "application/json": {
                 schema: {
-                  type: "object",
-                  required: ["data"],
-                  properties: { data: { $ref: "#/components/schemas/StatusAll" } },
+                  oneOf: [
+                    {
+                      type: "object",
+                      required: ["data"],
+                      properties: { data: { $ref: "#/components/schemas/StatusAll" } },
+                    },
+                    { $ref: "#/components/schemas/ReveilleStatus" },
+                  ],
                 },
               },
             },

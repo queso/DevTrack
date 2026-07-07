@@ -4,6 +4,8 @@ import { prisma } from "@/lib/db"
 import type { PullRequestStatus } from "@/lib/generated/prisma/client"
 import {
   type ProjectStatus,
+  type ReveilleStatusResponse,
+  reveilleStatusResponseSchema,
   statusAllResponseSchema,
   type StatusAllResponse,
 } from "@/lib/schemas"
@@ -25,6 +27,79 @@ function stalenessFor(days: number | null): ProjectStatus["staleness"] {
   if (days < 7) return "recent"
   if (days < 14) return "aging"
   return "stale"
+}
+
+// --- reveille collector mapping (?format=reveille) ---------------------------
+
+// Derive a "business/repo" slug (e.g. "queso/content") from the repo URL, so the
+// reveille brief labels projects the way a human names them. Falls back to name.
+function repoSlug(p: ProjectStatus): string {
+  if (p.repo_url) {
+    const m = p.repo_url.match(/[:/]([^/:]+\/[^/]+?)(?:\.git)?\/?$/)
+    if (m) return m[1]
+  }
+  return p.name
+}
+
+// Map DevTrack's sdlc_state onto reveille's enum
+// (idle | planning | building | reviewing | shipped). "shipped" is surfaced when
+// a project just completed work and has nothing new in flight.
+function reveilleState(p: ProjectStatus): ReveilleStatusResponse["projects"][number]["sdlc_state"] {
+  switch (p.sdlc_state) {
+    case "building":
+      return "building"
+    case "reviewing":
+      return "reviewing"
+    case "planned":
+      return "planning"
+    default:
+      if (p.prd_counts.completed > 0 && (p.staleness === "active" || p.staleness === "recent")) {
+        return "shipped"
+      }
+      return "idle"
+  }
+}
+
+// Human-readable blockers that feed the brief's "Decisions needed" slot.
+function blockersFor(p: ProjectStatus): string[] {
+  const blockers: string[] = []
+  for (const pr of p.open_prs.items) {
+    if (pr.check_status === "failing") {
+      blockers.push(`PR #${pr.number} checks failing: ${pr.title}`)
+    } else if (pr.status === "review_requested") {
+      blockers.push(`PR #${pr.number} awaiting review: ${pr.title}`)
+    } else if (pr.status === "changes_requested") {
+      blockers.push(`PR #${pr.number} needs changes: ${pr.title}`)
+    }
+  }
+  if (p.sdlc_state === "building" && (p.staleness === "aging" || p.staleness === "stale")) {
+    const title = p.active_prd?.title ?? "active PRD"
+    blockers.push(`"${title}" stalled — no activity in ${p.days_since_activity ?? "?"}d`)
+  }
+  return blockers
+}
+
+function toReveille(projectStatuses: ProjectStatus[], nowMs: number): ReveilleStatusResponse {
+  return {
+    collector: "devtrack",
+    ok: true,
+    generated_at: new Date(nowMs).toISOString(),
+    projects: projectStatuses.map((p) => {
+      const blockers = blockersFor(p)
+      return {
+        project: repoSlug(p),
+        sdlc_state: reveilleState(p),
+        ...(p.active_prd ? { active_prd: p.active_prd.title } : {}),
+        open_prs: p.open_prs.items.map((pr) => ({
+          number: pr.number,
+          title: pr.title,
+          url: pr.url,
+          age_days: Math.max(0, Math.round((nowMs - Date.parse(pr.opened_at)) / DAY_MS)),
+        })),
+        ...(blockers.length > 0 ? { blockers } : {}),
+      }
+    }),
+  }
 }
 
 /**
@@ -132,6 +207,14 @@ export async function GET(request: Request) {
       },
     }
   })
+
+  // `?format=reveille` emits the reveille collector shape as a BARE object (no
+  // envelope), so a snapshot of the response is directly a valid devtrack.json.
+  const format = new URL(request.url).searchParams.get("format")
+  if (format === "reveille") {
+    const reveille = reveilleStatusResponseSchema.parse(toReveille(projectStatuses, now))
+    return Response.json(reveille)
+  }
 
   const payload: StatusAllResponse = statusAllResponseSchema.parse({
     generated_at: new Date(now).toISOString(),

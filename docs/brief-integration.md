@@ -97,7 +97,73 @@ curl -s -H "X-Api-Key: $DEVTRACK_API_KEY" \
 
 ---
 
-## 2. Field contract
+## 1a. Reveille collector format — `?format=reveille` (recommended for the brief)
+
+The reveille collector (`reveille/collectors/devtrack.ts`, contract in
+`reveille/contracts/devtrack.schema.json`) consumes a **different, narrower
+shape** than the default response. Rather than make reveille do the mapping,
+DevTrack emits it directly:
+
+```
+GET /api/v1/status/all?format=reveille
+```
+
+This returns a **bare object** (no `data` envelope) that validates against
+`reveille/contracts/devtrack.schema.json` as-is — so the response can be
+snapshotted straight to `reveille/data/devtrack.json`:
+
+```bash
+curl -s -H "X-Api-Key: $DEVTRACK_API_KEY" \
+  "http://localhost:3000/api/v1/status/all?format=reveille" \
+  > ~/Code/TheAITeam/reveille/data/devtrack.json
+```
+
+Example (verified valid against the reveille schema):
+
+```json
+{
+  "collector": "devtrack",
+  "ok": true,
+  "generated_at": "2026-07-07T17:16:50.554Z",
+  "projects": [
+    {
+      "project": "theaiteam-dev/conduit-harness",
+      "sdlc_state": "building",
+      "active_prd": "Agentic harness worker",
+      "open_prs": [
+        {
+          "number": 7,
+          "title": "feat: worker loop + job queue",
+          "url": "https://github.com/theaiteam-dev/conduit-harness/pull/7",
+          "age_days": 0
+        }
+      ]
+    },
+    { "project": "queso/content", "sdlc_state": "idle", "open_prs": [] }
+  ]
+}
+```
+
+### Mapping from the internal shape
+
+| reveille field | source / rule |
+|---|---|
+| `collector` | constant `"devtrack"` |
+| `ok` | `true` (the endpoint only responds when it has data; server-down → see §4) |
+| `generated_at` | server time |
+| `projects[].project` | `owner/repo` slug parsed from `repo_url` (e.g. `queso/content`); falls back to the project `name` when there's no URL |
+| `projects[].sdlc_state` | mapped from internal `sdlc_state` + signals: `building→building`, `reviewing→reviewing`, `planned→planning`, `idle→idle` — **except** an idle project with completed PRDs and recent activity maps to `shipped` |
+| `projects[].active_prd` | internal `active_prd.title` (omitted when none) |
+| `projects[].open_prs[]` | `{ number, title, url, age_days }` — `age_days` = whole days since `opened_at` |
+| `projects[].blockers[]` | derived: failing PR checks, PRs awaiting review / with changes requested, and `building` PRDs that have gone `aging`/`stale`. Omitted when empty. Feeds the brief's "Decisions needed" slot. |
+
+> `sdlc_state` in the reveille contract is an open string (the schema lists the
+> five values as *examples*), so new states won't break the collector — but the
+> five above are what DevTrack emits.
+
+---
+
+## 2. Field contract (default shape)
 
 ### `data`
 | Field | Type | Notes |
@@ -209,10 +275,35 @@ Guidance:
 
 **Implication for reveille:** the *rich, cross-project, time-aware* view
 (staleness, "stalled work", the PR queue, last event) needs DevTrack running.
-The collector should start the server (or assume it's up) for the full brief, and
-fall back to static `project.yaml` + PRD parsing + `git` for a degraded brief when
-DevTrack is unreachable. See [`running-locally`](#running-locally) in the README
-for how to bring the server up.
+
+**Recommended delivery — snapshot to a file (survives the server being down).**
+Reveille's collector already prefers a real `data/devtrack.json` over its stub
+(`collectors/devtrack.ts` reads the file and passes it through). So the most
+robust wiring is **DevTrack → file on a schedule**, not a live fetch at brief
+time:
+
+```bash
+# cron / systemd timer, e.g. every 15 min:
+curl -sf -H "X-Api-Key: $DEVTRACK_API_KEY" \
+  "http://localhost:3000/api/v1/status/all?format=reveille" \
+  -o ~/Code/TheAITeam/reveille/data/devtrack.json.tmp \
+  && mv ~/Code/TheAITeam/reveille/data/devtrack.json.tmp \
+        ~/Code/TheAITeam/reveille/data/devtrack.json
+```
+
+- When DevTrack is **up**, the brief gets fresh, real data.
+- When DevTrack is **down**, `curl -f` fails, the `mv` doesn't run, and the last
+  good snapshot stays in place — reveille renders slightly-stale-but-real data
+  instead of the stub. (If there's never been a snapshot, reveille falls back to
+  its own stub — `ok: false`.)
+
+The atomic write (`.tmp` then `mv`) guarantees reveille never reads a half-written
+file. Live fetch (option C — call the endpoint from `collectors/devtrack.ts`) also
+works but couples brief generation to DevTrack being up at that moment; the
+snapshot decouples them.
+
+See [`running-locally`](#running-locally) in the README for how to bring the
+server up.
 
 ---
 
@@ -226,5 +317,5 @@ for how to bring the server up.
 - **PRD sync** creating/updating PRDs and work items.
 
 If a project shows `stale` but you know it's active, its events aren't reaching
-DevTrack — check `DEVTRACK_API_URL` and the API key env var (see the CLI auth note
-in `FINDINGS.md`: the CLI currently reads `DEVTRACK_TOKEN`, not `DEVTRACK_API_KEY`).
+DevTrack — check `DEVTRACK_API_URL` and `DEVTRACK_API_KEY` (the CLI and API both use
+`DEVTRACK_API_KEY`; the legacy `DEVTRACK_TOKEN` is accepted as a deprecated fallback).

@@ -314,3 +314,44 @@ export const statusAllResponseSchema = z.object({
 
 export type ProjectStatus = z.infer<typeof projectStatusSchema>
 export type StatusAllResponse = z.infer<typeof statusAllResponseSchema>
+
+// ---------------------------------------------------------------------------
+// Reveille collector shape (GET /api/v1/status/all?format=reveille)
+//
+// The exact contract the reveille morning-brief collector consumes
+// (reveille/contracts/devtrack.schema.json). Emitted as a BARE object (no
+// `data` envelope) so a snapshot of the response is a valid devtrack.json.
+// ---------------------------------------------------------------------------
+
+export const reveilleStateEnum = z.enum([
+  "idle",
+  "planning",
+  "building",
+  "reviewing",
+  "shipped",
+])
+
+export const reveilleOpenPrSchema = z.object({
+  number: z.number().int(),
+  title: z.string(),
+  url: z.string(),
+  age_days: z.number(),
+})
+
+export const reveilleProjectSchema = z.object({
+  project: z.string(),
+  sdlc_state: reveilleStateEnum,
+  active_prd: z.string().optional(),
+  open_prs: z.array(reveilleOpenPrSchema),
+  blockers: z.array(z.string()).optional(),
+})
+
+export const reveilleStatusResponseSchema = z.object({
+  collector: z.literal("devtrack"),
+  ok: z.boolean(),
+  note: z.string().optional(),
+  generated_at: z.string().datetime(),
+  projects: z.array(reveilleProjectSchema),
+})
+
+export type ReveilleStatusResponse = z.infer<typeof reveilleStatusResponseSchema>
