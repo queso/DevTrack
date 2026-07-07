@@ -318,18 +318,12 @@ export type StatusAllResponse = z.infer<typeof statusAllResponseSchema>
 // ---------------------------------------------------------------------------
 // Condensed summary shape (GET /api/v1/status/all?format=summary)
 //
-// A stable condensed contract for automated consumers (e.g. the reveille
-// morning-brief collector). Emitted as a BARE object (no
-// `data` envelope) so a snapshot of the response is a valid devtrack.json.
+// A stable condensed contract for automated summary consumers. Emitted as a
+// BARE object (no `data` envelope) so a snapshot of the response is a valid
+// standalone document a downstream collector can read directly.
 // ---------------------------------------------------------------------------
 
-export const summaryStateEnum = z.enum([
-  "idle",
-  "planning",
-  "building",
-  "reviewing",
-  "shipped",
-])
+export const summaryStateEnum = z.enum(["idle", "planning", "building", "reviewing", "shipped"])
 
 export const summaryOpenPrSchema = z.object({
   number: z.number().int(),

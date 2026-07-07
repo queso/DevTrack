@@ -4,10 +4,10 @@ import { prisma } from "@/lib/db"
 import type { PullRequestStatus } from "@/lib/generated/prisma/client"
 import {
   type ProjectStatus,
-  type SummaryStatusResponse,
-  summaryStatusResponseSchema,
-  statusAllResponseSchema,
   type StatusAllResponse,
+  type SummaryStatusResponse,
+  statusAllResponseSchema,
+  summaryStatusResponseSchema,
 } from "@/lib/schemas"
 
 // PR statuses that count as "still open work" — everything except merged/closed.
@@ -209,7 +209,7 @@ export async function GET(request: Request) {
   })
 
   // `?format=summary` emits the condensed summary shape as a BARE object (no
-  // envelope), so a snapshot of the response is directly a valid devtrack.json.
+  // envelope), so a snapshot of the response is directly a valid standalone summary document.
   const format = new URL(request.url).searchParams.get("format")
   if (format === "summary") {
     const summary = summaryStatusResponseSchema.parse(toSummary(projectStatuses, now))

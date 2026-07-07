@@ -105,11 +105,7 @@ describe("GET /api/v1/status/all", () => {
             summary: "Do X",
             sourcePath: "prd/x.md",
             status: "in_progress",
-            workItems: [
-              { status: "done" },
-              { status: "in_progress" },
-              { status: "todo" },
-            ],
+            workItems: [{ status: "done" }, { status: "in_progress" }, { status: "todo" }],
           },
         ],
       }),
@@ -149,7 +145,9 @@ describe("GET /api/v1/status/all", () => {
   it("derives sdlc_state = 'planned' when only queued PRDs exist", async () => {
     mockPrisma.project.findMany.mockResolvedValue([
       makeProject({
-        prds: [{ id: "x", title: "Q", summary: null, sourcePath: null, status: "queued", workItems: [] }],
+        prds: [
+          { id: "x", title: "Q", summary: null, sourcePath: null, status: "queued", workItems: [] },
+        ],
       }),
     ])
     const body = await (await callGet()).json()
@@ -171,10 +169,26 @@ describe("GET /api/v1/status/all", () => {
 
   it("buckets staleness by days since last activity", async () => {
     mockPrisma.project.findMany.mockResolvedValue([
-      makeProject({ id: "00000000-0000-4000-8000-00000000000a", name: "a", lastActivityAt: daysAgo(0) }),
-      makeProject({ id: "00000000-0000-4000-8000-00000000000b", name: "b", lastActivityAt: daysAgo(3) }),
-      makeProject({ id: "00000000-0000-4000-8000-00000000000c", name: "c", lastActivityAt: daysAgo(10) }),
-      makeProject({ id: "00000000-0000-4000-8000-00000000000d", name: "d", lastActivityAt: daysAgo(30) }),
+      makeProject({
+        id: "00000000-0000-4000-8000-00000000000a",
+        name: "a",
+        lastActivityAt: daysAgo(0),
+      }),
+      makeProject({
+        id: "00000000-0000-4000-8000-00000000000b",
+        name: "b",
+        lastActivityAt: daysAgo(3),
+      }),
+      makeProject({
+        id: "00000000-0000-4000-8000-00000000000c",
+        name: "c",
+        lastActivityAt: daysAgo(10),
+      }),
+      makeProject({
+        id: "00000000-0000-4000-8000-00000000000d",
+        name: "d",
+        lastActivityAt: daysAgo(30),
+      }),
     ])
     const body = await (await callGet()).json()
     const byName = Object.fromEntries(body.data.projects.map((p: any) => [p.name, p.staleness]))
@@ -240,20 +254,36 @@ describe("GET /api/v1/status/all", () => {
           id: "00000000-0000-4000-8000-00000000000e",
           name: "planned-one",
           repoUrl: null,
-          prds: [{ id: "p", title: "Q", summary: null, sourcePath: null, status: "queued", workItems: [] }],
+          prds: [
+            {
+              id: "p",
+              title: "Q",
+              summary: null,
+              sourcePath: null,
+              status: "queued",
+              workItems: [],
+            },
+          ],
         }),
         makeProject({
           id: "00000000-0000-4000-8000-00000000000f",
           name: "shipped-one",
           repoUrl: null,
           lastActivityAt: daysAgo(0),
-          prds: [{ id: "c", title: "Done", summary: null, sourcePath: null, status: "completed", workItems: [] }],
+          prds: [
+            {
+              id: "c",
+              title: "Done",
+              summary: null,
+              sourcePath: null,
+              status: "completed",
+              workItems: [],
+            },
+          ],
         }),
       ])
       const body = await (await callGet("?format=summary")).json()
-      const byName = Object.fromEntries(
-        body.projects.map((p: any) => [p.project, p.sdlc_state]),
-      )
+      const byName = Object.fromEntries(body.projects.map((p: any) => [p.project, p.sdlc_state]))
       expect(byName["planned-one"]).toBe("planning")
       expect(byName["shipped-one"]).toBe("shipped")
     })

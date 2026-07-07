@@ -97,28 +97,40 @@ curl -s -H "X-Api-Key: $DEVTRACK_API_KEY" \
 
 ---
 
-## 1a. Reveille collector format — `?format=summary` (recommended for the brief)
+## 1a. Condensed summary format — `?format=summary` (recommended for the brief)
 
-The reveille collector (`reveille/collectors/devtrack.ts`, contract in
-`reveille/contracts/devtrack.schema.json`) consumes a **different, narrower
-shape** than the default response. Rather than make reveille do the mapping,
-DevTrack emits it directly:
+DevTrack exposes a **condensed, consumer-agnostic** variant of the status
+surface. Consumers that want a narrow, snapshot-friendly shape — such as the
+[reveille](../../TheAITeam/reveille) morning-brief collector
+(`reveille/collectors/devtrack.ts`) — map from this instead of the full
+enveloped response:
 
 ```
 GET /api/v1/status/all?format=summary
 ```
 
-This returns a **bare object** (no `data` envelope) that validates against
-`reveille/contracts/devtrack.schema.json` as-is — so the response can be
-snapshotted straight to `reveille/data/devtrack.json`:
+This returns a **bare object** (no `data` envelope), so a snapshot of the
+response is itself a valid standalone document. The shape currently lines up 1:1
+with reveille's collector contract (`reveille/contracts/devtrack.schema.json`),
+so the reveille-side drop-in snapshot command is a `jq` that selects exactly the
+collector fields (a passthrough today; future-proof if DevTrack's summary later
+grows fields reveille doesn't consume):
 
 ```bash
+# reveille side: snapshot devtrack.json from the summary surface
 curl -s -H "X-Api-Key: $DEVTRACK_API_KEY" \
-  "http://localhost:3000/api/v1/status/all?format=summary" \
+     -H "CF-Access-Client-Id: $DEVTRACK_CF_ACCESS_CLIENT_ID" \
+     -H "CF-Access-Client-Secret: $DEVTRACK_CF_ACCESS_CLIENT_SECRET" \
+  "https://devtrack.theaiteam.dev/api/v1/status/all?format=summary" \
+  | jq '{collector, ok, generated_at, projects}' \
   > ~/Code/TheAITeam/reveille/data/devtrack.json
 ```
 
-Example (verified valid against the reveille schema):
+(The two `CF-Access-*` headers are the Cloudflare Access service token — see the
+deploy's `SETUP.md`. Local dev has no Access: drop them and use
+`http://localhost:3000`.)
+
+Example `?format=summary` response:
 
 ```json
 {
@@ -146,7 +158,7 @@ Example (verified valid against the reveille schema):
 
 ### Mapping from the internal shape
 
-| reveille field | source / rule |
+| summary field | source / rule |
 |---|---|
 | `collector` | constant `"devtrack"` |
 | `ok` | `true` (the endpoint only responds when it has data; server-down → see §4) |
