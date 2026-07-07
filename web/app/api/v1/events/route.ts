@@ -1,4 +1,4 @@
-import { badRequest, handlePrismaError, unprocessableEntity } from "@/lib/api"
+import { badRequest, handlePrismaError, notFound, unprocessableEntity } from "@/lib/api"
 import { apiSuccess, buildPagination, paginatedResponse, parsePagination } from "@/lib/api/response"
 import { authenticateRequest } from "@/lib/auth"
 import { prisma } from "@/lib/db"
@@ -70,21 +70,49 @@ export async function POST(request: Request) {
     return unprocessableEntity(fields)
   }
 
-  const { project_id, prd_id, pull_request_id, occurred_at, ...rest } = parsed.data
+  const { project_id, project_name, prd_id, pull_request_id, title, occurred_at, ...rest } =
+    parsed.data
   const occurredAtDate = new Date(occurred_at)
   if (Number.isNaN(occurredAtDate.getTime())) {
     return badRequest("Invalid occurred_at timestamp")
   }
 
+  // Resolve the project by UUID or unique name (git hooks post by name).
+  let projectId = project_id
+  if (!projectId && project_name) {
+    const project = await prisma.project.findUnique({
+      where: { name: project_name },
+      select: { id: true },
+    })
+    if (!project) return notFound(`Project not found: ${project_name}`)
+    projectId = project.id
+  }
+  if (!projectId) return badRequest("Either project_id or project_name is required")
+
+  // Backfill a human-readable title from the event type when none is supplied
+  // (e.g. session-start hooks record no message).
+  const eventTitle = title?.trim() ? title : rest.type.replace(/_/g, " ")
+
   try {
     const event = await prisma.event.create({
       data: {
         ...rest,
-        projectId: project_id,
+        title: eventTitle,
+        projectId,
         prdId: prd_id ?? null,
         pullRequestId: pull_request_id ?? null,
         occurredAt: occurredAtDate,
       } as any,
+    })
+    // Keep the project's last-activity marker current so staleness/status
+    // surfaces (e.g. /status/all) reflect recorded events. Only advance it
+    // forward, never backward for out-of-order/backfilled events.
+    await prisma.project.updateMany({
+      where: {
+        id: projectId,
+        OR: [{ lastActivityAt: null }, { lastActivityAt: { lt: occurredAtDate } }],
+      },
+      data: { lastActivityAt: occurredAtDate },
     })
     return Response.json(apiSuccess(event), { status: 201 })
   } catch (error) {

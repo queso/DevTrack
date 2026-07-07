@@ -53,6 +53,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
 
   const {
     repo_url,
+    repo_path,
     main_branch,
     branch_prefix,
     prd_path,
@@ -69,6 +70,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       data: {
         ...rest,
         ...(repo_url !== undefined ? { repoUrl: repo_url } : {}),
+        ...(repo_path !== undefined ? { repoPath: repo_path } : {}),
         ...(main_branch !== undefined ? { mainBranch: main_branch } : {}),
         ...(branch_prefix !== undefined ? { branchPrefix: branch_prefix } : {}),
         ...(prd_path !== undefined ? { prdPath: prd_path } : {}),

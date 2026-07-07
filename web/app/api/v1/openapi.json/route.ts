@@ -105,7 +105,111 @@ const spec = {
           owner: { type: "string" },
           tags: { type: "array", items: { type: "string" } },
           repo_url: { type: "string", format: "uri" },
+          repo_path: { type: "string", description: "Absolute local filesystem path to the repo" },
           main_branch: { type: "string", default: "main" },
+        },
+      },
+      ProjectStatus: {
+        type: "object",
+        description: "Aggregated status for a single project (see GET /status/all)",
+        required: [
+          "id",
+          "name",
+          "workflow",
+          "main_branch",
+          "sdlc_state",
+          "staleness",
+          "prd_counts",
+          "open_prs",
+        ],
+        properties: {
+          id: { type: "string", format: "uuid" },
+          name: { type: "string" },
+          domain: { type: "string", nullable: true },
+          workflow: { type: "string" },
+          repo_path: { type: "string", nullable: true },
+          repo_url: { type: "string", nullable: true },
+          main_branch: { type: "string" },
+          sdlc_state: {
+            type: "string",
+            enum: ["building", "reviewing", "planned", "idle"],
+            description:
+              "building = active in_progress PRD; reviewing = open PRs, no active PRD; planned = queued PRDs only; idle = nothing in flight",
+          },
+          staleness: {
+            type: "string",
+            enum: ["active", "recent", "aging", "stale"],
+            description: "active <1d, recent <7d, aging <14d, stale >=14d or never",
+          },
+          last_activity_at: { type: "string", format: "date-time", nullable: true },
+          days_since_activity: { type: "integer", nullable: true },
+          last_event: {
+            type: "object",
+            nullable: true,
+            properties: {
+              type: { $ref: "#/components/schemas/EventType" },
+              title: { type: "string" },
+              occurred_at: { type: "string", format: "date-time" },
+            },
+          },
+          active_prd: {
+            type: "object",
+            nullable: true,
+            properties: {
+              id: { type: "string", format: "uuid" },
+              title: { type: "string" },
+              summary: { type: "string", nullable: true },
+              source_path: { type: "string", nullable: true },
+              status: { $ref: "#/components/schemas/PrdStatus" },
+              work_items_total: { type: "integer" },
+              work_items_done: { type: "integer" },
+              progress: { type: "number", description: "0..1, rounded to 2 decimals" },
+            },
+          },
+          prd_counts: {
+            type: "object",
+            properties: {
+              queued: { type: "integer" },
+              in_progress: { type: "integer" },
+              completed: { type: "integer" },
+            },
+          },
+          open_prs: {
+            type: "object",
+            properties: {
+              count: { type: "integer" },
+              items: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    number: { type: "integer" },
+                    title: { type: "string" },
+                    url: { type: "string" },
+                    status: { $ref: "#/components/schemas/PullRequestStatus" },
+                    check_status: {
+                      $ref: "#/components/schemas/CheckStatus",
+                      nullable: true,
+                    },
+                    author: { type: "string" },
+                    opened_at: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      StatusAll: {
+        type: "object",
+        required: ["generated_at", "project_count", "projects"],
+        properties: {
+          generated_at: { type: "string", format: "date-time" },
+          project_count: { type: "integer" },
+          projects: {
+            type: "array",
+            items: { $ref: "#/components/schemas/ProjectStatus" },
+          },
         },
       },
       Prd: {
@@ -206,6 +310,35 @@ const spec = {
               "application/json": {
                 schema: { type: "object", properties: { status: { type: "string" } } },
               },
+            },
+          },
+        },
+      },
+    },
+    "/api/v1/status/all": {
+      get: {
+        operationId: "getStatusAll",
+        summary: "Aggregated machine-readable status for every project",
+        description:
+          "Single status surface for automated consumers (e.g. the reveille morning-brief collector). Returns per-project SDLC state, staleness, active PRD, open PRs, and last event.",
+        tags: ["Status"],
+        responses: {
+          200: {
+            description: "Aggregated status for all projects",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["data"],
+                  properties: { data: { $ref: "#/components/schemas/StatusAll" } },
+                },
+              },
+            },
+          },
+          401: {
+            description: "Unauthorized",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" } },
             },
           },
         },

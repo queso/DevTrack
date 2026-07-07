@@ -65,6 +65,7 @@ model Project {
   owner             String?
   tags              String[]
   repoUrl           String?
+  repoPath          String?
   mainBranch        String    @default("main")
   branchPrefix      String?
   prdPath           String?
