@@ -97,7 +97,7 @@ curl -s -H "X-Api-Key: $DEVTRACK_API_KEY" \
 
 ---
 
-## 1a. Reveille collector format — `?format=reveille` (recommended for the brief)
+## 1a. Reveille collector format — `?format=summary` (recommended for the brief)
 
 The reveille collector (`reveille/collectors/devtrack.ts`, contract in
 `reveille/contracts/devtrack.schema.json`) consumes a **different, narrower
@@ -105,7 +105,7 @@ shape** than the default response. Rather than make reveille do the mapping,
 DevTrack emits it directly:
 
 ```
-GET /api/v1/status/all?format=reveille
+GET /api/v1/status/all?format=summary
 ```
 
 This returns a **bare object** (no `data` envelope) that validates against
@@ -114,7 +114,7 @@ snapshotted straight to `reveille/data/devtrack.json`:
 
 ```bash
 curl -s -H "X-Api-Key: $DEVTRACK_API_KEY" \
-  "http://localhost:3000/api/v1/status/all?format=reveille" \
+  "http://localhost:3000/api/v1/status/all?format=summary" \
   > ~/Code/TheAITeam/reveille/data/devtrack.json
 ```
 
@@ -285,7 +285,7 @@ time:
 ```bash
 # cron / systemd timer, e.g. every 15 min:
 curl -sf -H "X-Api-Key: $DEVTRACK_API_KEY" \
-  "http://localhost:3000/api/v1/status/all?format=reveille" \
+  "http://localhost:3000/api/v1/status/all?format=summary" \
   -o ~/Code/TheAITeam/reveille/data/devtrack.json.tmp \
   && mv ~/Code/TheAITeam/reveille/data/devtrack.json.tmp \
         ~/Code/TheAITeam/reveille/data/devtrack.json

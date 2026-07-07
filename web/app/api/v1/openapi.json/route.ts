@@ -212,9 +212,9 @@ const spec = {
           },
         },
       },
-      ReveilleStatus: {
+      SummaryStatus: {
         type: "object",
-        description: "The reveille collector shape (contracts/devtrack.schema.json)",
+        description: "Condensed summary shape for automated consumers (bare object, no envelope)",
         required: ["collector", "ok", "generated_at", "projects"],
         properties: {
           collector: { type: "string", enum: ["devtrack"] },
@@ -360,22 +360,22 @@ const spec = {
         operationId: "getStatusAll",
         summary: "Aggregated machine-readable status for every project",
         description:
-          "Single status surface for automated consumers (e.g. the reveille morning-brief collector). Returns per-project SDLC state, staleness, active PRD, open PRs, and last event. Pass ?format=reveille to emit the reveille collector shape as a bare object (no data envelope), suitable for snapshotting straight to reveille/data/devtrack.json.",
+          "Single status surface for automated consumers. Returns per-project SDLC state, staleness, active PRD, open PRs, and last event. Pass ?format=summary to emit a condensed bare object (no data envelope), suitable for snapshotting to a file consumers read directly.",
         tags: ["Status"],
         parameters: [
           {
             name: "format",
             in: "query",
             required: false,
-            schema: { type: "string", enum: ["reveille"] },
+            schema: { type: "string", enum: ["summary"] },
             description:
-              "When 'reveille', return the reveille collector shape (bare object) instead of the default enveloped StatusAll.",
+              "When 'summary', return the condensed summary shape (bare object) instead of the default enveloped StatusAll.",
           },
         ],
         responses: {
           200: {
             description:
-              "Aggregated status. Default shape is { data: StatusAll }; with ?format=reveille it is a bare ReveilleStatus object.",
+              "Aggregated status. Default shape is { data: StatusAll }; with ?format=summary it is a bare SummaryStatus object.",
             content: {
               "application/json": {
                 schema: {
@@ -385,7 +385,7 @@ const spec = {
                       required: ["data"],
                       properties: { data: { $ref: "#/components/schemas/StatusAll" } },
                     },
-                    { $ref: "#/components/schemas/ReveilleStatus" },
+                    { $ref: "#/components/schemas/SummaryStatus" },
                   ],
                 },
               },

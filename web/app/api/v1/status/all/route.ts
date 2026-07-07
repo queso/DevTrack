@@ -4,8 +4,8 @@ import { prisma } from "@/lib/db"
 import type { PullRequestStatus } from "@/lib/generated/prisma/client"
 import {
   type ProjectStatus,
-  type ReveilleStatusResponse,
-  reveilleStatusResponseSchema,
+  type SummaryStatusResponse,
+  summaryStatusResponseSchema,
   statusAllResponseSchema,
   type StatusAllResponse,
 } from "@/lib/schemas"
@@ -29,10 +29,10 @@ function stalenessFor(days: number | null): ProjectStatus["staleness"] {
   return "stale"
 }
 
-// --- reveille collector mapping (?format=reveille) ---------------------------
+// --- condensed summary mapping (?format=summary) ----------------------------
 
 // Derive a "business/repo" slug (e.g. "queso/content") from the repo URL, so the
-// reveille brief labels projects the way a human names them. Falls back to name.
+// Summary consumers label projects the way a human names them. Falls back to name.
 function repoSlug(p: ProjectStatus): string {
   if (p.repo_url) {
     const m = p.repo_url.match(/[:/]([^/:]+\/[^/]+?)(?:\.git)?\/?$/)
@@ -41,10 +41,10 @@ function repoSlug(p: ProjectStatus): string {
   return p.name
 }
 
-// Map DevTrack's sdlc_state onto reveille's enum
+// Map DevTrack's sdlc_state onto the condensed summary enum
 // (idle | planning | building | reviewing | shipped). "shipped" is surfaced when
 // a project just completed work and has nothing new in flight.
-function reveilleState(p: ProjectStatus): ReveilleStatusResponse["projects"][number]["sdlc_state"] {
+function summaryState(p: ProjectStatus): SummaryStatusResponse["projects"][number]["sdlc_state"] {
   switch (p.sdlc_state) {
     case "building":
       return "building"
@@ -79,7 +79,7 @@ function blockersFor(p: ProjectStatus): string[] {
   return blockers
 }
 
-function toReveille(projectStatuses: ProjectStatus[], nowMs: number): ReveilleStatusResponse {
+function toSummary(projectStatuses: ProjectStatus[], nowMs: number): SummaryStatusResponse {
   return {
     collector: "devtrack",
     ok: true,
@@ -88,7 +88,7 @@ function toReveille(projectStatuses: ProjectStatus[], nowMs: number): ReveilleSt
       const blockers = blockersFor(p)
       return {
         project: repoSlug(p),
-        sdlc_state: reveilleState(p),
+        sdlc_state: summaryState(p),
         ...(p.active_prd ? { active_prd: p.active_prd.title } : {}),
         open_prs: p.open_prs.items.map((pr) => ({
           number: pr.number,
@@ -106,7 +106,7 @@ function toReveille(projectStatuses: ProjectStatus[], nowMs: number): ReveilleSt
  * GET /api/v1/status/all
  *
  * Aggregated, machine-readable status for every registered project. Built for
- * automated consumers (the reveille morning-brief collector), not the human
+ * automated consumers (e.g. morning-brief collectors), not the human
  * dashboard. Response shape is validated against `statusAllResponseSchema`.
  */
 export async function GET(request: Request) {
@@ -208,12 +208,12 @@ export async function GET(request: Request) {
     }
   })
 
-  // `?format=reveille` emits the reveille collector shape as a BARE object (no
+  // `?format=summary` emits the condensed summary shape as a BARE object (no
   // envelope), so a snapshot of the response is directly a valid devtrack.json.
   const format = new URL(request.url).searchParams.get("format")
-  if (format === "reveille") {
-    const reveille = reveilleStatusResponseSchema.parse(toReveille(projectStatuses, now))
-    return Response.json(reveille)
+  if (format === "summary") {
+    const summary = summaryStatusResponseSchema.parse(toSummary(projectStatuses, now))
+    return Response.json(summary)
   }
 
   const payload: StatusAllResponse = statusAllResponseSchema.parse({

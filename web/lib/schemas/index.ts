@@ -239,7 +239,7 @@ export const eventSummaryResponseSchema = z.object({
 // Aggregated status (GET /api/v1/status/all)
 //
 // A single machine-readable surface describing every registered project, built
-// for automated consumers (e.g. the reveille morning-brief collector) rather
+// for automated consumers (e.g. morning-brief collectors) rather
 // than a human dashboard. The shape is intentionally flat and stable.
 // ---------------------------------------------------------------------------
 
@@ -316,14 +316,14 @@ export type ProjectStatus = z.infer<typeof projectStatusSchema>
 export type StatusAllResponse = z.infer<typeof statusAllResponseSchema>
 
 // ---------------------------------------------------------------------------
-// Reveille collector shape (GET /api/v1/status/all?format=reveille)
+// Condensed summary shape (GET /api/v1/status/all?format=summary)
 //
-// The exact contract the reveille morning-brief collector consumes
-// (reveille/contracts/devtrack.schema.json). Emitted as a BARE object (no
+// A stable condensed contract for automated consumers (e.g. the reveille
+// morning-brief collector). Emitted as a BARE object (no
 // `data` envelope) so a snapshot of the response is a valid devtrack.json.
 // ---------------------------------------------------------------------------
 
-export const reveilleStateEnum = z.enum([
+export const summaryStateEnum = z.enum([
   "idle",
   "planning",
   "building",
@@ -331,27 +331,27 @@ export const reveilleStateEnum = z.enum([
   "shipped",
 ])
 
-export const reveilleOpenPrSchema = z.object({
+export const summaryOpenPrSchema = z.object({
   number: z.number().int(),
   title: z.string(),
   url: z.string(),
   age_days: z.number(),
 })
 
-export const reveilleProjectSchema = z.object({
+export const summaryProjectSchema = z.object({
   project: z.string(),
-  sdlc_state: reveilleStateEnum,
+  sdlc_state: summaryStateEnum,
   active_prd: z.string().optional(),
-  open_prs: z.array(reveilleOpenPrSchema),
+  open_prs: z.array(summaryOpenPrSchema),
   blockers: z.array(z.string()).optional(),
 })
 
-export const reveilleStatusResponseSchema = z.object({
+export const summaryStatusResponseSchema = z.object({
   collector: z.literal("devtrack"),
   ok: z.boolean(),
   note: z.string().optional(),
   generated_at: z.string().datetime(),
-  projects: z.array(reveilleProjectSchema),
+  projects: z.array(summaryProjectSchema),
 })
 
-export type ReveilleStatusResponse = z.infer<typeof reveilleStatusResponseSchema>
+export type SummaryStatusResponse = z.infer<typeof summaryStatusResponseSchema>

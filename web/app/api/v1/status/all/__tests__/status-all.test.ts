@@ -1,6 +1,6 @@
 /**
  * Tests for GET /api/v1/status/all — the aggregated, machine-readable status
- * surface consumed by automated clients (the reveille morning-brief collector).
+ * surface consumed by automated clients (e.g. morning-brief collectors).
  *
  * Covers: envelope shape, sdlc_state derivation, staleness bucketing, effective
  * last-activity (max of stored marker and latest event), active PRD progress,
@@ -199,10 +199,10 @@ describe("GET /api/v1/status/all", () => {
     expect(p.last_event.title).toBe("recent commit")
   })
 
-  describe("?format=reveille", () => {
-    it("emits a bare reveille collector object (no data envelope)", async () => {
+  describe("?format=summary", () => {
+    it("emits a bare summary object (no data envelope)", async () => {
       mockPrisma.project.findMany.mockResolvedValue([makeProject()])
-      const body = await (await callGet("?format=reveille")).json()
+      const body = await (await callGet("?format=summary")).json()
       expect(body.collector).toBe("devtrack")
       expect(body.ok).toBe(true)
       expect(typeof body.generated_at).toBe("string")
@@ -227,7 +227,7 @@ describe("GET /api/v1/status/all", () => {
           ],
         }),
       ])
-      const body = await (await callGet("?format=reveille")).json()
+      const body = await (await callGet("?format=summary")).json()
       const p = body.projects[0]
       expect(p.project).toBe("queso/content")
       expect(p.sdlc_state).toBe("reviewing")
@@ -250,7 +250,7 @@ describe("GET /api/v1/status/all", () => {
           prds: [{ id: "c", title: "Done", summary: null, sourcePath: null, status: "completed", workItems: [] }],
         }),
       ])
-      const body = await (await callGet("?format=reveille")).json()
+      const body = await (await callGet("?format=summary")).json()
       const byName = Object.fromEntries(
         body.projects.map((p: any) => [p.project, p.sdlc_state]),
       )
@@ -274,7 +274,7 @@ describe("GET /api/v1/status/all", () => {
           ],
         }),
       ])
-      const body = await (await callGet("?format=reveille")).json()
+      const body = await (await callGet("?format=summary")).json()
       expect(body.projects[0].blockers).toContain("PR #9 checks failing: flaky feature")
     })
   })
