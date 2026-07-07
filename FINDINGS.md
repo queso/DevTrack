@@ -18,6 +18,17 @@ impact. Items marked ✅ were fixed in this branch and are listed for context.
 - `prd/005-unified-document-model.md` is uncommitted in the working tree — the document-model refactor was in flight when work stopped. This is the most likely proximate cause of the stall.
 - **Recommendation:** either finish PRD 005 (unify PRD + ContentItem into a Document model) or explicitly cut content features for now. Not needed for the reveille brief.
 
+### CLI doesn't send Cloudflare Access service-token headers ⚠️ first post-deploy follow-up
+- Production (`devtrack.theaiteam.dev`, arcane-k8s PR #6) sits behind a Cloudflare
+  Zero Trust Access application (kanban-viewer internal posture). Non-browser
+  clients must send `CF-Access-Client-Id` / `CF-Access-Client-Secret` headers;
+  the Go CLI (and therefore every git/Claude hook event post from dev machines)
+  doesn't, so those calls are blocked by Access the moment the app goes live.
+- **Recommendation:** copy the `ateam` CLI's CF service-token pattern (env-var
+  pair + headers on every request) into `cli/` — resolved centrally in
+  `cmd/root.go` next to the API-key handling. Local dev (`localhost:3000`) is
+  unaffected.
+
 ### `project.yaml` manifest can't carry `repo_path`
 - `cli/internal/manifest.go` `Manifest` struct has no `repo_path` (or `owner`) field, so `devtrack register` / hooks can't populate the new `Project.repoPath` — only a direct API `POST/PATCH` can. **Recommendation:** add `repo_path` to the manifest and to `register`'s body mapping (and have `register` default it to the repo's absolute path).
 
