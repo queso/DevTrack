@@ -5,7 +5,7 @@ fixed** (out of scope for the agent-consumer status surface). Roughly ordered by
 impact. Items marked ✅ were fixed in this branch and are listed for context.
 
 ## Fixed in this branch
-- ✅ **No cross-project status surface.** Added `GET /api/v1/status/all` (Zod-validated, stable shape) — the machine-readable system-of-record for reveille.
+- ✅ **No cross-project status surface.** Added `GET /api/v1/status/all` (Zod-validated, stable shape) — the machine-readable system-of-record for decker.
 - ✅ **No local repo path on Project.** Added `Project.repoPath` + `repo_path` in the create/update Zod schemas, routes, and OpenAPI.
 - ✅ **Git-hook event flow was broken against the current API.** The CLI/hook `event` command posts `project_name`, but `POST /api/v1/events` only accepted `project_id` (422). It also sends an empty title for `session-start` (failed `title.min(1)`). The events endpoint now resolves `project_name`→id and backfills a title from the event type.
 - ✅ **Events never advanced `lastActivityAt`.** Staleness/activity tracking was inert. `POST /events` now advances the project's `lastActivityAt` (monotonically) so staleness is real.
@@ -16,7 +16,7 @@ impact. Items marked ✅ were fixed in this branch and are listed for context.
 ### Content pipeline is half-migrated
 - `ContentItem` is documented (`docs/API.md`) and wired into the CLI (`ideas`, `sync` content) but **does not exist in `prisma/schema.prisma`**. Any CLI content command will fail against the API.
 - `prd/005-unified-document-model.md` is uncommitted in the working tree — the document-model refactor was in flight when work stopped. This is the most likely proximate cause of the stall.
-- **Recommendation:** either finish PRD 005 (unify PRD + ContentItem into a Document model) or explicitly cut content features for now. Not needed for the reveille brief.
+- **Recommendation:** either finish PRD 005 (unify PRD + ContentItem into a Document model) or explicitly cut content features for now. Not needed for the decker brief.
 
 ### CLI doesn't send Cloudflare Access service-token headers ⚠️ first post-deploy follow-up
 - Production (`devtrack.theaiteam.dev`, arcane-k8s PR #6) sits behind a Cloudflare

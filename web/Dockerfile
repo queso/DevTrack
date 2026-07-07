@@ -24,7 +24,7 @@ RUN pnpm install --frozen-lockfile
 COPY . .
 # NEXT_PUBLIC_* are inlined at build time. The dashboard's browser-side SWR
 # fetcher authenticates with NEXT_PUBLIC_DEVTRACK_API_KEY; leave it empty for a
-# server-only/reveille deploy (the API itself authenticates server-side against
+# server-only/decker deploy (the API itself authenticates server-side against
 # the runtime DEVTRACK_API_KEY secret). Pass --build-arg to enable the browser UI.
 ARG NEXT_PUBLIC_DEVTRACK_API_KEY=""
 ENV NEXT_PUBLIC_DEVTRACK_API_KEY=$NEXT_PUBLIC_DEVTRACK_API_KEY

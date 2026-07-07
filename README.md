@@ -105,7 +105,7 @@ All commands run from `web/`.
 ### Agent / brief integration
 
 For the single machine-readable status surface (`GET /api/v1/status/all`) consumed
-by the reveille morning-brief collector, see **[docs/brief-integration.md](docs/brief-integration.md)**.
+by the decker morning-brief collector, see **[docs/brief-integration.md](docs/brief-integration.md)**.
 
 ### API Documentation
 

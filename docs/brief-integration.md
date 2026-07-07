@@ -1,7 +1,7 @@
-# DevTrack → Reveille Brief Integration
+# DevTrack → Decker Brief Integration
 
 DevTrack is the **machine-readable system of record** for multi-repo development
-state. This document is the contract for the [reveille](../../TheAITeam/reveille)
+state. This document is the contract for the [decker](../../TheAITeam/decker)
 morning-brief collector, whose consumer is an **agent**, not a human dashboard.
 
 The single surface the collector needs is:
@@ -101,8 +101,8 @@ curl -s -H "X-Api-Key: $DEVTRACK_API_KEY" \
 
 DevTrack exposes a **condensed, consumer-agnostic** variant of the status
 surface. Consumers that want a narrow, snapshot-friendly shape — such as the
-[reveille](../../TheAITeam/reveille) morning-brief collector
-(`reveille/collectors/devtrack.ts`) — map from this instead of the full
+[decker](../../TheAITeam/decker) morning-brief collector
+(`decker/collectors/devtrack.ts`) — map from this instead of the full
 enveloped response:
 
 ```
@@ -111,19 +111,19 @@ GET /api/v1/status/all?format=summary
 
 This returns a **bare object** (no `data` envelope), so a snapshot of the
 response is itself a valid standalone document. The shape currently lines up 1:1
-with reveille's collector contract (`reveille/contracts/devtrack.schema.json`),
-so the reveille-side drop-in snapshot command is a `jq` that selects exactly the
+with decker's collector contract (`decker/contracts/devtrack.schema.json`),
+so the decker-side drop-in snapshot command is a `jq` that selects exactly the
 collector fields (a passthrough today; future-proof if DevTrack's summary later
-grows fields reveille doesn't consume):
+grows fields decker doesn't consume):
 
 ```bash
-# reveille side: snapshot devtrack.json from the summary surface
+# decker side: snapshot devtrack.json from the summary surface
 curl -s -H "X-Api-Key: $DEVTRACK_API_KEY" \
      -H "CF-Access-Client-Id: $DEVTRACK_CF_ACCESS_CLIENT_ID" \
      -H "CF-Access-Client-Secret: $DEVTRACK_CF_ACCESS_CLIENT_SECRET" \
   "https://devtrack.theaiteam.dev/api/v1/status/all?format=summary" \
   | jq '{collector, ok, generated_at, projects}' \
-  > ~/Code/TheAITeam/reveille/data/devtrack.json
+  > ~/Code/TheAITeam/decker/data/devtrack.json
 ```
 
 (The two `CF-Access-*` headers are the Cloudflare Access service token — see the
@@ -169,7 +169,7 @@ Example `?format=summary` response:
 | `projects[].open_prs[]` | `{ number, title, url, age_days }` — `age_days` = whole days since `opened_at` |
 | `projects[].blockers[]` | derived: failing PR checks, PRs awaiting review / with changes requested, and `building` PRDs that have gone `aging`/`stale`. Omitted when empty. Feeds the brief's "Decisions needed" slot. |
 
-> `sdlc_state` in the reveille contract is an open string (the schema lists the
+> `sdlc_state` in the decker contract is an open string (the schema lists the
 > five values as *examples*), so new states won't break the collector — but the
 > five above are what DevTrack emits.
 
@@ -285,11 +285,11 @@ Guidance:
 - The PRD markdown under `prd_path` (e.g. `prd/*.md`) — titles, summaries, work items — parseable directly (`web/lib/prd-parser.ts` shows the format).
 - `git` itself — current branch, last commit, dirty state.
 
-**Implication for reveille:** the *rich, cross-project, time-aware* view
+**Implication for decker:** the *rich, cross-project, time-aware* view
 (staleness, "stalled work", the PR queue, last event) needs DevTrack running.
 
 **Recommended delivery — snapshot to a file (survives the server being down).**
-Reveille's collector already prefers a real `data/devtrack.json` over its stub
+Decker's collector already prefers a real `data/devtrack.json` over its stub
 (`collectors/devtrack.ts` reads the file and passes it through). So the most
 robust wiring is **DevTrack → file on a schedule**, not a live fetch at brief
 time:
@@ -298,18 +298,18 @@ time:
 # cron / systemd timer, e.g. every 15 min:
 curl -sf -H "X-Api-Key: $DEVTRACK_API_KEY" \
   "http://localhost:3000/api/v1/status/all?format=summary" \
-  -o ~/Code/TheAITeam/reveille/data/devtrack.json.tmp \
-  && mv ~/Code/TheAITeam/reveille/data/devtrack.json.tmp \
-        ~/Code/TheAITeam/reveille/data/devtrack.json
+  -o ~/Code/TheAITeam/decker/data/devtrack.json.tmp \
+  && mv ~/Code/TheAITeam/decker/data/devtrack.json.tmp \
+        ~/Code/TheAITeam/decker/data/devtrack.json
 ```
 
 - When DevTrack is **up**, the brief gets fresh, real data.
 - When DevTrack is **down**, `curl -f` fails, the `mv` doesn't run, and the last
-  good snapshot stays in place — reveille renders slightly-stale-but-real data
-  instead of the stub. (If there's never been a snapshot, reveille falls back to
+  good snapshot stays in place — decker renders slightly-stale-but-real data
+  instead of the stub. (If there's never been a snapshot, decker falls back to
   its own stub — `ok: false`.)
 
-The atomic write (`.tmp` then `mv`) guarantees reveille never reads a half-written
+The atomic write (`.tmp` then `mv`) guarantees decker never reads a half-written
 file. Live fetch (option C — call the endpoint from `collectors/devtrack.ts`) also
 works but couples brief generation to DevTrack being up at that moment; the
 snapshot decouples them.
