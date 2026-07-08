@@ -42,3 +42,33 @@ jobs:
       - name: Test
         run: pnpm test
         working-directory: web
+
+  # Build and publish the production web image to GHCR on push to main, so the
+  # arcane-k8s cluster can pull ghcr.io/queso/devtrack:main (mirrors the cortex
+  # repo's build-and-push job). The Dockerfile lives in web/.
+  build-and-push:
+    name: Build & Push Image
+    needs: validate
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./web
+          push: true
+          tags: |
+            ghcr.io/queso/devtrack:main
+            ghcr.io/queso/devtrack:${{ github.sha }}
