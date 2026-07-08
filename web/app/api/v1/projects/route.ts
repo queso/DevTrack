@@ -59,6 +59,7 @@ export async function POST(request: Request) {
   // Map snake_case schema fields to camelCase Prisma fields
   const {
     repo_url,
+    repo_path,
     main_branch,
     branch_prefix,
     prd_path,
@@ -74,6 +75,7 @@ export async function POST(request: Request) {
       data: {
         ...rest,
         repoUrl: repo_url,
+        repoPath: repo_path,
         mainBranch: main_branch,
         branchPrefix: branch_prefix,
         prdPath: prd_path,

@@ -46,42 +46,66 @@ claude plugin install devtrack
 
 ### Prerequisites
 
-- Node.js 20+
-- pnpm
-- PostgreSQL 14+
+- Node.js 20+ (tested on 24)
+- pnpm 10+
+- PostgreSQL 14+ (Docker is easiest — see below)
 
-### Setup
+<a id="running-locally"></a>
+### Running locally (verified)
 
-1. Install dependencies:
-```bash
-pnpm install
-```
+All commands run from `web/`.
 
-2. Set up the database:
-```bash
-# Create .env.local with your database URL
-DATABASE_URL="postgresql://user:password@localhost:5432/devtrack"
+1. **Start Postgres.** The repo ships a Postgres service in `web/docker-compose.yml`:
+   ```bash
+   cd web
+   docker compose up -d postgres        # postgres 17 on localhost:5432
+   ```
+   > The `app` service in that compose file targets a Traefik/OVH deployment and
+   > is **not** needed (or wanted) for local dev — start only `postgres` and run
+   > the app on the host as below.
 
-# Run migrations
-pnpm exec prisma migrate deploy
+2. **Create `web/.env`** (gitignored). The DB creds match the compose file; pick
+   any value for the API key:
+   ```bash
+   DATABASE_URL=postgresql://dev_track:dev_track@localhost:5432/dev_track
+   DEVTRACK_API_KEY=devtrack-local-dev-key
+   NEXT_PUBLIC_DEVTRACK_API_KEY=devtrack-local-dev-key
+   ```
 
-# Generate Prisma client
-pnpm exec prisma generate
-```
+3. **Install deps, sync the schema, generate the client:**
+   ```bash
+   pnpm install
+   pnpm exec prisma db push       # creates tables (this project uses db push, not migrations)
+   pnpm exec prisma generate
+   ```
 
-3. Configure API authentication:
-```bash
-# Add to .env.local
-DEVTRACK_API_KEY="your-secure-api-key-here"
-```
+4. **Start the dev server:**
+   ```bash
+   pnpm run dev
+   ```
 
-4. Start the development server:
-```bash
-pnpm run dev
-```
+- Dashboard: `http://localhost:3100`
+- API: `http://localhost:3100/api/v1`
 
-The dashboard will be available at `http://localhost:3000`.
-The API will be available at `http://localhost:3000/api/v1`.
+5. **Smoke test:**
+   ```bash
+   curl -s http://localhost:3100/api/health
+   # {"status":"healthy","database":"connected",...}
+
+   curl -s -H "X-Api-Key: devtrack-local-dev-key" \
+     http://localhost:3100/api/v1/status/all
+   # {"data":{"generated_at":...,"project_count":0,"projects":[]}}
+   ```
+
+> **Auth:** every `/api/v1/*` request needs the key via `Authorization: Bearer <key>`
+> or `X-Api-Key: <key>`. Both the DevTrack API and the **CLI** use `DEVTRACK_API_KEY`
+> (the legacy `DEVTRACK_TOKEN` is still accepted by the CLI as a fallback, with a
+> deprecation warning).
+
+### Agent / brief integration
+
+For the single machine-readable status surface (`GET /api/v1/status/all`) consumed
+by the decker morning-brief collector, see **[docs/brief-integration.md](docs/brief-integration.md)**.
 
 ### API Documentation
 
@@ -93,13 +117,13 @@ All API requests require an API key passed via the `Authorization` header:
 
 ```bash
 curl -H "Authorization: Bearer $DEVTRACK_API_KEY" \
-  http://localhost:3000/api/v1/projects
+  http://localhost:3100/api/v1/projects
 ```
 
 #### Example: Register a Project
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/projects \
+curl -X POST http://localhost:3100/api/v1/projects \
   -H "Authorization: Bearer $DEVTRACK_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -269,7 +293,7 @@ All `pnpm` commands run from `web/`:
 ```bash
 cd web
 pnpm install
-pnpm run dev        # Start development server (http://localhost:3000)
+pnpm run dev        # Start development server (http://localhost:3100 — :3000 is reserved for the ateam API on dev machines)
 pnpm test           # Run unit tests
 pnpm run lint       # Lint with Biome
 pnpm run test:e2e   # Run FlowSpec e2e tests

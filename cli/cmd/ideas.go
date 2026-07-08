@@ -162,7 +162,7 @@ func wrapAuthError(err error) error {
 		return nil
 	}
 	if strings.Contains(err.Error(), "401") {
-		return fmt.Errorf("authentication failed (401): check your DEVTRACK_TOKEN / API key — %w", err)
+		return fmt.Errorf("authentication failed (401): check your DEVTRACK_API_KEY — %w", err)
 	}
 	return err
 }
