@@ -1,8 +1,14 @@
 type SecurityHeader = { key: string; value: string }
 
 function buildContentSecurityPolicy(env: string): string {
+  // 'unsafe-inline' stays in production because Next.js emits inline bootstrap
+  // scripts and this CSP has no nonce plumbing yet — without it the dashboard
+  // never hydrates (first observed on the initial OVH deploy). Replacing this
+  // with per-request nonces via middleware is tracked in FINDINGS.md.
   const scriptSrc =
-    env === "development" ? "script-src 'self' 'unsafe-eval' 'unsafe-inline'" : "script-src 'self'"
+    env === "development"
+      ? "script-src 'self' 'unsafe-eval' 'unsafe-inline'"
+      : "script-src 'self' 'unsafe-inline'"
   const connectSrc = env === "development" ? "connect-src 'self' ws: wss:" : "connect-src 'self'"
 
   const directives = [

@@ -45,6 +45,15 @@ impact. Items marked ✅ were fixed in this branch and are listed for context.
 ### Webhook secret
 - `lib/env.ts` defines `GITHUB_WEBHOOK_SECRET`, but `docs/ARCHITECTURE.md`/`API.md` say GitHub signatures are validated against `DEVTRACK_API_KEY`. Not deeply verified this pass — worth confirming which secret the webhook route actually uses before relying on webhooks.
 
+### CSP has no nonce plumbing — production allows 'unsafe-inline'
+- The production CSP originally shipped `script-src 'self'` with no nonces, which
+  blocks Next.js's inline bootstrap scripts — the dashboard never hydrated on the
+  first OVH deploy (infinite spinner; 6× "Refused to execute a script" in console).
+  Hotfixed by allowing `'unsafe-inline'` in production (acceptable behind
+  Cloudflare Access + API key). **Recommendation:** implement per-request nonces
+  in middleware (Next.js app router picks the nonce up from the CSP request
+  header) and tighten back to `script-src 'self' 'nonce-…'`.
+
 ### Minor
 - Biome: 20 pre-existing `noExplicitAny` warnings, all in test files. 0 errors.
 - Dashboard client-side `mapProject` duplicates some derivation now centralized in `/status/all`; could converge later.

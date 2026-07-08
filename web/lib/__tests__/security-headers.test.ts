@@ -55,12 +55,13 @@ describe("getSecurityHeaders", () => {
       expect(csp).toMatch(/script-src\s+'self'\s+'unsafe-eval'/)
     })
 
-    it("should not include unsafe-inline or unsafe-eval in script-src in production", () => {
+    it("should not include unsafe-eval in script-src in production", () => {
       const csp = findHeader(getSecurityHeaders("production"), "Content-Security-Policy")
       const scriptSrc = csp.match(/script-src([^;]*)/)?.[1] ?? ""
 
-      // Production should not have dangerous directives for scripts
-      expect(scriptSrc).not.toContain("'unsafe-inline'")
+      // 'unsafe-inline' is intentionally allowed until nonce plumbing lands
+      // (Next.js inline bootstrap scripts; see security-headers.ts comment).
+      expect(scriptSrc).toContain("'unsafe-inline'")
       expect(scriptSrc).not.toContain("'unsafe-eval'")
 
       // But should allow self
