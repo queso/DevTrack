@@ -22,7 +22,7 @@ recorded event. One call, no pagination, stable shape.
 |---|---|
 | **Method / path** | `GET /api/v1/status/all` |
 | **Auth** | `Authorization: Bearer <DEVTRACK_API_KEY>` **or** `X-Api-Key: <DEVTRACK_API_KEY>` |
-| **Base URL (local)** | `http://localhost:3000/api/v1` |
+| **Base URL (local)** | `http://localhost:3100/api/v1` |
 | **Response** | `200` with `{ "data": StatusAll }` (standard envelope; no `meta`) |
 | **Errors** | `401` `{ "error": "UNAUTHORIZED", "message": ... }` |
 
@@ -35,7 +35,7 @@ guaranteed, not best-effort. It is also described in the OpenAPI spec
 
 ```bash
 curl -s -H "X-Api-Key: $DEVTRACK_API_KEY" \
-  http://localhost:3000/api/v1/status/all
+  http://localhost:3100/api/v1/status/all
 ```
 
 ```json
@@ -128,7 +128,7 @@ curl -s -H "X-Api-Key: $DEVTRACK_API_KEY" \
 
 (The two `CF-Access-*` headers are the Cloudflare Access service token — see the
 deploy's `SETUP.md`. Local dev has no Access: drop them and use
-`http://localhost:3000`.)
+`http://localhost:3100`.)
 
 Example `?format=summary` response:
 
@@ -241,7 +241,7 @@ except `merged`/`closed`). `check_status` is `pending | passing | failing | null
 ```python
 import os, requests
 
-DEVTRACK = os.environ.get("DEVTRACK_API_URL", "http://localhost:3000/api/v1")
+DEVTRACK = os.environ.get("DEVTRACK_API_URL", "http://localhost:3100/api/v1")
 KEY = os.environ["DEVTRACK_API_KEY"]
 
 def fetch_devtrack_status():
@@ -297,7 +297,7 @@ time:
 ```bash
 # cron / systemd timer, e.g. every 15 min:
 curl -sf -H "X-Api-Key: $DEVTRACK_API_KEY" \
-  "http://localhost:3000/api/v1/status/all?format=summary" \
+  "http://localhost:3100/api/v1/status/all?format=summary" \
   -o ~/Code/TheAITeam/decker/data/devtrack.json.tmp \
   && mv ~/Code/TheAITeam/decker/data/devtrack.json.tmp \
         ~/Code/TheAITeam/decker/data/devtrack.json

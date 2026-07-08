@@ -12,7 +12,7 @@ The existing `docker-compose.yml` runs the dev server with hot reload:
 docker compose up
 ```
 
-- **App:** http://localhost:3000 (Next.js dev server with Turbopack)
+- **App:** http://localhost:3100 (Next.js dev server with Turbopack)
 - **Postgres:** localhost:5432 (user: `dev_track`, password: `dev_track`, db: `dev_track`)
 
 Source code is bind-mounted, so changes reflect immediately.

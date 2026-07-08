@@ -84,16 +84,16 @@ All commands run from `web/`.
    pnpm run dev
    ```
 
-- Dashboard: `http://localhost:3000`
-- API: `http://localhost:3000/api/v1`
+- Dashboard: `http://localhost:3100`
+- API: `http://localhost:3100/api/v1`
 
 5. **Smoke test:**
    ```bash
-   curl -s http://localhost:3000/api/health
+   curl -s http://localhost:3100/api/health
    # {"status":"healthy","database":"connected",...}
 
    curl -s -H "X-Api-Key: devtrack-local-dev-key" \
-     http://localhost:3000/api/v1/status/all
+     http://localhost:3100/api/v1/status/all
    # {"data":{"generated_at":...,"project_count":0,"projects":[]}}
    ```
 
@@ -117,13 +117,13 @@ All API requests require an API key passed via the `Authorization` header:
 
 ```bash
 curl -H "Authorization: Bearer $DEVTRACK_API_KEY" \
-  http://localhost:3000/api/v1/projects
+  http://localhost:3100/api/v1/projects
 ```
 
 #### Example: Register a Project
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/projects \
+curl -X POST http://localhost:3100/api/v1/projects \
   -H "Authorization: Bearer $DEVTRACK_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -293,7 +293,7 @@ All `pnpm` commands run from `web/`:
 ```bash
 cd web
 pnpm install
-pnpm run dev        # Start development server (http://localhost:3000)
+pnpm run dev        # Start development server (http://localhost:3100 — :3000 is reserved for the ateam API on dev machines)
 pnpm test           # Run unit tests
 pnpm run lint       # Lint with Biome
 pnpm run test:e2e   # Run FlowSpec e2e tests
