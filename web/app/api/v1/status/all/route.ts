@@ -110,7 +110,7 @@ function toSummary(projectStatuses: ProjectStatus[], nowMs: number): SummaryStat
  * dashboard. Response shape is validated against `statusAllResponseSchema`.
  */
 export async function GET(request: Request) {
-  const auth = authenticateRequest(request)
+  const auth = await authenticateRequest(request)
   if (!auth.success) return auth.response
 
   const now = Date.now()

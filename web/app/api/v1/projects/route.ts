@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db"
 import { createProjectSchema } from "@/lib/schemas"
 
 export async function GET(request: Request) {
-  const auth = authenticateRequest(request)
+  const auth = await authenticateRequest(request)
   if (!auth.success) return auth.response
 
   const url = new URL(request.url)
@@ -40,7 +40,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const auth = authenticateRequest(request)
+  const auth = await authenticateRequest(request)
   if (!auth.success) return auth.response
 
   let body: unknown

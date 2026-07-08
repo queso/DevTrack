@@ -10,6 +10,8 @@ impact. Items marked ✅ were fixed in this branch and are listed for context.
 - ✅ **Git-hook event flow was broken against the current API.** The CLI/hook `event` command posts `project_name`, but `POST /api/v1/events` only accepted `project_id` (422). It also sends an empty title for `session-start` (failed `title.min(1)`). The events endpoint now resolves `project_name`→id and backfills a title from the event type.
 - ✅ **Events never advanced `lastActivityAt`.** Staleness/activity tracking was inert. `POST /events` now advances the project's `lastActivityAt` (monotonically) so staleness is real.
 - ✅ **CLI / hook auth env var name mismatch.** The Go CLI read the key from `DEVTRACK_TOKEN` while every doc said `DEVTRACK_API_KEY`, so docs-following hook calls 401'd. The CLI now reads `DEVTRACK_API_KEY` as the canonical name (resolved centrally in `cmd/root.go`), falls back to `DEVTRACK_TOKEN` with a deprecation warning, and the docs/error messages were unified on `DEVTRACK_API_KEY`.
+- ✅ **CLI didn't send Cloudflare Access service-token headers** (was the first post-deploy follow-up below). The Go client now reads `ACCESS_CLIENT_ID` / `ACCESS_CLIENT_SECRET` (the same env pair the `ateam` CLI uses) in `client.NewClient` and, when both are set, sends `CF-Access-Client-Id` / `CF-Access-Client-Secret` on every request. Local dev sets neither, so behavior is unchanged. Go tests cover header presence/absence.
+- ✅ **API is now Cloudflare Access native for browsers.** `authenticateRequest` verifies the `Cf-Access-Jwt-Assertion` header Cloudflare injects (signature vs team JWKS, `aud`, `iss`, `exp`) via `jose`, after the existing API-key path and before 401. Gated on `CF_ACCESS_TEAM_DOMAIN` + `CF_ACCESS_AUD`; unset = disabled, identical to prior API-key-only behavior. The dashboard's SWR fetcher sends `X-Api-Key` only when an env key exists (local dev) and otherwise no auth header — in production the browser carries the Access JWT automatically. This is why the public CI image can ship with an empty `NEXT_PUBLIC_DEVTRACK_API_KEY` and the browser still authenticates.
 
 ## Deferred (not fixed)
 
@@ -17,17 +19,6 @@ impact. Items marked ✅ were fixed in this branch and are listed for context.
 - `ContentItem` is documented (`docs/API.md`) and wired into the CLI (`ideas`, `sync` content) but **does not exist in `prisma/schema.prisma`**. Any CLI content command will fail against the API.
 - `prd/005-unified-document-model.md` is uncommitted in the working tree — the document-model refactor was in flight when work stopped. This is the most likely proximate cause of the stall.
 - **Recommendation:** either finish PRD 005 (unify PRD + ContentItem into a Document model) or explicitly cut content features for now. Not needed for the decker brief.
-
-### CLI doesn't send Cloudflare Access service-token headers ⚠️ first post-deploy follow-up
-- Production (`devtrack.theaiteam.dev`, arcane-k8s PR #6) sits behind a Cloudflare
-  Zero Trust Access application (kanban-viewer internal posture). Non-browser
-  clients must send `CF-Access-Client-Id` / `CF-Access-Client-Secret` headers;
-  the Go CLI (and therefore every git/Claude hook event post from dev machines)
-  doesn't, so those calls are blocked by Access the moment the app goes live.
-- **Recommendation:** copy the `ateam` CLI's CF service-token pattern (env-var
-  pair + headers on every request) into `cli/` — resolved centrally in
-  `cmd/root.go` next to the API-key handling. Local dev (`localhost:3000`) is
-  unaffected.
 
 ### `project.yaml` manifest can't carry `repo_path`
 - `cli/internal/manifest.go` `Manifest` struct has no `repo_path` (or `owner`) field, so `devtrack register` / hooks can't populate the new `Project.repoPath` — only a direct API `POST/PATCH` can. **Recommendation:** add `repo_path` to the manifest and to `register`'s body mapping (and have `register` default it to the repo's absolute path).

@@ -8,6 +8,15 @@ const envSchema = z.object({
   RATE_LIMIT_RPM: z.coerce.number().int().positive().default(60),
   DEVTRACK_API_KEY: z.string().min(1).optional(),
   GITHUB_WEBHOOK_SECRET: z.string().optional(),
+  // Cloudflare Access (Zero Trust) — verifies the Cf-Access-Jwt-Assertion header
+  // Cloudflare injects on browser requests. Both must be set to enable the JWT
+  // auth path; when either is unset the path is disabled and behavior is
+  // identical to API-key-only (local dev is unaffected). These are public
+  // identifiers, not secrets.
+  //   CF_ACCESS_TEAM_DOMAIN — the "<team>.cloudflareaccess.com" host (no scheme)
+  //   CF_ACCESS_AUD         — the Access application's Application Audience (AUD) tag
+  CF_ACCESS_TEAM_DOMAIN: z.string().optional(),
+  CF_ACCESS_AUD: z.string().optional(),
 })
 
 type Env = z.infer<typeof envSchema>

@@ -39,7 +39,7 @@ describe("authenticateRequest", () => {
       headers: { Authorization: "Bearer test-secret-key" },
     })
 
-    const result = authenticateRequest(request)
+    const result = await authenticateRequest(request)
 
     expect(result.success).toBe(true)
   })
@@ -48,7 +48,7 @@ describe("authenticateRequest", () => {
     const { authenticateRequest } = await import("@/lib/auth")
     const request = new NextRequest(new URL("http://localhost/api/v1/projects"))
 
-    const result = authenticateRequest(request)
+    const result = await authenticateRequest(request)
 
     expect(result.success).toBe(false)
     if (!result.success) {
@@ -65,7 +65,7 @@ describe("authenticateRequest", () => {
       headers: { Authorization: "Bearer wrong-key" },
     })
 
-    const result = authenticateRequest(request)
+    const result = await authenticateRequest(request)
 
     expect(result.success).toBe(false)
     if (!result.success) {
@@ -79,7 +79,7 @@ describe("authenticateRequest", () => {
       headers: { Authorization: "Basic dXNlcjpwYXNz" },
     })
 
-    const result = authenticateRequest(request)
+    const result = await authenticateRequest(request)
 
     expect(result.success).toBe(false)
     if (!result.success) {

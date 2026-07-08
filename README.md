@@ -97,10 +97,24 @@ All commands run from `web/`.
    # {"data":{"generated_at":...,"project_count":0,"projects":[]}}
    ```
 
-> **Auth:** every `/api/v1/*` request needs the key via `Authorization: Bearer <key>`
+> **Auth (local):** every `/api/v1/*` request needs the key via `Authorization: Bearer <key>`
 > or `X-Api-Key: <key>`. Both the DevTrack API and the **CLI** use `DEVTRACK_API_KEY`
 > (the legacy `DEVTRACK_TOKEN` is still accepted by the CLI as a fallback, with a
 > deprecation warning).
+>
+> **Auth (production — Cloudflare Access native):** the deployed app
+> (`devtrack.theaiteam.dev`) sits behind a Cloudflare Zero Trust Access
+> application, so credentials are handled at the edge:
+> - **Browsers** log in via Cloudflare (GitHub). Cloudflare forwards a signed
+>   `Cf-Access-Jwt-Assertion` header, which the API verifies against the team
+>   JWKS (`aud`/`iss`/`exp`) — see `web/lib/cf-access.ts`. No API key is shipped
+>   to the browser (the public image omits `NEXT_PUBLIC_DEVTRACK_API_KEY`).
+>   Enabled by the `CF_ACCESS_TEAM_DOMAIN` + `CF_ACCESS_AUD` env vars; unset =
+>   disabled (local dev unaffected).
+> - **Machine clients (the CLI, hooks)** send a Cloudflare Access **service
+>   token** via `CF-Access-Client-Id` / `CF-Access-Client-Secret`. The Go CLI
+>   sets these automatically when `ACCESS_CLIENT_ID` and `ACCESS_CLIENT_SECRET`
+>   are both present in the environment; local dev (localhost) needs neither.
 
 ### Agent / brief integration
 

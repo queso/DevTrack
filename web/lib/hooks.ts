@@ -116,9 +116,13 @@ interface HookResult<T> {
 
 // Module-level singleton fetcher so SWR receives a stable function reference
 // across renders and does not treat re-renders as cache misses.
-// NOTE: process.env.DEVTRACK_API_KEY is only available server-side. Client-side
-// components accessing this hook will not send the API key header. For client-side
-// auth, configure the key via a NEXT_PUBLIC_ env var or use a cookie/session.
+// AUTH MODEL: when an API key is available in the environment (local dev, via
+// DEVTRACK_API_KEY / NEXT_PUBLIC_DEVTRACK_API_KEY) we send it as X-Api-Key.
+// When no key is present we send NO auth header — in production the app sits
+// behind Cloudflare Access, so the browser's same-origin requests already carry
+// the `Cf-Access-Jwt-Assertion` header Cloudflare injects, which the API
+// verifies (see lib/cf-access.ts). This is why the public CI image deliberately
+// ships without a NEXT_PUBLIC key and the browser still authenticates.
 const _envelopeFetcher = (() => {
   const apiKey = process.env.DEVTRACK_API_KEY ?? process.env.NEXT_PUBLIC_DEVTRACK_API_KEY
 
