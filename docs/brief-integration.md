@@ -31,6 +31,16 @@ The response is validated server-side against `statusAllResponseSchema`
 guaranteed, not best-effort. It is also described in the OpenAPI spec
 (`GET /api/v1/openapi.json` → `#/components/schemas/StatusAll`).
 
+> **Production auth (Cloudflare Access native).** In front of the `DEVTRACK_API_KEY`
+> shown above, `devtrack.theaiteam.dev` sits behind a Cloudflare Zero Trust
+> Access application. **Machine collectors** (like decker) authenticate with a
+> Cloudflare Access **service token** — the `CF-Access-Client-Id` /
+> `CF-Access-Client-Secret` headers shown in §1a — *in addition to* the API key.
+> **Browsers** are logged in by Cloudflare (GitHub) and their requests carry a
+> `Cf-Access-Jwt-Assertion` the API verifies directly, so the dashboard needs no
+> API key. Local dev (`http://localhost:3100`) has no Access layer: use only the
+> API key and drop the `CF-Access-*` headers.
+
 ### Example
 
 ```bash

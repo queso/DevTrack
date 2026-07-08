@@ -84,7 +84,7 @@ export async function middleware(request: NextRequest) {
     // Authenticate /api/v1/* routes (health endpoint is excluded)
     const pathname = new URL(request.url).pathname
     if (pathname.startsWith("/api/v1/")) {
-      const authResult = authenticateRequest(request)
+      const authResult = await authenticateRequest(request)
       if (!authResult.success) {
         return authResult.response
       }

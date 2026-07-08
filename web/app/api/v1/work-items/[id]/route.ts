@@ -7,7 +7,7 @@ import { updateWorkItemSchema } from "@/lib/schemas"
 type RouteContext = { params: Promise<{ id: string }> }
 
 export async function PATCH(request: Request, { params }: RouteContext) {
-  const auth = authenticateRequest(request)
+  const auth = await authenticateRequest(request)
   if (!auth.success) return auth.response
 
   const { id } = await params

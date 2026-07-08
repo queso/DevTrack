@@ -3,7 +3,7 @@ import { authenticateRequest } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 
 export async function GET(request: Request) {
-  const auth = authenticateRequest(request)
+  const auth = await authenticateRequest(request)
   if (!auth.success) return auth.response
 
   const url = new URL(request.url)

@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 )
@@ -14,23 +15,34 @@ import (
 // DefaultBaseURL is the default API base URL embedded from the OpenAPI spec.
 const DefaultBaseURL = "/api/v1"
 
-
 // Client holds the configuration for making authenticated HTTP requests.
 type Client struct {
-	BaseURL    string
-	Token      string
-	HTTPClient *http.Client
+	BaseURL            string
+	Token              string
+	AccessClientID     string
+	AccessClientSecret string
+	HTTPClient         *http.Client
 }
 
 // NewClient constructs a Client with the given baseURL and token.
 // When baseURL is empty, DefaultBaseURL is used.
+//
+// The Cloudflare Access service-token credentials are read centrally here (the
+// single client construction point) from ACCESS_CLIENT_ID / ACCESS_CLIENT_SECRET
+// — the same env pair the ateam CLI uses. When both are set they are sent as
+// CF-Access-Client-Id / CF-Access-Client-Secret headers on every request so a
+// CLI behind a Cloudflare Zero Trust Access application (e.g. production
+// devtrack.theaiteam.dev) is authorized. Local dev sets neither, so no Access
+// headers are sent and behavior is unchanged.
 func NewClient(baseURL, token string) *Client {
 	if baseURL == "" {
 		baseURL = DefaultBaseURL
 	}
 	return &Client{
-		BaseURL:    baseURL,
-		Token:      token,
+		BaseURL:            baseURL,
+		Token:              token,
+		AccessClientID:     os.Getenv("ACCESS_CLIENT_ID"),
+		AccessClientSecret: os.Getenv("ACCESS_CLIENT_SECRET"),
 		HTTPClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -45,6 +57,12 @@ func (c *Client) execute(req *http.Request) ([]byte, error) {
 	// Bearer token auth.
 	if c.Token != "" {
 		req.Header.Set("Authorization", "Bearer "+c.Token)
+	}
+	// Cloudflare Access service token (machine clients behind Zero Trust).
+	// Both credentials must be present; sent on every request when set.
+	if c.AccessClientID != "" && c.AccessClientSecret != "" {
+		req.Header.Set("CF-Access-Client-Id", c.AccessClientID)
+		req.Header.Set("CF-Access-Client-Secret", c.AccessClientSecret)
 	}
 
 	resp, err := c.HTTPClient.Do(req)
