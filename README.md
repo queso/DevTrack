@@ -234,7 +234,7 @@ DevTrack integrates with your repositories through three mechanisms:
 
 ### Project Manifest
 
-Each repository declares itself to DevTrack via a `project.yaml` file at the repo root:
+Each repository declares itself to DevTrack via a `devtrack.yaml` file at the repo root:
 
 ```yaml
 name: "my-project"
@@ -249,6 +249,8 @@ test_pattern: "**/*.test.ts"
 ```
 
 The manifest defines the project's configuration, structure, and integration points. The `content_path` and `draft_path` fields enable automatic discovery and syncing of published and draft content items.
+
+**Note:** The legacy `project.yaml` is no longer used. If you have an existing project with `project.yaml`, DevTrack will auto-detect your project identity using the git remote URL or folder name on first event send, then bootstrap `devtrack.yaml` silently. To opt out of auto-bootstrap, set `DEVTRACK_NO_BOOTSTRAP=1` before sending events.
 
 ### Claude Code Hooks
 

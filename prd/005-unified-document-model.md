@@ -243,3 +243,144 @@ The `workflow` field is removed. `doc_paths` replaces `prd_path`/`content_path`/
 - Custom status pipeline definitions per project (just use free-form strings)
 - Document templates or scaffolding
 - Workflow enforcement or approval gates
+
+## Resolved Questions
+
+The following decisions resolve ambiguities in the body of this PRD. Where the body contradicts this section, this section wins.
+
+### 1. Manifest path field
+
+Use a single array field `doc_paths: []` for scan roots. Drop `prd_path`, `content_path`, `draft_path` from the manifest schema entirely (see #9 below). Multiple roots are supported; the parser treats them identically.
+
+```yaml
+doc_paths:
+  - prd/
+  - content/
+  - drafts/
+```
+
+### 2. Status vocabulary
+
+- **Storage:** free-form string.
+- **Normalization on write:** lowercase, replace spaces and hyphens with underscores. So `"In Progress"`, `"in-progress"`, and `"in_progress"` all store as `in_progress`, then map to canonical (see below).
+- **Known-statuses list in UI:** known values get colored badges and bucket into named groups; unknown values render as plain badges and bucket into an "Other" group.
+
+**Canonical names for ambiguous pairs:**
+- Terminal success: **`done`** (synonyms `completed`, `complete` normalized to `done`)
+- Actively in-flight: **`active`** (synonyms `in_progress` normalized to `active`)
+
+The known-statuses set is: `idea`, `queued`, `draft`, `active`, `done`, `published`, `archive`.
+
+### 3. Migration mapping
+
+Items use the same canonical vocabulary as Documents.
+
+```
+Prd.queued            → Document.queued
+Prd.in_progress       → Document.active
+Prd.completed         → Document.done
+
+WorkItem.todo         → Item.todo
+WorkItem.in_progress  → Item.active
+WorkItem.done         → Item.done
+
+ContentItem.idea      → Document.idea
+ContentItem.draft     → Document.draft
+ContentItem.published → Document.published
+```
+
+Migrated PRDs receive a `"prd"` tag. Migrated content items receive a `"content"` tag. These tags drive default dashboard filters so existing views keep working.
+
+### 4. Item identity on re-sync
+
+- **Default:** match by exact title. Reordering a checklist preserves history; editing a title creates a new Item.
+- **Opt-in:** users may set `embed_item_ids: true` in `project.yaml`. With this flag, the sync parser writes stable IDs back into the source markdown as HTML comments:
+
+  ```markdown
+  - [ ] Implement parser <!-- id: 7a3f2 -->
+  ```
+
+  Items are then matched by ID, surviving any title edit or reorder.
+
+### 5. Document identity on re-sync
+
+- **Default:** match by `sourcePath`. Renaming a file creates a new Document and orphans the old one's history.
+- **Opt-in:** users may add an `id:` field in the document's YAML frontmatter:
+
+  ```yaml
+  ---
+  id: 005-unified-document-model
+  title: Unified Document Model
+  ---
+  ```
+
+  When present, Documents are matched by `id` regardless of file path.
+
+### 6. Branch / PullRequest / Event foreign keys
+
+All three models gain both `documentId` and `itemId` columns. Both nullable. Typical case: exactly one is set. Both may be set when a PR is scoped to an Item and rolls up to its Document.
+
+```
+model Branch {
+  documentId String?
+  itemId     String?
+  // ...
+}
+
+model PullRequest {
+  documentId String?
+  itemId     String?
+  // ...
+}
+
+model Event {
+  documentId String?
+  itemId     String?
+  // ...
+}
+```
+
+### 7. Status inference precedence
+
+For files where status is not explicitly set in frontmatter, sync infers status in this order (first match wins):
+
+1. Frontmatter `status:` field (explicit, always wins)
+2. Directory rules:
+   - File in `drafts/` → `draft`
+   - File in `published/` → `published`
+   - File in `ideas/` → `idea`
+   - File in `archive/` → `done`
+3. All-checked heuristic: if the document contains a checklist and every item is `- [x]`, status becomes `done`
+4. Default: `active`
+
+### 8. CLI command surface
+
+- Add canonical commands: `devtrack docs list`, `devtrack docs add`, `devtrack docs promote`, `devtrack docs ...`
+- Keep `devtrack ideas` as a legacy alias. Mark it as such in `--help` output:
+
+  ```
+  ideas       (alias for `docs --status idea`, retained for compatibility)
+  ```
+
+- No deprecation timeline; the alias is permanent.
+
+### 9. Removal of `prd_path` / `content_path` / `draft_path`
+
+These manifest fields are removed in this PRD. The parser silently ignores them if present in existing manifests (no error). Users update their `project.yaml` files manually to use `doc_paths`. DevTrack's own `project.yaml` is updated as part of the migration commit.
+
+### 10. Tags scoping
+
+`Project.tags` and `Document.tags` are independent dimensions.
+- `Project.tags` drives dashboard-level filtering (project listing).
+- `Document.tags` drives document-level filtering within a project page.
+- No cross-scope merging or computed tag inheritance.
+
+### 11. Event row migration
+
+Existing event rows are dropped on migration. Pre-launch — no real history exists to preserve. Migration:
+
+```sql
+TRUNCATE TABLE "Event";
+```
+
+This runs before the FK rename so no rows reference dropped tables.
