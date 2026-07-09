@@ -86,3 +86,13 @@ All open questions were resolved with Josh:
 3. **Server-side impact** (verified in code) → the type enum lives in three synced places: the Prisma `EventType` Postgres enum (requires a migration, auto-applied by the deployment's `migrate` initContainer on rollout), the zod schema in `web/lib/schemas/`, and the OpenAPI spec that drives CLI codegen. No API logic changes.
 4. **Bootstrap escape hatch** → yes, `DEVTRACK_NO_BOOTSTRAP=1` skips the manifest write; events still send via the identity chain.
 5. **project.yaml migration** → hard cutover. No read-fallback in code; the few existing `project.yaml` files are renamed by hand in one sweep as a rollout step. Safe because find-or-create matches on repo URL before name.
+
+## Post-Mission Rollout Sweep
+
+Manual steps once the mission ships (these are operations on other repos and machines, not code in this one — the mission cannot do them):
+
+- [ ] Rename `project.yaml` → `devtrack.yaml` in every repo that has one (this repo, conduit, and any others wired on 2026-07-08 — check the repos behind the 15 registered projects).
+- [ ] Replace the hand-copied hook commands in `~/.claude/settings.json` (global Claude settings) with the new hook definitions — they still fire `--type commit` on every Bash call until refreshed.
+- [ ] Re-run `devtrack hooks install` in each repo with git hooks installed, so the managed blocks regenerate with valid event types.
+- [ ] Cut a CLI release and confirm the plugin wrapper's `minCliVersion` forces the update on other machines.
+- [ ] Delete the handful of phantom `commit` rows from production if they annoy the dashboard (optional).
