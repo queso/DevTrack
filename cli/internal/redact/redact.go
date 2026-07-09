@@ -26,11 +26,14 @@ const secretKey = `(?:export\s+)?[\w-]*(?:token|secret|password|key|authorizatio
 const quoted = `"[^"]*"|'[^']*'`
 
 var (
-	// assignRe matches KEY=VALUE where KEY is secret-shaped, tolerating
-	// whitespace around "=". The value is either a quoted string or a run of
+	// assignRe matches KEY=VALUE where KEY is secret-shaped, tolerating an
+	// optional surrounding quote and trailing bracket around the key (e.g.
+	// Python's os.environ['SECRET_KEY'] = ... / config["api_key"]=...) and
+	// whitespace around "=" — mirroring the quote tolerance headerRe already
+	// has for its ":" path. The value is either a quoted string or a run of
 	// characters stopping at whitespace or a shell metacharacter, so chained
 	// commands (e.g. "&&next-command") are left untouched.
-	assignRe = regexp.MustCompile(`(?i)(` + secretKey + `)\s*=\s*(?:` + quoted + `|[^\s&|;<>]+)`)
+	assignRe = regexp.MustCompile(`(?i)(["']?)(` + secretKey + `)(["']?)(\]?)\s*=\s*(?:` + quoted + `|[^\s&|;<>]+)`)
 
 	// headerRe matches "KEY: VALUE" (optionally JSON-quoted-key, e.g.
 	// `"password": "v"`) where KEY is secret-shaped, tolerating whitespace
@@ -52,7 +55,7 @@ var (
 // or as a bare word) pass through unchanged. Masking runs before the length
 // cap so secrets in the retained head are always masked.
 func Redact(s string) string {
-	out := assignRe.ReplaceAllString(s, "$1="+Placeholder)
+	out := assignRe.ReplaceAllString(s, "$1$2$3$4="+Placeholder)
 	out = headerRe.ReplaceAllString(out, "$1$2$3: "+Placeholder)
 
 	if len(out) > MaxLength {

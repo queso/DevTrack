@@ -316,3 +316,30 @@ func TestRedact_ColonEqualsUnquotedValueMasked(t *testing.T) {
 		t.Errorf("expected placeholder in output %q", out)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// WI-578 rework (Lynch round 3): the "=" path lacks the quoted-key tolerance
+// the ":" path got for JSON-shaped secrets. A bracketed / quoted key before the
+// "=" (Python os.environ / dict style) leaves the value unmasked. Realistic in
+// Python source snippets pasted into commit messages / tool_use descriptions.
+// This mirrors TestRedact_JSONQuotedKeyMasked on the "=" separator.
+// ---------------------------------------------------------------------------
+
+func TestRedact_QuotedOrBracketedKeyAssignmentMasked(t *testing.T) {
+	cases := []struct{ name, input, secret string }{
+		{"os.environ bracketed key", `os.environ['SECRET_KEY'] = "hunter2value"`, "hunter2value"},
+		{"dict compact key", `config["api_key"]="sk-live-9f8e7d"`, "sk-live-9f8e7d"},
+		{"bare quoted key", `"password" = "p@ssw0rdValue"`, "p@ssw0rdValue"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			out := Redact(tc.input)
+			if strings.Contains(out, tc.secret) {
+				t.Errorf("secret value %q leaked in output %q", tc.secret, out)
+			}
+			if !strings.Contains(out, Placeholder) {
+				t.Errorf("expected placeholder in output %q", out)
+			}
+		})
+	}
+}
