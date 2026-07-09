@@ -16,13 +16,13 @@ The guiding philosophy for the fix, per Josh: **thin dumb client, overcollect ra
 
 ### In Scope
 
-- A new `tool_use` event type, accepted end-to-end (API, database, CLI), so Claude Code tool activity is recorded as what it is — not disguised as commits.
+- New event types accepted end-to-end (API, database, CLI): `tool_use` for Claude Code tool activity, and `checkout` and `merge` so all four installed git hooks map to valid types.
 - The Claude Code PostToolUse hook forwards the full Bash command it observed (available on hook stdin as `tool_input.command`), plus session id and working directory, as a `tool_use` event.
-- Git hooks that actually work: a real `git commit` records a `commit` event carrying the real commit message; `git push` records a `push` event. Every type any installed hook emits must be one the API accepts.
-- Client-side secret redaction of forwarded command text before it leaves the machine.
+- Git hooks that actually work: a real `git commit` records a `commit` event carrying the real commit message; `git push` records a `push` event; branch checkouts and merges record `checkout`/`merge` events with branch names in metadata.
+- Client-side secret redaction of forwarded command text before it leaves the machine, with the pattern list compiled into the Go CLI as the single enforcement point.
 - Hook installer regenerates/upgrades previously installed hooks in place, so existing tracked repos pick up the fix by re-running install.
-- Zero-setup project identity: the manifest becomes optional. Project identity resolves through a chain (manifest → git remote URL → normalized folder name), the server finds-or-creates projects on incoming events instead of rejecting unknown ones, and the manifest is renamed `devtrack.yaml` (with legacy `project.yaml` still read for existing repos).
-- Silent manifest bootstrap: the first time the CLI sends an event from a repo with no manifest, it writes a minimal `devtrack.yaml` (derived name + repo URL) to pin the project's identity at first contact.
+- Zero-setup project identity: the manifest becomes optional. Project identity resolves through a chain (manifest → git remote URL → normalized folder name), the server finds-or-creates projects on incoming events instead of rejecting unknown ones, and the manifest is named `devtrack.yaml`. Hard cutover from `project.yaml`: no read-fallback in code; the handful of existing manifests are renamed by hand in one sweep (tracked as a rollout step).
+- Silent manifest bootstrap: the first time the CLI sends an event from a repo with no manifest, it writes a minimal `devtrack.yaml` (derived name + repo URL) to pin the project's identity at first contact. Setting `DEVTRACK_NO_BOOTSTRAP=1` skips the file write (events still send via the identity chain).
 
 ### Out of Scope
 
@@ -35,18 +35,19 @@ The guiding philosophy for the fix, per Josh: **thin dumb client, overcollect ra
 
 ### Functional Requirements
 
-1. The system shall accept and store a `tool_use` event type through the public events API.
+1. The system shall accept and store `tool_use`, `checkout`, and `merge` event types through the public events API.
 2. A Bash tool invocation in a Claude Code session within a tracked repo shall be recorded as exactly one `tool_use` event — never as a `commit`.
 3. A `tool_use` event shall carry the full command text as its title and the Claude session id and working directory as metadata.
 4. A real `git commit` in a tracked repo shall be recorded as exactly one `commit` event whose title is the commit's subject line, with the commit hash in metadata.
 5. A `git push` from a tracked repo shall be recorded as a `push` event with the branch name in metadata.
-6. Every event type emitted by any hook the installer writes shall be a type the events API accepts; the installer shall not emit `post-commit`, `pre-push`, `post-merge`, or `post-checkout` as event types.
-7. All hooks (git and Claude) shall resolve the target project through a shared identity chain: `devtrack.yaml` at the repo root if present (falling back to reading legacy `project.yaml`), else the git remote URL, else the repo folder name normalized to lowercase. A missing manifest shall never cause an event to be dropped.
-8. The events API shall find-or-create the project for an incoming event using the supplied identity (name and/or repo URL) rather than rejecting events for unregistered projects.
-9. When the CLI sends an event from a repo with no manifest, it shall write a minimal `devtrack.yaml` (derived project name and repo URL) to the repo root, exactly once, without prompting; a failure to write shall not block the event.
-10. Command text shall be redacted client-side before transmission when it matches secret-shaped patterns (assignments or headers containing token, secret, password, key, authorization, and similar); redaction shall replace only the matched value, preserving the rest of the command.
-11. All hooks shall remain non-blocking: a hook failure shall never break a git operation or a Claude session.
-12. Re-running the hook installer in an already-configured repo shall upgrade the managed hook blocks in place without duplicating them.
+6. A branch checkout shall be recorded as a `checkout` event and a merge as a `merge` event, each carrying the relevant branch names in metadata.
+7. Every event type emitted by any hook the installer writes shall be a type the events API accepts; the installer shall not emit `post-commit`, `pre-push`, `post-merge`, or `post-checkout` as event types.
+8. All hooks (git and Claude) shall resolve the target project through a shared identity chain: `devtrack.yaml` at the repo root if present, else the git remote URL, else the repo folder name normalized to lowercase. `project.yaml` shall not be read. A missing manifest shall never cause an event to be dropped.
+9. The events API shall find-or-create the project for an incoming event using the supplied identity, matching on repo URL before name so a derived-name mismatch cannot fork an existing project's history.
+10. When the CLI sends an event from a repo with no manifest, it shall write a minimal `devtrack.yaml` (derived project name and repo URL) to the repo root, exactly once, without prompting; a failure to write shall not block the event. Setting `DEVTRACK_NO_BOOTSTRAP=1` shall skip the write entirely.
+11. Command text shall be redacted client-side before transmission when it matches secret-shaped patterns (assignments or headers containing token, secret, password, key, authorization, and similar); redaction shall replace only the matched value, preserving the rest of the command. The pattern list shall be compiled into the Go CLI so every event passes through one enforcement point.
+12. All hooks shall remain non-blocking: a hook failure shall never break a git operation or a Claude session.
+13. Re-running the hook installer in an already-configured repo shall upgrade the managed hook blocks in place without duplicating them.
 
 ### Non-Functional Requirements
 
@@ -65,7 +66,7 @@ The guiding philosophy for the fix, per Josh: **thin dumb client, overcollect ra
 - Redaction must not mangle commands that merely mention the trigger words in file paths or messages (e.g., `vim docs/api-keys.md` should pass through unredacted; `export API_KEY=abc123` should not).
 - Hook stdin absent or malformed (hook run by hand, harness change): the hook shall fail quietly rather than send an empty or garbage event.
 
-## Risks & Open Questions
+## Risks & Resolved Decisions
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|-----------|--------|------------|
@@ -73,12 +74,15 @@ The guiding philosophy for the fix, per Josh: **thin dumb client, overcollect ra
 | `tool_use` volume grows large | Medium | Table bloat, slow feed queries | Acceptable at current scale; revisit with retention/rollup policy later |
 | Stale hook copies keep firing old commands (e.g. the hand-copied hooks in `~/.claude/settings.json`) | High | Phantom commits continue on machines with stale config | Document the refresh step; installer upgrade path covers git hooks |
 | Auto-registration pollutes the dashboard with third-party clones and scratch repos | Medium | Noisy project list | Accepted under overcollection; projects are cheap to archive/delete server-side |
-| Manifest bootstrap drops untracked `devtrack.yaml` files into repos the user doesn't own | Medium | Confusing git status, accidental PR inclusion | Well-commented file content; consider an opt-out (see open questions) |
+| Manifest bootstrap drops untracked `devtrack.yaml` files into repos the user doesn't own | Medium | Confusing git status, accidental PR inclusion | Well-commented file content; `DEVTRACK_NO_BOOTSTRAP=1` opt-out |
+| A repo with a missed `project.yaml` (hard cutover) resolves identity via remote URL instead | Low | None if repo URL is registered — find-or-create matches on repo URL before name | Rollout step: rename all existing manifests in one sweep |
 
-### Open Questions
+### Resolved Decisions (2026-07-09)
 
-- [ ] Should `post-checkout`/`post-merge` git hooks map to new event types (e.g. branch activity) or be dropped from the installer until a use case appears?
-- [ ] What is the canonical redaction pattern list, and where does it live so both hooks and future collectors share it?
-- [ ] Does the deployed server need any change beyond the schema/spec update, or does the existing events endpoint accept the new type transparently once the enum grows?
-- [ ] Should manifest bootstrap have an env kill-switch (e.g. `DEVTRACK_NO_BOOTSTRAP=1`) for third-party clones, or is a normalized derived-name-only mode enough?
-- [ ] Should existing repos' `project.yaml` files be migrated (renamed) by the installer, or is read-fallback support permanent?
+All open questions were resolved with Josh:
+
+1. **Git checkout/merge hooks** → add `checkout` and `merge` event types while the enum is already open. Full overcollection; branch names in metadata.
+2. **Redaction pattern list** → compiled into the Go CLI. Every event flows through the one binary, so it is a single enforcement point; user-editable extension can layer on later if ever needed.
+3. **Server-side impact** (verified in code) → the type enum lives in three synced places: the Prisma `EventType` Postgres enum (requires a migration, auto-applied by the deployment's `migrate` initContainer on rollout), the zod schema in `web/lib/schemas/`, and the OpenAPI spec that drives CLI codegen. No API logic changes.
+4. **Bootstrap escape hatch** → yes, `DEVTRACK_NO_BOOTSTRAP=1` skips the manifest write; events still send via the identity chain.
+5. **project.yaml migration** → hard cutover. No read-fallback in code; the few existing `project.yaml` files are renamed by hand in one sweep as a rollout step. Safe because find-or-create matches on repo URL before name.
