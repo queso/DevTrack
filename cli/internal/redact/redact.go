@@ -20,16 +20,25 @@ const TruncationMarker = "…[truncated]"
 // "export " prefix preserved as part of the match.
 const secretKey = `(?:export\s+)?[\w-]*(?:token|secret|password|key|authorization)[\w-]*`
 
-var (
-	// assignRe matches KEY=VALUE where KEY is secret-shaped. The value is any
-	// run of non-whitespace characters, so shell metacharacters and text
-	// following whitespace (e.g. "&& next-command") are left untouched.
-	assignRe = regexp.MustCompile(`(?i)(` + secretKey + `)=\S+`)
+// quoted matches a double- or single-quoted string as one unit, so a value
+// containing internal spaces (e.g. `"a b c"`) is masked whole rather than
+// only up to its first space.
+const quoted = `"[^"]*"|'[^']*'`
 
-	// headerRe matches "KEY: VALUE" where KEY is secret-shaped. The value
-	// runs to the end of the line, since header-style values (e.g.
-	// "Bearer <token>") may contain spaces.
-	headerRe = regexp.MustCompile(`(?i)(` + secretKey + `):\s?[^\n]*`)
+var (
+	// assignRe matches KEY=VALUE where KEY is secret-shaped, tolerating
+	// whitespace around "=". The value is either a quoted string or a run of
+	// characters stopping at whitespace or a shell metacharacter, so chained
+	// commands (e.g. "&&next-command") are left untouched.
+	assignRe = regexp.MustCompile(`(?i)(` + secretKey + `)\s*=\s*(?:` + quoted + `|[^\s&|;<>]+)`)
+
+	// headerRe matches "KEY: VALUE" (optionally JSON-quoted-key, e.g.
+	// `"password": "v"`) where KEY is secret-shaped, tolerating whitespace
+	// around ":". The value is either a quoted string or a run of characters
+	// stopping at a stray quote or newline, so a header embedded in a
+	// surrounding quoted argument (e.g. curl -H "Authorization: ...") doesn't
+	// swallow the closing quote and any trailing content.
+	headerRe = regexp.MustCompile(`(?i)(["']?)(` + secretKey + `)(["']?)\s*:\s*(?:` + quoted + `|[^"'\n]*)`)
 )
 
 // Redact masks secret-shaped values in s and caps its length. Only the value
@@ -41,7 +50,7 @@ var (
 // cap so secrets in the retained head are always masked.
 func Redact(s string) string {
 	out := assignRe.ReplaceAllString(s, "$1="+Placeholder)
-	out = headerRe.ReplaceAllString(out, "$1: "+Placeholder)
+	out = headerRe.ReplaceAllString(out, "$1$2$3: "+Placeholder)
 
 	if len(out) > MaxLength {
 		out = out[:MaxLength] + TruncationMarker

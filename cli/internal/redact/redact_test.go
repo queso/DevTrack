@@ -170,3 +170,111 @@ func TestRedact_MetacharactersWithoutSecretUnchanged(t *testing.T) {
 		t.Errorf("expected metacharacter-only input unchanged, got %q", out)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// WI-578 rework (Lynch probing): hostile inputs that leaked or corrupted.
+// These exercise the value matcher against quoted strings, whitespace around
+// the separator, quoted keys, and metacharacter-joined values. Each must fail
+// against the value matcher that stops at the first space / requires KEY=
+// adjacency / runs a header value to end-of-line.
+// ---------------------------------------------------------------------------
+
+// Leak class — the secret value must never survive anywhere in the output.
+
+func TestRedact_QuotedValueWithSpacesFullyMasked(t *testing.T) {
+	cases := []struct {
+		name    string
+		input   string
+		leaks   []string // fragments that must NOT appear in the output
+		keyword string
+	}{
+		{"double-quoted phrase", `password="aaa111 s3cr3t phrase"`, []string{"aaa111", "s3cr3t", "phrase"}, "password"},
+		{"single-quoted segments", `export TOKEN='aaa111 bbb222 ccc333'`, []string{"aaa111", "bbb222", "ccc333"}, "TOKEN"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			out := Redact(tc.input)
+			for _, leak := range tc.leaks {
+				if strings.Contains(out, leak) {
+					t.Errorf("secret fragment %q leaked in output %q", leak, out)
+				}
+			}
+			if !strings.Contains(out, Placeholder) {
+				t.Errorf("expected placeholder in output %q", out)
+			}
+			if !strings.Contains(out, tc.keyword) {
+				t.Errorf("expected key %q preserved in output %q", tc.keyword, out)
+			}
+		})
+	}
+}
+
+func TestRedact_WhitespaceAroundAssignmentMasked(t *testing.T) {
+	const secret = "abc123def456"
+	cases := []struct{ name, input string }{
+		{"space both sides", "API_KEY = " + secret},
+		{"space before eq", "API_KEY =" + secret},
+		{"space after eq", "API_KEY= " + secret},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			out := Redact(tc.input)
+			if strings.Contains(out, secret) {
+				t.Errorf("secret value %q leaked in output %q", secret, out)
+			}
+			if !strings.Contains(out, Placeholder) {
+				t.Errorf("expected placeholder in output %q", out)
+			}
+			if !strings.Contains(out, "API_KEY") {
+				t.Errorf("expected key preserved in output %q", out)
+			}
+		})
+	}
+}
+
+func TestRedact_JSONQuotedKeyMasked(t *testing.T) {
+	cases := []struct{ name, input, secret string }{
+		{"spaced json", `{"password": "hunter2value"}`, "hunter2value"},
+		{"compact json", `{"api_key":"Zm9vYmFyYmF6"}`, "Zm9vYmFyYmF6"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			out := Redact(tc.input)
+			if strings.Contains(out, tc.secret) {
+				t.Errorf("secret value %q leaked in output %q", tc.secret, out)
+			}
+			if !strings.Contains(out, Placeholder) {
+				t.Errorf("expected placeholder in output %q", out)
+			}
+		})
+	}
+}
+
+// Corruption class (AC5) — only the secret is masked; surrounding non-secret
+// content (closing quotes, URLs, chained commands) must survive intact.
+
+func TestRedact_HeaderInMidCommandPreservesTrailingContent(t *testing.T) {
+	out := Redact(`curl -H "Authorization: Bearer abc123XYZ" https://example.com/path`)
+	if strings.Contains(out, "abc123XYZ") {
+		t.Errorf("credential leaked in output %q", out)
+	}
+	if !strings.Contains(out, Placeholder) {
+		t.Errorf("expected placeholder in output %q", out)
+	}
+	if !strings.Contains(out, "https://example.com/path") {
+		t.Errorf("expected trailing URL preserved (header value over-consumed) in output %q", out)
+	}
+}
+
+func TestRedact_AssignmentBoundedAtShellMetacharacters(t *testing.T) {
+	out := Redact("token=deadbeefcafe&&curl evil.example.com")
+	if strings.Contains(out, "deadbeefcafe") {
+		t.Errorf("secret value leaked in output %q", out)
+	}
+	if !strings.Contains(out, Placeholder) {
+		t.Errorf("expected placeholder in output %q", out)
+	}
+	if !strings.Contains(out, "&&curl evil.example.com") {
+		t.Errorf("expected chained command preserved (value over-consumed) in output %q", out)
+	}
+}
