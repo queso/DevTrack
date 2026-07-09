@@ -343,3 +343,44 @@ func TestRedact_QuotedOrBracketedKeyAssignmentMasked(t *testing.T) {
 		})
 	}
 }
+
+// ---------------------------------------------------------------------------
+// WI-578 rework (round 5, Amy's 8th leak): assignRe's bracket group has no
+// whitespace tolerance between the key's closing quote and the ']'. A space
+// before ']' leaves the whole assignment unredacted. Whitespace-tolerance
+// asymmetry is a proven recurring bug class in this file, so this pins the
+// bracketed-key '=' path with a space in every interior position, plus the
+// no-space control that already masks.
+// ---------------------------------------------------------------------------
+
+func TestRedact_BracketedKeyWhitespaceMasked(t *testing.T) {
+	cases := []struct{ name, input, secret string }{
+		{"space before ] dq key", `config["api_key" ]="value123"`, "value123"},
+		{"space before ] sq key", `config['api_key' ]='value456'`, "value456"},
+		{"spaces both sides + spaced =", `config[ "api_key" ] = "value789"`, "value789"},
+		{"unquoted key space before ]", `os.environ[ SECRET_KEY ] = "brkunquoted"`, "brkunquoted"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			out := Redact(tc.input)
+			if strings.Contains(out, tc.secret) {
+				t.Errorf("secret value %q leaked in output %q", tc.secret, out)
+			}
+			if !strings.Contains(out, Placeholder) {
+				t.Errorf("expected placeholder in output %q", out)
+			}
+		})
+	}
+}
+
+// Control (Amy): the tight-bracket form (no space before ']') already masks —
+// pin it so the whitespace fix does not regress it.
+func TestRedact_BracketedKeyNoSpaceStillMasked(t *testing.T) {
+	out := Redact(`config[ "api_key"]="okvalue"`)
+	if strings.Contains(out, "okvalue") {
+		t.Errorf("secret value leaked in output %q", out)
+	}
+	if !strings.Contains(out, Placeholder) {
+		t.Errorf("expected placeholder in output %q", out)
+	}
+}

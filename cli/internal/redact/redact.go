@@ -33,7 +33,7 @@ var (
 	// has for its ":" path. The value is either a quoted string or a run of
 	// characters stopping at whitespace or a shell metacharacter, so chained
 	// commands (e.g. "&&next-command") are left untouched.
-	assignRe = regexp.MustCompile(`(?i)(["']?)(` + secretKey + `)(["']?)(\]?)\s*=\s*(?:` + quoted + `|[^\s&|;<>]+)`)
+	assignRe = regexp.MustCompile(`(?i)(["']?)(` + secretKey + `)(["']?)\s*(\]?)\s*=\s*(?:` + quoted + `|[^\s&|;<>]+)`)
 
 	// headerRe matches "KEY: VALUE" (optionally JSON-quoted-key, e.g.
 	// `"password": "v"`) where KEY is secret-shaped, tolerating whitespace
