@@ -13,7 +13,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"devtrack/internal/client"
-	"devtrack/internal/output"
+	"devtrack/internal/redact"
 )
 
 // validEventTypes lists the user-facing event type names accepted by the
@@ -25,6 +25,9 @@ var validEventTypes = []string{
 	"session-start",
 	"session-end",
 	"prd-updated",
+	"tool_use",
+	"checkout",
+	"merge",
 }
 
 // mapEventType converts a hyphenated user-facing event type name (e.g.
@@ -64,53 +67,58 @@ var (
 	eventCmdQuiet       bool
 )
 
+// sendEvent is the single enforcement point every outgoing event passes
+// through: it resolves the project identity (devtrack.yaml -> git remote ->
+// folder name, via internal.ResolveIdentity — a missing manifest never drops
+// the event), redacts secret-shaped text out of the title, and POSTs the
+// event. Both the `event` command and the tool_use hook (WI-584) route
+// through this helper so the redaction/identity guarantee has one place to
+// hold, per PRD FR-11.
+func sendEvent(eventType, title string, metadata map[string]interface{}) error {
+	if err := validateEventType(eventType); err != nil {
+		return err
+	}
+	apiType := mapEventType(eventType)
+
+	dir, _ := os.Getwd()
+	identity, _ := internal.ResolveIdentity(dir, defaultGetGitURL)
+
+	bodyMap := map[string]interface{}{
+		"type":        apiType,
+		"title":       redact.Redact(title),
+		"occurred_at": time.Now().UTC().Format(time.RFC3339),
+	}
+	if identity.Name != "" {
+		bodyMap["project_name"] = identity.Name
+	}
+	if identity.RepoURL != "" {
+		bodyMap["repo_url"] = identity.RepoURL
+	}
+	if metadata != nil {
+		bodyMap["metadata"] = metadata
+	}
+
+	baseURL, _ := rootCmd.PersistentFlags().GetString("base-url")
+	token := os.Getenv("DEVTRACK_TOKEN")
+	c := client.NewClient(baseURL, token)
+
+	_, err := c.Do("POST", "/events", map[string]string{}, map[string]string{}, bodyMap)
+	return err
+}
+
 var eventCmd = &cobra.Command{
 	Use:   "event",
 	Short: "Record a developer event",
 	Long:  "Record a developer event (commit, push, session-start, session-end, prd-updated) against a project.",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if err := validateEventType(eventCmdType); err != nil {
-			return err
-		}
-
-		apiType := mapEventType(eventCmdType)
-
-		bodyMap := map[string]interface{}{
-			"type":        apiType,
-			"title":       eventCmdMessage,
-			"occurred_at": time.Now().UTC().Format(time.RFC3339),
-		}
-
+		var metadata map[string]interface{}
 		if eventCmdMetadata != "" {
-			var metaObj map[string]interface{}
-			if err := json.Unmarshal([]byte(eventCmdMetadata), &metaObj); err != nil {
+			if err := json.Unmarshal([]byte(eventCmdMetadata), &metadata); err != nil {
 				return fmt.Errorf("--metadata must be valid JSON object: %w", err)
 			}
-			bodyMap["metadata"] = metaObj
 		}
 
-		if eventCmdProjectYAML != "" {
-			projectName, err := projectNameFromYAML(eventCmdProjectYAML)
-			if err != nil {
-				return fmt.Errorf("reading project manifest: %w", err)
-			}
-			bodyMap["project_name"] = projectName
-		}
-
-		baseURL, _ := cmd.Root().PersistentFlags().GetString("base-url")
-		token := os.Getenv("DEVTRACK_TOKEN")
-		c := client.NewClient(baseURL, token)
-
-		bodyBytes, err := json.Marshal(bodyMap)
-		if err != nil {
-			return fmt.Errorf("marshalling request body: %w", err)
-		}
-
-		var bodyObj interface{}
-		_ = json.Unmarshal(bodyBytes, &bodyObj)
-
-		resp, err := c.Do("POST", "/events", map[string]string{}, map[string]string{}, bodyObj)
-		if err != nil {
+		if err := sendEvent(eventCmdType, eventCmdMessage, metadata); err != nil {
 			return err
 		}
 
@@ -118,15 +126,7 @@ var eventCmd = &cobra.Command{
 			return nil
 		}
 
-		jsonMode, _ := cmd.Root().PersistentFlags().GetBool("json")
-		noColor, _ := cmd.Root().PersistentFlags().GetBool("no-color")
-		if jsonMode {
-			fmt.Printf("%s\n", string(resp))
-		} else {
-			if err := output.PrintTable(resp, noColor); err != nil {
-				fmt.Println(string(resp))
-			}
-		}
+		fmt.Println("Event recorded")
 		return nil
 	},
 }
