@@ -251,8 +251,9 @@ func isOnlyBoilerplate(content string) bool {
 // ---------------------------------------------------------------------------
 
 // claudeCodeHookMarker is the string we look for to identify devtrack-managed
-// hooks inside ~/.claude/settings.json.
-const claudeCodeHookMarker = "devtrack event"
+// hooks inside ~/.claude/settings.json. Matches both "devtrack event ..." and
+// "devtrack hooks tooluse ..." invocations.
+const claudeCodeHookMarker = "devtrack "
 
 // claudeCodeHookDef describes a single Claude Code hook entry.
 type claudeCodeHookDef struct {
@@ -266,17 +267,17 @@ var claudeCodeHooks = []claudeCodeHookDef{
 	{
 		Event:   "PostToolUse",
 		Matcher: "Bash",
-		Command: `devtrack event --type commit --project-yaml "$(git rev-parse --show-toplevel)/project.yaml" --quiet 2>/dev/null || true`,
+		Command: `devtrack hooks tooluse 2>/dev/null || true`,
 	},
 	{
 		Event:   "SessionStart",
 		Matcher: "",
-		Command: `devtrack event --type session-start --project-yaml "$(git rev-parse --show-toplevel)/project.yaml" --quiet 2>/dev/null || true`,
+		Command: `devtrack event --type session-start --quiet 2>/dev/null || true`,
 	},
 	{
 		Event:   "Stop",
 		Matcher: "",
-		Command: `devtrack event --type session-end --project-yaml "$(git rev-parse --show-toplevel)/project.yaml" --quiet 2>/dev/null || true`,
+		Command: `devtrack event --type session-end --quiet 2>/dev/null || true`,
 	},
 }
 
