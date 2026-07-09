@@ -278,3 +278,41 @@ func TestRedact_AssignmentBoundedAtShellMetacharacters(t *testing.T) {
 		t.Errorf("expected chained command preserved (value over-consumed) in output %q", out)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// WI-578 rework (Amy probing): Go-style ":=" assignment with a QUOTED value
+// bypassed both matchers and leaked the secret. Realistic in Go source snippets
+// pasted into commit messages / tool_use descriptions (`apiKey := "..."`).
+// The stray "=" after ":" must not knock the value matcher off the real value.
+// ---------------------------------------------------------------------------
+
+func TestRedact_ColonEqualsQuotedValueMasked(t *testing.T) {
+	cases := []struct{ name, input, secret string }{
+		{"spaced walrus", `token := "abc123deadbeef"`, "abc123deadbeef"},
+		{"api key walrus", `apiKey := "sk-live-9f8e7d6c"`, "sk-live-9f8e7d6c"},
+		{"no space before eq", `secret :="mysecretvalue"`, "mysecretvalue"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			out := Redact(tc.input)
+			if strings.Contains(out, tc.secret) {
+				t.Errorf("secret value %q leaked in output %q", tc.secret, out)
+			}
+			if !strings.Contains(out, Placeholder) {
+				t.Errorf("expected placeholder in output %q", out)
+			}
+		})
+	}
+}
+
+// Guard: the unquoted ":=" form already masks correctly (the fallback consumes
+// the whole remainder). A fix for the quoted case must not regress it.
+func TestRedact_ColonEqualsUnquotedValueMasked(t *testing.T) {
+	out := Redact("token:=abc123deadbeef")
+	if strings.Contains(out, "abc123deadbeef") {
+		t.Errorf("secret value leaked in output %q", out)
+	}
+	if !strings.Contains(out, Placeholder) {
+		t.Errorf("expected placeholder in output %q", out)
+	}
+}
