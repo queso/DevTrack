@@ -37,14 +37,19 @@ var (
 
 	// headerRe matches "KEY: VALUE" (optionally JSON-quoted-key, e.g.
 	// `"password": "v"`) where KEY is secret-shaped, tolerating whitespace
-	// around ":" and an optional stray "=" (Go's "KEY := value" walrus
-	// shape) so the value alternation starts at the true value position
-	// instead of falling through to the unquoted branch at the "=". The
-	// value is either a quoted string or a run of characters stopping at a
+	// around the separator, which is "::=" (double-colon-equals), ":="
+	// (walrus), or a bare ":" — tried in that order so the longer forms win
+	// first. This also lets the value alternation start at the true value
+	// position instead of falling through to the unquoted branch at a stray
+	// "=". The value is either a quoted string, or a run of characters that
+	// must not itself start with a colon (so scope-resolution "::" as in
+	// Secret::Encrypt(data) or Token::DEFAULT_TTL is left alone — the bare
+	// ":" separator alternative would otherwise match the first colon and
+	// mistake the second for the start of a header value) and stops at a
 	// stray quote or newline, so a header embedded in a surrounding quoted
 	// argument (e.g. curl -H "Authorization: ...") doesn't swallow the
 	// closing quote and any trailing content.
-	headerRe = regexp.MustCompile(`(?i)(["']?)(` + secretKey + `)(["']?)\s*:=?\s*(?:` + quoted + `|[^"'\n]*)`)
+	headerRe = regexp.MustCompile(`(?i)(["']?)(` + secretKey + `)(["']?)\s*(?:::=|:=|:)\s*(?:` + quoted + `|[^"'\n:][^"'\n]*)`)
 )
 
 // Redact masks secret-shaped values in s and caps its length. Only the value

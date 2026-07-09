@@ -384,3 +384,59 @@ func TestRedact_BracketedKeyNoSpaceStillMasked(t *testing.T) {
 		t.Errorf("expected placeholder in output %q", out)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// WI-578 round 5 (team-lead ratified full scope): the "::=" make-operator leak
+// and the "::" scope-resolution over-redaction. Jointly closeable via an
+// ordered separator (::=|:=|:) plus forbidding the header value from starting
+// with a colon, so "::=" (has "=") masks while bare "::" (scope) does not.
+// ---------------------------------------------------------------------------
+
+func TestRedact_DoubleColonEqualsMasked(t *testing.T) {
+	out := Redact(`SECRET ::= "dcolonval"`)
+	if strings.Contains(out, "dcolonval") {
+		t.Errorf("secret value leaked in output %q", out)
+	}
+	if !strings.Contains(out, Placeholder) {
+		t.Errorf("expected placeholder in output %q", out)
+	}
+}
+
+// Scope-resolution "::" (C++/Ruby) is neither an assignment nor a header and
+// must pass through unchanged; the current header path over-redacts these to
+// "X: [REDACTED]". A false positive the "::=" fix must eliminate, not preserve.
+func TestRedact_ScopeResolutionNotRedacted(t *testing.T) {
+	cases := []struct{ name, input string }{
+		{"cpp scope call", `Secret::Encrypt(data)`},
+		{"lowercase scope method", `secret::method`},
+		{"token scope constant", `Token::DEFAULT_TTL`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			out := Redact(tc.input)
+			if out != tc.input {
+				t.Errorf("expected unchanged output for %q, got %q", tc.input, out)
+			}
+		})
+	}
+}
+
+// False-positive guards: a secret keyword mentioned in a search argument,
+// commit message, or prose is NOT an assignment/header and must pass through
+// unchanged. (Space-separated command forms like setx are a ratified out-of-
+// scope backlog item — no test either way here, per team-lead.)
+func TestRedact_AdjacentFalsePositivesUnchanged(t *testing.T) {
+	cases := []struct{ name, input string }{
+		{"grep for keyword with quoted arg", `grep API_KEY "results.txt"`},
+		{"commit message mentioning keyword", `git commit -m "add API_KEY validation"`},
+		{"keyword as prose inside quotes", `echo "rotate the token soon"`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			out := Redact(tc.input)
+			if out != tc.input {
+				t.Errorf("expected unchanged output for %q, got %q", tc.input, out)
+			}
+		})
+	}
+}
