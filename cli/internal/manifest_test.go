@@ -11,6 +11,10 @@ import (
 // Helpers
 // ---------------------------------------------------------------------------
 
+// NOTE (WI-579): the manifest filename is devtrack.yaml. devtrack.yaml is a legacy
+// name that must never be read; tests below that write devtrack.yaml assert it is
+// ignored.
+
 // writeFile creates a file at path with the given content.
 func writeFile(t *testing.T, path, content string) {
 	t.Helper()
@@ -25,7 +29,7 @@ func writeFile(t *testing.T, path, content string) {
 
 func TestReadManifest_AllFields(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "project.yaml")
+	path := filepath.Join(dir, "devtrack.yaml")
 	writeFile(t, path, `
 name: my-project
 workflow: sdlc
@@ -68,7 +72,7 @@ prd_path: prd/
 
 func TestReadManifest_OnlyRequiredFields(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "project.yaml")
+	path := filepath.Join(dir, "devtrack.yaml")
 	writeFile(t, path, `
 name: minimal-project
 `)
@@ -93,7 +97,7 @@ name: minimal-project
 }
 
 func TestReadManifest_MissingFile(t *testing.T) {
-	_, err := ReadManifest("/nonexistent/path/project.yaml")
+	_, err := ReadManifest("/nonexistent/path/devtrack.yaml")
 	if err == nil {
 		t.Fatal("expected error for missing file, got nil")
 	}
@@ -101,7 +105,7 @@ func TestReadManifest_MissingFile(t *testing.T) {
 
 func TestReadManifest_InvalidYAML(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "project.yaml")
+	path := filepath.Join(dir, "devtrack.yaml")
 	writeFile(t, path, `
 name: [bad yaml
   - unclosed bracket
@@ -116,7 +120,7 @@ workflow: :::
 
 func TestReadManifest_InvalidWorkflow(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "project.yaml")
+	path := filepath.Join(dir, "devtrack.yaml")
 	writeFile(t, path, "name: my-project\nworkflow: invalid\n")
 
 	_, err := ReadManifest(path)
@@ -127,7 +131,7 @@ func TestReadManifest_InvalidWorkflow(t *testing.T) {
 
 func TestReadManifest_MissingWorkflow(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "project.yaml")
+	path := filepath.Join(dir, "devtrack.yaml")
 	writeFile(t, path, "name: my-project\n")
 
 	m, err := ReadManifest(path)
@@ -141,7 +145,7 @@ func TestReadManifest_MissingWorkflow(t *testing.T) {
 
 func TestReadManifest_EmptyFile(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "project.yaml")
+	path := filepath.Join(dir, "devtrack.yaml")
 	writeFile(t, path, "")
 
 	_, err := ReadManifest(path)
@@ -156,7 +160,7 @@ func TestReadManifest_EmptyFile(t *testing.T) {
 
 func TestFindManifest_InCurrentDirectory(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "project.yaml"), "name: proj\nworkflow: sdlc\n")
+	writeFile(t, filepath.Join(dir, "devtrack.yaml"), "name: proj\nworkflow: sdlc\n")
 
 	origDir, err := os.Getwd()
 	if err != nil {
@@ -174,7 +178,7 @@ func TestFindManifest_InCurrentDirectory(t *testing.T) {
 	}
 	// Evaluate symlinks on both sides so paths agree on systems (e.g. macOS)
 	// where t.TempDir() returns a symlinked path but os.Getwd() resolves it.
-	want := filepath.Join(dir, "project.yaml")
+	want := filepath.Join(dir, "devtrack.yaml")
 	wantReal, _ := filepath.EvalSymlinks(want)
 	foundReal, _ := filepath.EvalSymlinks(found)
 	if foundReal != wantReal {
@@ -188,7 +192,7 @@ func TestFindManifest_InParentDirectory(t *testing.T) {
 	if err := os.Mkdir(child, 0o755); err != nil {
 		t.Fatalf("Mkdir: %v", err)
 	}
-	writeFile(t, filepath.Join(parent, "project.yaml"), "name: proj\nworkflow: sdlc\n")
+	writeFile(t, filepath.Join(parent, "devtrack.yaml"), "name: proj\nworkflow: sdlc\n")
 
 	origDir, err := os.Getwd()
 	if err != nil {
@@ -206,7 +210,7 @@ func TestFindManifest_InParentDirectory(t *testing.T) {
 	}
 	// Evaluate symlinks on both sides so paths agree on systems (e.g. macOS)
 	// where t.TempDir() returns a symlinked path but os.Getwd() resolves it.
-	want := filepath.Join(parent, "project.yaml")
+	want := filepath.Join(parent, "devtrack.yaml")
 	wantReal, _ := filepath.EvalSymlinks(want)
 	foundReal, _ := filepath.EvalSymlinks(found)
 	if foundReal != wantReal {
@@ -221,7 +225,7 @@ func TestFindManifest_InGrandparentDirectory(t *testing.T) {
 	if err := os.MkdirAll(grandchild, 0o755); err != nil {
 		t.Fatalf("MkdirAll: %v", err)
 	}
-	writeFile(t, filepath.Join(grandparent, "project.yaml"), "name: proj\nworkflow: sdlc\n")
+	writeFile(t, filepath.Join(grandparent, "devtrack.yaml"), "name: proj\nworkflow: sdlc\n")
 
 	origDir, err := os.Getwd()
 	if err != nil {
@@ -239,7 +243,7 @@ func TestFindManifest_InGrandparentDirectory(t *testing.T) {
 	}
 	// Evaluate symlinks on both sides so paths agree on systems (e.g. macOS)
 	// where t.TempDir() returns a symlinked path but os.Getwd() resolves it.
-	want := filepath.Join(grandparent, "project.yaml")
+	want := filepath.Join(grandparent, "devtrack.yaml")
 	wantReal, _ := filepath.EvalSymlinks(want)
 	foundReal, _ := filepath.EvalSymlinks(found)
 	if foundReal != wantReal {
@@ -248,10 +252,10 @@ func TestFindManifest_InGrandparentDirectory(t *testing.T) {
 }
 
 func TestFindManifest_NotFound(t *testing.T) {
-	// Use a temp dir with no project.yaml anywhere in its ancestry.
+	// Use a temp dir with no devtrack.yaml anywhere in its ancestry.
 	// We change cwd to a known-clean temp dir and run FindManifest from there.
 	// Because TempDir paths on most OSes are shallow, we build a deep tree
-	// inside TempDir that has no project.yaml.
+	// inside TempDir that has no devtrack.yaml.
 	base := t.TempDir()
 	deep := filepath.Join(base, "a", "b", "c")
 	if err := os.MkdirAll(deep, 0o755); err != nil {
@@ -270,7 +274,7 @@ func TestFindManifest_NotFound(t *testing.T) {
 
 	_, err = FindManifest()
 	if err == nil {
-		t.Fatal("expected error when no project.yaml exists in tree, got nil")
+		t.Fatal("expected error when no devtrack.yaml exists in tree, got nil")
 	}
 }
 
@@ -363,8 +367,8 @@ func TestResolveProjectID_APIError(t *testing.T) {
 
 func TestFindManifest_IgnoresDirectory(t *testing.T) {
 	dir := t.TempDir()
-	// Create a directory named project.yaml (not a file)
-	if err := os.Mkdir(filepath.Join(dir, "project.yaml"), 0o755); err != nil {
+	// Create a directory named devtrack.yaml (not a file)
+	if err := os.Mkdir(filepath.Join(dir, "devtrack.yaml"), 0o755); err != nil {
 		t.Fatalf("Mkdir: %v", err)
 	}
 
@@ -380,13 +384,13 @@ func TestFindManifest_IgnoresDirectory(t *testing.T) {
 
 	_, err = FindManifest()
 	if err == nil {
-		t.Fatal("expected error when project.yaml is a directory, got nil")
+		t.Fatal("expected error when devtrack.yaml is a directory, got nil")
 	}
 }
 
 func TestReadManifest_WhitespaceOnlyName(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "project.yaml")
+	path := filepath.Join(dir, "devtrack.yaml")
 	writeFile(t, path, "name: \"   \"\nworkflow: sdlc\n")
 
 	_, err := ReadManifest(path)
@@ -503,7 +507,7 @@ func TestFindProjectIDByName_CaseSensitive(t *testing.T) {
 
 func TestReadManifest_ContentPathAndDraftPath(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "project.yaml")
+	path := filepath.Join(dir, "devtrack.yaml")
 	writeFile(t, path, `
 name: my-project
 workflow: sdlc
@@ -525,7 +529,7 @@ draft_path: content/drafts
 
 func TestReadManifest_ContentPathAndDraftPathAbsent(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "project.yaml")
+	path := filepath.Join(dir, "devtrack.yaml")
 	writeFile(t, path, "name: minimal-project\n")
 
 	m, err := ReadManifest(path)
@@ -537,5 +541,152 @@ func TestReadManifest_ContentPathAndDraftPathAbsent(t *testing.T) {
 	}
 	if m.DraftPath != "" {
 		t.Errorf("DraftPath: expected empty when absent, got %q", m.DraftPath)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// WI-579: FindManifest resolves devtrack.yaml; project.yaml is not read
+//
+// The devtrack.yaml positive path (current dir / parent / grandparent) is
+// covered by the TestFindManifest_* cases above, whose fixtures now write
+// devtrack.yaml. This case pins the negative half of the hard cutover: a repo
+// that has only the legacy project.yaml must not resolve.
+// ---------------------------------------------------------------------------
+
+func TestFindManifest_IgnoresLegacyProjectYAML(t *testing.T) {
+	dir := t.TempDir()
+	// Only the legacy manifest exists — there is no devtrack.yaml.
+	writeFile(t, filepath.Join(dir, "project.yaml"), "name: legacy\nworkflow: sdlc\n")
+
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd: %v", err)
+	}
+	t.Cleanup(func() { os.Chdir(origDir) }) //nolint:errcheck
+
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("Chdir: %v", err)
+	}
+
+	if _, err := FindManifest(); err == nil {
+		t.Fatal("expected FindManifest to ignore project.yaml and return an error, got nil")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// WI-579: ResolveIdentity — devtrack.yaml -> git remote -> folder-name chain
+//
+// Contract (defined here, implemented in manifest.go):
+//
+//	type Identity struct { Name string; RepoURL string }
+//	func ResolveIdentity(dir string, getGitURL func() (string, error)) (Identity, error)
+//
+// Resolution order for the repo rooted at dir:
+//  1. dir/devtrack.yaml if present -> {Name, RepoURL} from the manifest
+//  2. else getGitURL() when it succeeds and is non-empty -> {derived name,
+//     normalized URL} (trailing slash and .git stripped)
+//  3. else -> {lowercased folder name, ""}; never returns an error in this case
+//
+// getGitURL is injected so tests need not spawn a real `git`.
+// ---------------------------------------------------------------------------
+
+// failGitURL simulates a repo with no 'origin' remote.
+func failGitURL() (string, error) {
+	return "", errors.New("no remote origin")
+}
+
+func TestResolveIdentity_FromDevtrackYAML(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "devtrack.yaml"),
+		"name: manifest-name\nworkflow: sdlc\nrepo_url: https://github.com/example/manifest-repo\n")
+	// A legacy project.yaml with a different identity must be ignored entirely.
+	writeFile(t, filepath.Join(dir, "project.yaml"),
+		"name: legacy-name\nworkflow: sdlc\nrepo_url: https://github.com/example/legacy\n")
+
+	// A distinct git URL: if the manifest did not short-circuit, the assertions
+	// below would surface the git-derived identity instead.
+	gitURL := func() (string, error) { return "https://github.com/example/git-derived", nil }
+
+	id, err := ResolveIdentity(dir, gitURL)
+	if err != nil {
+		t.Fatalf("ResolveIdentity returned unexpected error: %v", err)
+	}
+	if id.Name != "manifest-name" {
+		t.Errorf("Name: got %q, want %q", id.Name, "manifest-name")
+	}
+	if id.RepoURL != "https://github.com/example/manifest-repo" {
+		t.Errorf("RepoURL: got %q, want %q", id.RepoURL, "https://github.com/example/manifest-repo")
+	}
+}
+
+func TestResolveIdentity_FromGitRemote(t *testing.T) {
+	cases := []struct {
+		name     string
+		remote   string
+		wantURL  string
+		wantName string
+	}{
+		{"strips .git suffix", "https://github.com/example/my-project.git", "https://github.com/example/my-project", "my-project"},
+		{"strips trailing slash", "https://github.com/example/my-project/", "https://github.com/example/my-project", "my-project"},
+		{"plain url", "https://github.com/example/my-project", "https://github.com/example/my-project", "my-project"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir() // no manifest present
+			gitURL := func() (string, error) { return tc.remote, nil }
+
+			id, err := ResolveIdentity(dir, gitURL)
+			if err != nil {
+				t.Fatalf("ResolveIdentity returned unexpected error: %v", err)
+			}
+			if id.RepoURL != tc.wantURL {
+				t.Errorf("RepoURL: got %q, want %q", id.RepoURL, tc.wantURL)
+			}
+			if id.Name != tc.wantName {
+				t.Errorf("Name: got %q, want %q", id.Name, tc.wantName)
+			}
+		})
+	}
+}
+
+func TestResolveIdentity_FallsBackToFolderName(t *testing.T) {
+	base := t.TempDir()
+	dir := filepath.Join(base, "My-Local-Repo")
+	if err := os.Mkdir(dir, 0o755); err != nil {
+		t.Fatalf("Mkdir: %v", err)
+	}
+	// No manifest and no git remote: local-only repo.
+	id, err := ResolveIdentity(dir, failGitURL)
+	if err != nil {
+		t.Fatalf("ResolveIdentity must not error for a local-only repo, got: %v", err)
+	}
+	if id.Name != "my-local-repo" {
+		t.Errorf("Name: got %q, want %q (folder name lowercased)", id.Name, "my-local-repo")
+	}
+	if id.RepoURL != "" {
+		t.Errorf("RepoURL: got %q, want empty string for a local-only repo", id.RepoURL)
+	}
+}
+
+func TestResolveIdentity_IgnoresLegacyProjectYAML(t *testing.T) {
+	base := t.TempDir()
+	dir := filepath.Join(base, "Repo-Folder")
+	if err := os.Mkdir(dir, 0o755); err != nil {
+		t.Fatalf("Mkdir: %v", err)
+	}
+	// Only a legacy project.yaml exists and there is no git remote. project.yaml
+	// must be ignored, so identity falls through to the folder name rather than
+	// resolving the name declared inside project.yaml.
+	writeFile(t, filepath.Join(dir, "project.yaml"), "name: legacy-name\nworkflow: sdlc\n")
+
+	id, err := ResolveIdentity(dir, failGitURL)
+	if err != nil {
+		t.Fatalf("ResolveIdentity returned unexpected error: %v", err)
+	}
+	if id.Name == "legacy-name" {
+		t.Fatal("project.yaml was read — expected it to be ignored entirely")
+	}
+	if id.Name != "repo-folder" {
+		t.Errorf("Name: got %q, want %q (folder fallback; project.yaml ignored)", id.Name, "repo-folder")
 	}
 }

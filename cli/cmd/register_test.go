@@ -64,17 +64,17 @@ func (f *fakeProjectAPI) UpdateProject(id string, body map[string]interface{}) (
 // Helpers
 // ---------------------------------------------------------------------------
 
-// writeManifest creates a project.yaml in dir with the given content.
+// writeManifest creates a devtrack.yaml in dir with the given content.
 func writeManifest(t *testing.T, dir, content string) string {
 	t.Helper()
-	path := filepath.Join(dir, "project.yaml")
+	path := filepath.Join(dir, "devtrack.yaml")
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("writeManifest: %v", err)
 	}
 	return path
 }
 
-// validManifestContent is a minimal valid project.yaml.
+// validManifestContent is a minimal valid devtrack.yaml.
 const validManifestContent = `
 name: my-project
 workflow: sdlc
@@ -156,14 +156,14 @@ func TestRegister_UpdatesExistingProject(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // TestRegister_MissingManifest verifies that a clear error is returned when the
-// project.yaml file does not exist.
+// devtrack.yaml file does not exist.
 func TestRegister_MissingManifest(t *testing.T) {
 	api := &fakeProjectAPI{}
 	var out bytes.Buffer
 
-	err := runRegister("/nonexistent/path/project.yaml", api, false, &out)
+	err := runRegister("/nonexistent/path/devtrack.yaml", api, false, &out)
 	if err == nil {
-		t.Fatal("expected error for missing project.yaml, got nil")
+		t.Fatal("expected error for missing devtrack.yaml, got nil")
 	}
 	if api.createCalled || api.updateCalled {
 		t.Error("expected no API calls when manifest is missing")
@@ -171,7 +171,7 @@ func TestRegister_MissingManifest(t *testing.T) {
 }
 
 // TestRegister_InvalidManifest verifies that a clear error is returned when the
-// project.yaml exists but is missing required fields (e.g., name).
+// devtrack.yaml exists but is missing required fields (e.g., name).
 func TestRegister_InvalidManifest(t *testing.T) {
 	dir := t.TempDir()
 	// workflow is present but name is missing — should fail validation

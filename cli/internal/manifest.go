@@ -3,13 +3,18 @@ package internal
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
 	"gopkg.in/yaml.v3"
 )
 
-// Manifest represents the contents of a project.yaml file.
+// ManifestFilename is the name of the manifest file resolved by FindManifest.
+// project.yaml is a legacy name and is never read.
+const ManifestFilename = "devtrack.yaml"
+
+// Manifest represents the contents of a devtrack.yaml file.
 type Manifest struct {
 	Name        string   `yaml:"name"`
 	Workflow    string   `yaml:"workflow"`
@@ -35,7 +40,7 @@ type ProjectSummary struct {
 	RepoURL string `json:"repo_url"`
 }
 
-// ReadManifest reads and parses the project.yaml at the given path.
+// ReadManifest reads and parses the manifest file at the given path.
 // It returns an error if the file does not exist, contains invalid YAML,
 // or is empty (no name field).
 func ReadManifest(path string) (*Manifest, error) {
@@ -63,8 +68,9 @@ func ReadManifest(path string) (*Manifest, error) {
 }
 
 // FindManifest walks up the directory tree from the current working directory
-// looking for a project.yaml file. It returns the absolute path of the first
+// looking for a devtrack.yaml file. It returns the absolute path of the first
 // match, or an error if none is found before reaching the filesystem root.
+// project.yaml (the legacy manifest name) is never read.
 func FindManifest() (string, error) {
 	dir, err := os.Getwd()
 	if err != nil {
@@ -72,7 +78,7 @@ func FindManifest() (string, error) {
 	}
 
 	for {
-		candidate := filepath.Join(dir, "project.yaml")
+		candidate := filepath.Join(dir, ManifestFilename)
 		if fi, err := os.Stat(candidate); err == nil && !fi.IsDir() {
 			return candidate, nil
 		}
@@ -80,10 +86,44 @@ func FindManifest() (string, error) {
 		parent := filepath.Dir(dir)
 		if parent == dir {
 			// Reached the filesystem root with no match.
-			return "", fmt.Errorf("project.yaml not found in %q or any parent directory", dir)
+			return "", fmt.Errorf("%s not found in %q or any parent directory", ManifestFilename, dir)
 		}
 		dir = parent
 	}
+}
+
+// Identity is a project's resolved name and (optional) repo URL.
+type Identity struct {
+	Name    string
+	RepoURL string
+}
+
+// ResolveIdentity resolves a project's identity for the repo rooted at dir
+// without requiring a manifest to be present. Resolution order:
+//  1. dir/devtrack.yaml, if present -> {manifest.Name, manifest.RepoURL}
+//  2. else getGitURL(), when it succeeds and returns a non-empty URL ->
+//     {name derived from the last path segment of the normalized URL,
+//     normalized URL}
+//  3. else -> {lowercased folder name, ""}
+//
+// Only step 1 can return an error (a malformed devtrack.yaml); steps 2 and 3
+// never fail, so a repo with no manifest and no git remote still resolves.
+func ResolveIdentity(dir string, getGitURL func() (string, error)) (Identity, error) {
+	manifestPath := filepath.Join(dir, ManifestFilename)
+	if fi, err := os.Stat(manifestPath); err == nil && !fi.IsDir() {
+		m, err := ReadManifest(manifestPath)
+		if err != nil {
+			return Identity{}, err
+		}
+		return Identity{Name: m.Name, RepoURL: m.RepoURL}, nil
+	}
+
+	if url, err := getGitURL(); err == nil && url != "" {
+		normalized := normalizeRepoURL(url)
+		return Identity{Name: path.Base(normalized), RepoURL: normalized}, nil
+	}
+
+	return Identity{Name: strings.ToLower(filepath.Base(dir)), RepoURL: ""}, nil
 }
 
 // normalizeRepoURL strips trailing slashes and .git suffix for comparison.

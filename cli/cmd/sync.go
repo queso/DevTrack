@@ -1,7 +1,7 @@
 package cmd
 
 // swagger-jack:custom:start sync
-// This file implements the `devtrack sync` command, which reads a project.yaml
+// This file implements the `devtrack sync` command, which reads a devtrack.yaml
 // from the current directory, resolves the project ID via the API, and triggers
 // a server-side pull-request sync for that project.
 // swagger-jack:custom:end
@@ -281,7 +281,7 @@ func writeSyncOutput(out io.Writer, projectID string, body []byte, prdCount int,
 var syncCmd = &cobra.Command{
 	Use:   "sync",
 	Short: "Sync pull requests for the current project",
-	Long:  "Reads project.yaml from the current directory and triggers a server-side pull-request sync.",
+	Long:  "Reads devtrack.yaml from the current directory and triggers a server-side pull-request sync.",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		manifestPath, err := internal.FindManifest()
