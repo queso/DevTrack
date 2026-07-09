@@ -323,3 +323,35 @@ func TestEventCommand_RoutesThroughSendEvent(t *testing.T) {
 		t.Errorf("event command bypassed identity resolution — repo_url %v", body["repo_url"])
 	}
 }
+
+// AC (Lynch): --project-yaml, when given, is honored — identity resolves from
+// THAT explicit manifest (ReadManifest), overriding the automatic chain. Here
+// the cwd devtrack.yaml would resolve to acme-widgets, but an explicit
+// --project-yaml points at a different manifest whose identity must win.
+func TestEventCommand_HonorsExplicitProjectYAML(t *testing.T) {
+	cap := setupEventCapture(t, acmeManifest) // cwd chain would resolve acme-widgets
+
+	explicitDir := t.TempDir()
+	explicitPath := filepath.Join(explicitDir, "explicit.yaml")
+	writeYAML(t, explicitPath, "name: other-project\nrepo_url: https://github.com/other-org/other\n")
+
+	eventCmdType = "commit"
+	eventCmdMessage = "did a thing"
+	eventCmdMetadata = ""
+	eventCmdProjectYAML = explicitPath
+	eventCmdQuiet = true
+	t.Cleanup(func() {
+		eventCmdType, eventCmdMessage, eventCmdProjectYAML, eventCmdQuiet = "", "", "", false
+	})
+
+	if err := eventCmd.RunE(eventCmd, nil); err != nil {
+		t.Fatalf("event RunE: %v", err)
+	}
+	body := cap.decode(t)
+	if body["project_name"] != "other-project" {
+		t.Errorf("project_name: got %v, want the explicit manifest's name — --project-yaml not honored", body["project_name"])
+	}
+	if body["repo_url"] != "https://github.com/other-org/other" {
+		t.Errorf("repo_url: got %v, want the explicit manifest's repo_url — --project-yaml not honored", body["repo_url"])
+	}
+}

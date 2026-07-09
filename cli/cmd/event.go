@@ -80,8 +80,17 @@ func sendEvent(eventType, title string, metadata map[string]interface{}) error {
 	}
 	apiType := mapEventType(eventType)
 
-	dir, _ := os.Getwd()
-	identity, _ := internal.ResolveIdentity(dir, defaultGetGitURL)
+	var identity internal.Identity
+	if eventCmdProjectYAML != "" {
+		m, err := internal.ReadManifest(eventCmdProjectYAML)
+		if err != nil {
+			return fmt.Errorf("reading project manifest: %w", err)
+		}
+		identity = internal.Identity{Name: m.Name, RepoURL: m.RepoURL}
+	} else {
+		dir, _ := os.Getwd()
+		identity, _ = internal.ResolveIdentity(dir, defaultGetGitURL)
+	}
 
 	bodyMap := map[string]interface{}{
 		"type":        apiType,
