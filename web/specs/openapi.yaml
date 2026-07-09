@@ -116,6 +116,9 @@ components:
         - push
         - session_start
         - session_end
+        - tool_use
+        - checkout
+        - merge
 
     # -------------------------------------------------------------------------
     # Project

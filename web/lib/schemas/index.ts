@@ -61,6 +61,9 @@ const eventTypeEnum = z.enum([
   "session_end",
   "pr_reviewed",
   "prd_synced",
+  "tool_use",
+  "checkout",
+  "merge",
 ])
 
 // ---------------------------------------------------------------------------
