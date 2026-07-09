@@ -196,12 +196,14 @@ export const prListQuerySchema = paginationQuerySchema.extend({
 // Event
 // ---------------------------------------------------------------------------
 
-// A project may be identified by UUID (project_id) or by unique name
-// (project_name). Name resolution keeps the CLI/git-hook flow simple: hooks read
-// the project name from project.yaml and never need to know the UUID.
+// A project may be identified by UUID (project_id), by unique name
+// (project_name), or by repo_url (find-or-create by repo identity). Name
+// resolution keeps the CLI/git-hook flow simple: hooks read the project name
+// from devtrack.yaml and never need to know the UUID.
 const createEventBaseSchema = z.object({
   project_id: z.string().uuid().optional(),
   project_name: z.string().min(1).optional(),
+  repo_url: z.string().url().optional(),
   prd_id: z.string().uuid().optional().nullable(),
   pull_request_id: z.string().uuid().optional().nullable(),
   type: eventTypeEnum,
@@ -212,8 +214,11 @@ const createEventBaseSchema = z.object({
 })
 
 export const createEventSchema = createEventBaseSchema.refine(
-  (d) => Boolean(d.project_id) || Boolean(d.project_name),
-  { message: "Either project_id or project_name is required", path: ["project_id"] },
+  (d) => Boolean(d.project_id) || Boolean(d.project_name) || Boolean(d.repo_url),
+  {
+    message: "Either project_id, project_name, or repo_url is required",
+    path: ["project_id"],
+  },
 )
 
 export const eventResponseSchema = createEventBaseSchema.extend({

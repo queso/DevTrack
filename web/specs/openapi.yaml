@@ -390,11 +390,16 @@ components:
     # -------------------------------------------------------------------------
     CreateEvent:
       type: object
-      required: [project_id, type, title, occurred_at]
+      required: [type, occurred_at]
       properties:
         project_id:
           type: string
           format: uuid
+        project_name:
+          type: string
+        repo_url:
+          type: string
+          format: uri
         prd_id:
           type: string
           format: uuid
