@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { parse as parseYaml } from "yaml"
+import { Prisma } from "@/lib/generated/prisma/client"
 
 // ---------------------------------------------------------------------------
 // Mocks — real zod validation and real route logic run; only env, logger, db,
@@ -239,5 +240,69 @@ describe("event identity schema surface", () => {
     expect(createEvent.properties).toHaveProperty("repo_url")
     expect(createEvent.properties).toHaveProperty("project_name")
     expect(createEvent.required ?? []).not.toContain("project_id")
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Amy's rejection: project.create() is not wrapped like event.create(), so a
+// P2002 unique-constraint violation on the derived name escapes the handler as
+// an uncaught exception instead of the codebase's P2002 -> 409 convention. Two
+// triggers, one bug: (1) two different repo_urls whose derived basename
+// collides on the @unique name, and (2) a concurrent race on the same brand-new
+// repo_url. The fix must handle both without wrong-attaching across repos.
+// ---------------------------------------------------------------------------
+
+function p2002OnName(): Prisma.PrismaClientKnownRequestError {
+  return new Prisma.PrismaClientKnownRequestError("Unique constraint failed on the fields: (`name`)", {
+    code: "P2002",
+    clientVersion: "test",
+    meta: { target: ["name"] },
+  })
+}
+
+describe("POST /api/v1/events project-create conflict handling (P2002)", () => {
+  it("returns a handled 409 (not an uncaught throw) when the derived name collides with a different repo's project", async () => {
+    // A project named "widgets" already exists — for a DIFFERENT repo_url.
+    projectStore = [
+      { id: "other", name: "widgets", repoUrl: "https://github.com/other-org/widgets" },
+    ]
+    // Our request derives name "widgets" from acme/widgets and has no name of
+    // its own. repo_url lookup misses (different repo), so create() is attempted
+    // and hits the unique-name constraint.
+    mockPrisma.project.create.mockRejectedValue(p2002OnName())
+
+    const { POST } = await import("@/app/api/v1/events/route")
+    const response = await POST(
+      postRequest({ repo_url: "https://github.com/acme/widgets", type: "commit", occurred_at: TS, title: "x" }),
+    )
+
+    expect(response.status).toBe(409)
+    // Must NOT wrong-attach to the other repo's project.
+    expect(mockPrisma.event.create).not.toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ projectId: "other" }) }),
+    )
+  })
+
+  it("attaches to the race winner's project (201) when a concurrent create loses the name race for the same repo_url", async () => {
+    const RACE_REPO = "https://github.com/acme/widgets"
+    projectStore = [] // nothing exists at first lookup
+
+    // Simulate the winner committing the same-repo project just before our
+    // create, so our insert loses on the unique name and a re-lookup by
+    // repo_url now finds theirs.
+    mockPrisma.project.create.mockImplementation(() => {
+      projectStore.push({ id: "winner", name: "widgets", repoUrl: RACE_REPO })
+      return Promise.reject(p2002OnName())
+    })
+
+    const { POST } = await import("@/app/api/v1/events/route")
+    const response = await POST(
+      postRequest({ repo_url: RACE_REPO, type: "commit", occurred_at: TS, title: "x" }),
+    )
+
+    expect(response.status).toBe(201)
+    expect(mockPrisma.event.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ projectId: "winner" }) }),
+    )
   })
 })

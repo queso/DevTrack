@@ -100,13 +100,31 @@ export async function POST(request: Request) {
     if (project) projectId = project.id
   }
   if (!projectId) {
-    const created = await prisma.project.create({
-      data: {
-        name: project_name ?? deriveNameFromRepoUrl(repo_url),
-        ...(repo_url ? { repoUrl: repo_url } : {}),
-      },
-    })
-    projectId = created.id
+    try {
+      const created = await prisma.project.create({
+        data: {
+          name: project_name ?? deriveNameFromRepoUrl(repo_url),
+          ...(repo_url ? { repoUrl: repo_url } : {}),
+        },
+      })
+      projectId = created.id
+    } catch (error) {
+      const handled = handlePrismaError(error)
+      if (!handled) throw error
+
+      // A concurrent request may have won the create race for the same
+      // identity — re-resolve by repo_url (or name) before giving up. Only
+      // attach when the winner matches our own identity; a name collision
+      // with a different repo must not be wrong-attached, so it returns the
+      // handled conflict response instead.
+      const winner = repo_url
+        ? await prisma.project.findFirst({ where: { repoUrl: repo_url } })
+        : project_name
+          ? await prisma.project.findFirst({ where: { name: project_name } })
+          : null
+      if (!winner) return handled
+      projectId = winner.id
+    }
   }
 
   // Backfill a human-readable title from the event type when none is supplied
