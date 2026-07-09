@@ -241,6 +241,22 @@ describe("event identity schema surface", () => {
     expect(createEvent.properties).toHaveProperty("project_name")
     expect(createEvent.required ?? []).not.toContain("project_id")
   })
+
+  it("served openapi.json createEvent request body matches the yaml CreateEvent contract", async () => {
+    const { GET } = await import("@/app/api/v1/openapi.json/route")
+    const res = await GET()
+    const doc = await res.json()
+
+    const createEvent = doc.components.schemas.CreateEvent
+    expect(createEvent).toBeDefined()
+    expect(createEvent.required).toEqual(["type", "occurred_at"])
+    expect(createEvent.properties).toHaveProperty("repo_url")
+    expect(createEvent.properties).toHaveProperty("project_name")
+    expect(createEvent.required ?? []).not.toContain("project_id")
+
+    const body = doc.paths["/api/v1/events"].post.requestBody.content["application/json"].schema
+    expect(body.$ref).toBe("#/components/schemas/CreateEvent")
+  })
 })
 
 // ---------------------------------------------------------------------------

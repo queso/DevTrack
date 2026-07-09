@@ -11,9 +11,9 @@ import (
 
 	"devtrack/internal"
 
-	"github.com/spf13/cobra"
 	"devtrack/internal/client"
 	"devtrack/internal/redact"
+	"github.com/spf13/cobra"
 )
 
 // validEventTypes lists the user-facing event type names accepted by the
@@ -124,7 +124,7 @@ func sendEvent(eventType, title string, metadata map[string]interface{}) error {
 var eventCmd = &cobra.Command{
 	Use:   "event",
 	Short: "Record a developer event",
-	Long:  "Record a developer event (commit, push, session-start, session-end, prd-updated) against a project.",
+	Long:  "Record a developer event (commit, push, session-start, session-end, prd-updated, tool_use, checkout, merge) against a project. Project identity resolves through devtrack.yaml, the git remote URL, or the folder name.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var metadata map[string]interface{}
 		if eventCmdMetadata != "" {
@@ -148,10 +148,10 @@ var eventCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(eventCmd)
-	eventCmd.Flags().StringVar(&eventCmdType, "type", "", "Event type (commit|push|session-start|session-end|prd-updated)")
+	eventCmd.Flags().StringVar(&eventCmdType, "type", "", "Event type (commit|push|session-start|session-end|prd-updated|tool_use|checkout|merge)")
 	eventCmd.Flags().StringVar(&eventCmdMessage, "message", "", "Human-readable description of the event")
 	eventCmd.Flags().StringVar(&eventCmdMetadata, "metadata", "", "Optional JSON metadata string")
-	eventCmd.Flags().StringVar(&eventCmdProjectYAML, "project-yaml", "", "Path to project.yaml to resolve the project")
+	eventCmd.Flags().StringVar(&eventCmdProjectYAML, "project-yaml", "", "Explicit path to a devtrack.yaml manifest (optional; overrides the identity chain)")
 	eventCmd.Flags().BoolVar(&eventCmdQuiet, "quiet", false, "Suppress output")
 }
 

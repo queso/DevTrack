@@ -20,8 +20,8 @@ type Manifest struct {
 	Workflow    string   `yaml:"workflow"`
 	Domain      string   `yaml:"domain"`
 	Tags        []string `yaml:"tags"`
-	RepoURL    string   `yaml:"repo_url"`
-	MainBranch string   `yaml:"main_branch"`
+	RepoURL     string   `yaml:"repo_url"`
+	MainBranch  string   `yaml:"main_branch"`
 	PrdPath     string   `yaml:"prd_path"`
 	ContentPath string   `yaml:"content_path"`
 	DraftPath   string   `yaml:"draft_path"`

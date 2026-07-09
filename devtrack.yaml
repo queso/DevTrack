@@ -1,0 +1,5 @@
+name: devtrack
+workflow: sdlc
+domain: Infrastructure
+repo_url: https://github.com/queso/DevTrack
+main_branch: main
