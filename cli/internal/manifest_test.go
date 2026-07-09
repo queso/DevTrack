@@ -692,6 +692,87 @@ func TestResolveIdentity_IgnoresLegacyProjectYAML(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// RetroLearning #15: a malformed devtrack.yaml must not zero the identity.
+//
+// ReadManifest returns a non-nil error only when dir/devtrack.yaml exists but is
+// malformed (bad YAML, empty name, invalid fields). Previously ResolveIdentity
+// propagated that error and returned the zero Identity, which upstream dropped
+// every event for the repo (server 422, swallowed by the hook's `|| true`). The
+// resolution chain must instead degrade gracefully: a corrupt manifest falls
+// through to the git remote, then the folder name — exactly the file the silent
+// bootstrap invites users to hand-edit.
+// ---------------------------------------------------------------------------
+
+// corruptManifest is malformed YAML that ReadManifest rejects (see
+// TestReadManifest_InvalidYAML, which pins this same shape as an error).
+const corruptManifest = "name: [bad yaml\n  - unclosed bracket\nworkflow: :::\n"
+
+func TestResolveIdentity_CorruptManifestFallsThroughToGit(t *testing.T) {
+	base := t.TempDir()
+	dir := filepath.Join(base, "Widgets-Repo")
+	if err := os.Mkdir(dir, 0o755); err != nil {
+		t.Fatalf("Mkdir: %v", err)
+	}
+	writeFile(t, filepath.Join(dir, "devtrack.yaml"), corruptManifest)
+
+	gitURL := func() (string, error) { return "https://github.com/example/my-project.git", nil }
+
+	id, err := ResolveIdentity(dir, gitURL)
+	if err != nil {
+		t.Fatalf("ResolveIdentity must not surface an error for a corrupt manifest, got: %v", err)
+	}
+	if id.RepoURL != "https://github.com/example/my-project" {
+		t.Errorf("RepoURL: got %q, want the git-derived URL (corrupt manifest must fall through, not zero the identity)", id.RepoURL)
+	}
+	if id.Name != "my-project" {
+		t.Errorf("Name: got %q, want %q (git-derived; corrupt manifest must fall through)", id.Name, "my-project")
+	}
+}
+
+func TestResolveIdentity_CorruptManifestFallsThroughToFolderName(t *testing.T) {
+	base := t.TempDir()
+	dir := filepath.Join(base, "Local-Only-Repo")
+	if err := os.Mkdir(dir, 0o755); err != nil {
+		t.Fatalf("Mkdir: %v", err)
+	}
+	writeFile(t, filepath.Join(dir, "devtrack.yaml"), corruptManifest)
+
+	// Corrupt manifest and no git remote: identity must still resolve to the
+	// folder name rather than the zero value.
+	id, err := ResolveIdentity(dir, failGitURL)
+	if err != nil {
+		t.Fatalf("ResolveIdentity must not surface an error for a corrupt manifest, got: %v", err)
+	}
+	if id.Name != "local-only-repo" {
+		t.Errorf("Name: got %q, want %q (folder fallback; corrupt manifest + no git remote)", id.Name, "local-only-repo")
+	}
+	if id.RepoURL != "" {
+		t.Errorf("RepoURL: got %q, want empty string (no git remote)", id.RepoURL)
+	}
+}
+
+// A hand-edited manifest that blanks the required name is malformed too; it must
+// degrade the same way rather than dropping into the zero identity.
+func TestResolveIdentity_EmptyNameManifestFallsThroughToGit(t *testing.T) {
+	base := t.TempDir()
+	dir := filepath.Join(base, "Repo-Folder")
+	if err := os.Mkdir(dir, 0o755); err != nil {
+		t.Fatalf("Mkdir: %v", err)
+	}
+	writeFile(t, filepath.Join(dir, "devtrack.yaml"), "name: \"\"\nworkflow: sdlc\n")
+
+	gitURL := func() (string, error) { return "https://github.com/example/my-project", nil }
+
+	id, err := ResolveIdentity(dir, gitURL)
+	if err != nil {
+		t.Fatalf("ResolveIdentity must not surface an error for an empty-name manifest, got: %v", err)
+	}
+	if id.Name != "my-project" || id.RepoURL != "https://github.com/example/my-project" {
+		t.Errorf("got %+v, want git-derived identity for my-project (empty-name manifest must fall through)", id)
+	}
+}
+
+// ---------------------------------------------------------------------------
 // WI-582: BootstrapManifest — silent, write-once devtrack.yaml writer.
 // Contract:
 //

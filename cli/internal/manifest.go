@@ -100,22 +100,28 @@ type Identity struct {
 
 // ResolveIdentity resolves a project's identity for the repo rooted at dir
 // without requiring a manifest to be present. Resolution order:
-//  1. dir/devtrack.yaml, if present -> {manifest.Name, manifest.RepoURL}
+//  1. dir/devtrack.yaml, if present and valid -> {manifest.Name, manifest.RepoURL}
 //  2. else getGitURL(), when it succeeds and returns a non-empty URL ->
 //     {name derived from the last path segment of the normalized URL,
 //     normalized URL}
 //  3. else -> {lowercased folder name, ""}
 //
-// Only step 1 can return an error (a malformed devtrack.yaml); steps 2 and 3
-// never fail, so a repo with no manifest and no git remote still resolves.
+// It never returns an error: a malformed devtrack.yaml (bad YAML, empty name,
+// invalid fields) is treated as absent and falls through to the git remote and
+// then the folder name, so the identity chain degrades gracefully and an event
+// is never dropped for the very file the silent bootstrap invites users to edit
+// (RetroLearning #15). The error return is retained for API compatibility with
+// existing callers; it is always nil. Write-once bootstrap protection does not
+// depend on this error — BootstrapManifest independently refuses to overwrite an
+// existing (even corrupt) manifest via its own os.Stat check.
 func ResolveIdentity(dir string, getGitURL func() (string, error)) (Identity, error) {
 	manifestPath := filepath.Join(dir, ManifestFilename)
 	if fi, err := os.Stat(manifestPath); err == nil && !fi.IsDir() {
-		m, err := ReadManifest(manifestPath)
-		if err != nil {
-			return Identity{}, err
+		// A readable, valid manifest wins. A malformed one falls through to the
+		// rest of the chain rather than zeroing the identity.
+		if m, err := ReadManifest(manifestPath); err == nil {
+			return Identity{Name: m.Name, RepoURL: m.RepoURL}, nil
 		}
-		return Identity{Name: m.Name, RepoURL: m.RepoURL}, nil
 	}
 
 	if url, err := getGitURL(); err == nil && url != "" {

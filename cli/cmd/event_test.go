@@ -359,6 +359,39 @@ func TestEventCommand_HonorsExplicitProjectYAML(t *testing.T) {
 	}
 }
 
+// RetroLearning #15: a corrupt devtrack.yaml in the cwd must not drop the event.
+// Before the fix, ResolveIdentity propagated the manifest parse error and
+// returned the zero Identity, so the POST carried neither project_name nor
+// repo_url — the server 422'd and the hook's `|| true` swallowed it, silently
+// losing every event from the repo. The chain must fall through to the folder
+// name, so the body still carries a project_name.
+func TestSendEvent_CorruptManifestStillPostsWithFallbackIdentity(t *testing.T) {
+	t.Setenv("DEVTRACK_NO_BOOTSTRAP", "1") // don't rewrite the (corrupt) manifest
+	cap := setupEventCapture(t, "name: [bad yaml\n  - unclosed bracket\nworkflow: :::\n")
+
+	if err := sendEvent("commit", "did a thing", nil); err != nil {
+		t.Fatalf("sendEvent must not fail on a corrupt manifest: %v", err)
+	}
+
+	if cap.path != "/events" {
+		t.Errorf("POST path: got %q, want /events (the event must still be sent)", cap.path)
+	}
+	body := cap.decode(t)
+	name, _ := body["project_name"].(string)
+	if name == "" {
+		t.Fatalf("project_name missing/empty — corrupt manifest dropped the identity; body: %s", string(cap.body))
+	}
+	// With no git remote in the temp cwd, the fallback is the lowercased folder
+	// name; assert it matches so the identity is the real fallback, not noise.
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd: %v", err)
+	}
+	if want := strings.ToLower(filepath.Base(cwd)); name != want {
+		t.Errorf("project_name: got %q, want %q (folder-name fallback)", name, want)
+	}
+}
+
 // WI-582 (trigger wiring): sending an event from a manifest-less repo writes a
 // devtrack.yaml at the repo root (bootstrap), and the event is still sent.
 func TestSendEvent_BootstrapsManifestWhenAbsent(t *testing.T) {
