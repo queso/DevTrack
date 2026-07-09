@@ -90,6 +90,12 @@ func sendEvent(eventType, title string, metadata map[string]interface{}) error {
 	} else {
 		dir, _ := os.Getwd()
 		identity, _ = internal.ResolveIdentity(dir, defaultGetGitURL)
+		// Silently bootstrap a devtrack.yaml so future runs (and other
+		// tools) resolve the same identity without re-deriving it. Fire-
+		// and-forget: write-once and the opt-out are handled inside the
+		// writer, and any failure (read-only checkout, racing write) must
+		// never block the event itself.
+		_ = internal.BootstrapManifest(dir, identity)
 	}
 
 	bodyMap := map[string]interface{}{

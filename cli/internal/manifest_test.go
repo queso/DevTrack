@@ -317,9 +317,9 @@ func TestResolveProjectID_MatchByRepoURL(t *testing.T) {
 		},
 	}
 	manifest := &Manifest{
-		Name:    "different-local-name",
+		Name:     "different-local-name",
 		Workflow: "sdlc",
-		RepoURL: "https://github.com/example/my-project",
+		RepoURL:  "https://github.com/example/my-project",
 	}
 
 	id, err := ResolveProjectID(lister, manifest)
@@ -338,9 +338,9 @@ func TestResolveProjectID_NoMatch(t *testing.T) {
 		},
 	}
 	manifest := &Manifest{
-		Name:    "my-project",
+		Name:     "my-project",
 		Workflow: "sdlc",
-		RepoURL: "https://github.com/example/my-project",
+		RepoURL:  "https://github.com/example/my-project",
 	}
 
 	_, err := ResolveProjectID(lister, manifest)
@@ -406,9 +406,9 @@ func TestResolveProjectID_MatchByRepoURLWithGitSuffix(t *testing.T) {
 		},
 	}
 	manifest := &Manifest{
-		Name:    "different-name",
+		Name:     "different-name",
 		Workflow: "sdlc",
-		RepoURL: "https://github.com/example/my-project",
+		RepoURL:  "https://github.com/example/my-project",
 	}
 
 	id, err := ResolveProjectID(lister, manifest)
@@ -688,5 +688,115 @@ func TestResolveIdentity_IgnoresLegacyProjectYAML(t *testing.T) {
 	}
 	if id.Name != "repo-folder" {
 		t.Errorf("Name: got %q, want %q (folder fallback; project.yaml ignored)", id.Name, "repo-folder")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// WI-582: BootstrapManifest — silent, write-once devtrack.yaml writer.
+// Contract:
+//
+//	func BootstrapManifest(dir string, identity Identity) error
+//
+// Writes dir/devtrack.yaml (name + repo_url) when absent, unless
+// DEVTRACK_NO_BOOTSTRAP=1 is set; never overwrites an existing manifest; and
+// returns any write error for the caller to swallow (the send flow ignores it).
+// ---------------------------------------------------------------------------
+
+// AC1: a manifest-less repo gets a devtrack.yaml with the derived name + repo URL.
+func TestBootstrapManifest_WritesNameAndRepoURL(t *testing.T) {
+	t.Setenv("DEVTRACK_NO_BOOTSTRAP", "")
+	dir := t.TempDir()
+
+	if err := BootstrapManifest(dir, Identity{Name: "my-proj", RepoURL: "https://github.com/acme/my-proj"}); err != nil {
+		t.Fatalf("BootstrapManifest returned unexpected error: %v", err)
+	}
+
+	m, err := ReadManifest(filepath.Join(dir, ManifestFilename))
+	if err != nil {
+		t.Fatalf("written manifest is not readable: %v", err)
+	}
+	if m.Name != "my-proj" {
+		t.Errorf("Name: got %q, want %q", m.Name, "my-proj")
+	}
+	if m.RepoURL != "https://github.com/acme/my-proj" {
+		t.Errorf("RepoURL: got %q, want %q", m.RepoURL, "https://github.com/acme/my-proj")
+	}
+}
+
+// AC2: write-once — an existing manifest is never overwritten.
+func TestBootstrapManifest_WriteOncePreservesExisting(t *testing.T) {
+	t.Setenv("DEVTRACK_NO_BOOTSTRAP", "")
+	dir := t.TempDir()
+	existing := "name: original-name\nrepo_url: https://github.com/orig/repo\n# hand-edited, keep me\n"
+	if err := os.WriteFile(filepath.Join(dir, ManifestFilename), []byte(existing), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	if err := BootstrapManifest(dir, Identity{Name: "different", RepoURL: "https://github.com/diff/repo"}); err != nil {
+		t.Fatalf("BootstrapManifest returned unexpected error: %v", err)
+	}
+
+	got, err := os.ReadFile(filepath.Join(dir, ManifestFilename))
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	if string(got) != existing {
+		t.Errorf("write-once violated — existing manifest was modified:\n%s", string(got))
+	}
+}
+
+// AC3: DEVTRACK_NO_BOOTSTRAP=1 skips the write entirely (no error).
+func TestBootstrapManifest_SkipsWhenEnvOptOut(t *testing.T) {
+	t.Setenv("DEVTRACK_NO_BOOTSTRAP", "1")
+	dir := t.TempDir()
+
+	if err := BootstrapManifest(dir, Identity{Name: "x", RepoURL: "https://github.com/x/y"}); err != nil {
+		t.Fatalf("BootstrapManifest should not error when opted out: %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(dir, ManifestFilename)); !os.IsNotExist(err) {
+		t.Errorf("expected no manifest written when DEVTRACK_NO_BOOTSTRAP=1, but the file exists")
+	}
+}
+
+// AC4: a failed write returns an error (for the caller to swallow) without
+// panicking, and leaves no partial file behind.
+func TestBootstrapManifest_WriteFailureReturnsErrorGracefully(t *testing.T) {
+	t.Setenv("DEVTRACK_NO_BOOTSTRAP", "")
+	// Target a directory that does not exist so the write cannot succeed.
+	missingDir := filepath.Join(t.TempDir(), "does-not-exist")
+
+	err := BootstrapManifest(missingDir, Identity{Name: "x", RepoURL: "https://github.com/x/y"})
+	if err == nil {
+		t.Error("expected an error when the target directory is unwritable, got nil")
+	}
+	if _, statErr := os.Stat(filepath.Join(missingDir, ManifestFilename)); statErr == nil {
+		t.Error("expected no manifest file to be left behind when the write fails")
+	}
+}
+
+// AC5: the written manifest is valid input to the resolver — a subsequent
+// resolve reads it instead of re-deriving from the folder name.
+func TestBootstrapManifest_OutputResolvesBackToIdentity(t *testing.T) {
+	t.Setenv("DEVTRACK_NO_BOOTSTRAP", "")
+	base := t.TempDir()
+	dir := filepath.Join(base, "Some-Repo") // folder fallback would be "some-repo"
+	if err := os.Mkdir(dir, 0o755); err != nil {
+		t.Fatalf("Mkdir: %v", err)
+	}
+	id := Identity{Name: "canonical-name", RepoURL: "https://github.com/acme/canonical"}
+	if err := BootstrapManifest(dir, id); err != nil {
+		t.Fatalf("BootstrapManifest: %v", err)
+	}
+
+	got, err := ResolveIdentity(dir, failGitURL)
+	if err != nil {
+		t.Fatalf("ResolveIdentity: %v", err)
+	}
+	if got.Name != "canonical-name" {
+		t.Errorf("Name: got %q, want %q (resolver did not read the written manifest — folder fallback would be some-repo)", got.Name, "canonical-name")
+	}
+	if got.RepoURL != "https://github.com/acme/canonical" {
+		t.Errorf("RepoURL: got %q, want %q", got.RepoURL, "https://github.com/acme/canonical")
 	}
 }

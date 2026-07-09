@@ -217,7 +217,10 @@ func setupEventCapture(t *testing.T, manifest string) *capturedEvent {
 	t.Cleanup(func() { _ = rootCmd.PersistentFlags().Set("base-url", prevURL) })
 
 	dir := t.TempDir()
-	writeYAML(t, filepath.Join(dir, "devtrack.yaml"), manifest)
+	// An empty manifest means "leave the repo manifest-less" (for bootstrap tests).
+	if manifest != "" {
+		writeYAML(t, filepath.Join(dir, "devtrack.yaml"), manifest)
+	}
 	origDir, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("Getwd: %v", err)
@@ -353,5 +356,29 @@ func TestEventCommand_HonorsExplicitProjectYAML(t *testing.T) {
 	}
 	if body["repo_url"] != "https://github.com/other-org/other" {
 		t.Errorf("repo_url: got %v, want the explicit manifest's repo_url — --project-yaml not honored", body["repo_url"])
+	}
+}
+
+// WI-582 (trigger wiring): sending an event from a manifest-less repo writes a
+// devtrack.yaml at the repo root (bootstrap), and the event is still sent.
+func TestSendEvent_BootstrapsManifestWhenAbsent(t *testing.T) {
+	t.Setenv("DEVTRACK_NO_BOOTSTRAP", "")
+	cap := setupEventCapture(t, "") // no devtrack.yaml in cwd
+
+	if err := sendEvent("commit", "did a thing", nil); err != nil {
+		t.Fatalf("sendEvent: %v", err)
+	}
+
+	// The event was sent...
+	if len(cap.body) == 0 {
+		t.Fatal("expected the event to be POSTed")
+	}
+	// ...and a devtrack.yaml was bootstrapped into the (previously manifest-less) cwd.
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(cwd, "devtrack.yaml")); err != nil {
+		t.Errorf("expected a bootstrapped devtrack.yaml in the manifest-less repo, stat err: %v", err)
 	}
 }

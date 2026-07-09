@@ -126,6 +126,33 @@ func ResolveIdentity(dir string, getGitURL func() (string, error)) (Identity, er
 	return Identity{Name: strings.ToLower(filepath.Base(dir)), RepoURL: ""}, nil
 }
 
+// BootstrapManifest silently writes dir/devtrack.yaml with the resolved
+// identity so future runs (and other tools) resolve the same name/repo_url
+// without re-deriving it. It is write-once — an existing manifest is never
+// overwritten — and can be disabled entirely by setting
+// DEVTRACK_NO_BOOTSTRAP=1. Any write error is returned for the caller to
+// swallow; bootstrapping must never block the operation that triggered it.
+func BootstrapManifest(dir string, identity Identity) error {
+	if os.Getenv("DEVTRACK_NO_BOOTSTRAP") == "1" {
+		return nil
+	}
+
+	manifestPath := filepath.Join(dir, ManifestFilename)
+	if _, err := os.Stat(manifestPath); err == nil {
+		return nil
+	}
+
+	var b strings.Builder
+	b.WriteString("# Written by devtrack — safe to edit or delete.\n")
+	b.WriteString("# This file will not be overwritten once it exists.\n")
+	b.WriteString("name: " + identity.Name + "\n")
+	if identity.RepoURL != "" {
+		b.WriteString("repo_url: " + identity.RepoURL + "\n")
+	}
+
+	return os.WriteFile(manifestPath, []byte(b.String()), 0o644)
+}
+
 // normalizeRepoURL strips trailing slashes and .git suffix for comparison.
 func normalizeRepoURL(u string) string {
 	u = strings.TrimRight(u, "/")
