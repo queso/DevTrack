@@ -71,11 +71,12 @@ func installSingleHook(hooksPath, hookName string, quiet bool) error {
 	if existingContent == "" {
 		finalContent = generateHookScript(hookName)
 	} else if strings.Contains(existingContent, devtrackBlockStart) {
-		// Already installed — skip to avoid duplicates.
-		if !quiet {
-			fmt.Printf("Hook already installed: %s\n", hookPath)
-		}
-		return nil
+		// Already installed — strip the old managed block and append a fresh
+		// one so re-running the installer upgrades the block in place
+		// (exactly one block, no duplication) instead of leaving a stale one
+		// behind. Non-devtrack content is preserved.
+		stripped := strings.TrimRight(removeDevtrackBlock(existingContent), "\n")
+		finalContent = stripped + "\n" + devtrackBlock + "\n"
 	} else {
 		// Append devtrack block without replacing existing content.
 		finalContent = strings.TrimRight(existingContent, "\n") + "\n" + devtrackBlock + "\n"
@@ -91,10 +92,44 @@ func installSingleHook(hooksPath, hookName string, quiet bool) error {
 	return nil
 }
 
-// buildDevtrackBlock returns the devtrack invocation wrapped in markers.
+// hookEventType maps a git hook name to the DevTrack API event type it
+// reports. The raw git-hook name (e.g. "post-commit") is never a valid API
+// event type and must never be forwarded as --type.
+func hookEventType(hookName string) string {
+	switch hookName {
+	case "post-commit":
+		return "commit"
+	case "pre-push":
+		return "push"
+	case "post-checkout":
+		return "checkout"
+	case "post-merge":
+		return "merge"
+	default:
+		return hookName
+	}
+}
+
+// buildDevtrackBlock returns the devtrack invocation wrapped in markers. It
+// maps hookName to a valid API event type and gathers the relevant git data
+// as metadata — the commit subject and hash for post-commit, the current
+// branch for the others. No --project-yaml is passed: sendEvent resolves
+// project identity from the working directory (WI-579/WI-581).
 func buildDevtrackBlock(hookName string) string {
-	return fmt.Sprintf("%s\ndevtrack event --type %s --message \"%s hook fired\" 2>/dev/null || true\n%s",
-		devtrackBlockStart, hookName, hookName, devtrackBlockEnd)
+	eventType := hookEventType(hookName)
+
+	var message, metadata string
+	if hookName == "post-commit" {
+		message = `$(git log -1 --pretty=%s)`
+		metadata = `{\"hash\":\"$(git rev-parse HEAD)\"}`
+	} else {
+		message = hookName + " hook fired"
+		metadata = `{\"branch\":\"$(git rev-parse --abbrev-ref HEAD)\"}`
+	}
+
+	return devtrackBlockStart + "\n" +
+		`devtrack event --type ` + eventType + ` --message "` + message + `" --metadata "` + metadata + `" --quiet 2>/dev/null || true` + "\n" +
+		devtrackBlockEnd
 }
 
 // readFileIfExists returns the file contents as a string, or an empty string

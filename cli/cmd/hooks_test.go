@@ -809,3 +809,100 @@ func min(a, b int) int {
 	}
 	return b
 }
+
+// ---------------------------------------------------------------------------
+// WI-583: hooks emit VALID event types with real git data, and the installer
+// upgrades the managed block in place on re-run.
+// ---------------------------------------------------------------------------
+
+// AC1-3: each git hook maps to the correct API event type and gathers the right
+// git data (subject + hash for commit; branch for push/checkout/merge).
+func TestBuildDevtrackBlock_EmitsMappedTypeAndGitData(t *testing.T) {
+	cases := []struct {
+		hook     string
+		wantType string
+		wantData []string
+	}{
+		{"post-commit", "--type commit", []string{"git log -1 --pretty=%s", "git rev-parse HEAD", "--metadata"}},
+		{"pre-push", "--type push", []string{"git rev-parse --abbrev-ref HEAD", "--metadata"}},
+		{"post-checkout", "--type checkout", []string{"git rev-parse --abbrev-ref HEAD", "--metadata"}},
+		{"post-merge", "--type merge", []string{"git rev-parse --abbrev-ref HEAD", "--metadata"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.hook, func(t *testing.T) {
+			block := buildDevtrackBlock(tc.hook)
+			if !strings.Contains(block, tc.wantType) {
+				t.Errorf("%s block missing %q:\n%s", tc.hook, tc.wantType, block)
+			}
+			for _, data := range tc.wantData {
+				if !strings.Contains(block, data) {
+					t.Errorf("%s block missing git data %q:\n%s", tc.hook, data, block)
+				}
+			}
+		})
+	}
+}
+
+// AC4: no hook emits a raw git-hook name (post-commit/pre-push/post-merge/
+// post-checkout) as the --type value — the API would reject those.
+func TestBuildDevtrackBlock_NoRawHookNameAsType(t *testing.T) {
+	rawNames := []string{"post-commit", "pre-push", "post-merge", "post-checkout"}
+	for _, hook := range gitHookNames {
+		t.Run(hook, func(t *testing.T) {
+			block := buildDevtrackBlock(hook)
+			for _, raw := range rawNames {
+				if strings.Contains(block, "--type "+raw) {
+					t.Errorf("%s hook emits invalid --type %s (raw git-hook name):\n%s", hook, raw, block)
+				}
+			}
+		})
+	}
+}
+
+// AC5: every hook is non-blocking — failures must not abort the git operation.
+func TestBuildDevtrackBlock_NonBlocking(t *testing.T) {
+	for _, hook := range gitHookNames {
+		t.Run(hook, func(t *testing.T) {
+			if !strings.Contains(buildDevtrackBlock(hook), "|| true") {
+				t.Errorf("%s block is not non-blocking (missing '|| true')", hook)
+			}
+		})
+	}
+}
+
+// AC5: re-running the installer replaces a stale managed block in place — the
+// block is upgraded (no duplication), and non-devtrack content is preserved.
+func TestInstallSingleHook_UpgradesStaleBlockInPlace(t *testing.T) {
+	hDir := hooksDir(makeGitRepo(t))
+	hookPath := filepath.Join(hDir, "post-commit")
+
+	// Pre-existing file: custom body + a STALE devtrack block emitting the old
+	// invalid --type post-commit.
+	staleBlock := devtrackBlockStart + "\ndevtrack event --type post-commit --message \"stale\" || true\n" + devtrackBlockEnd
+	original := "#!/bin/sh\necho 'my custom hook body'\n" + staleBlock + "\n"
+	if err := os.WriteFile(hookPath, []byte(original), 0o755); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	if err := installSingleHook(hDir, "post-commit", true); err != nil {
+		t.Fatalf("installSingleHook: %v", err)
+	}
+	body, err := os.ReadFile(hookPath)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	got := string(body)
+
+	if n := strings.Count(got, devtrackBlockStart); n != 1 {
+		t.Errorf("expected exactly 1 devtrack block after re-install, got %d:\n%s", n, got)
+	}
+	if strings.Contains(got, "--type post-commit") {
+		t.Errorf("stale block not replaced in place (still emits --type post-commit):\n%s", got)
+	}
+	if !strings.Contains(got, "--type commit") {
+		t.Errorf("upgraded block missing --type commit:\n%s", got)
+	}
+	if !strings.Contains(got, "my custom hook body") {
+		t.Errorf("re-install destroyed non-devtrack content:\n%s", got)
+	}
+}
