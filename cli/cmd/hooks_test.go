@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -397,6 +398,93 @@ func TestInstallClaudeCodeHooks_CreatesSettingsFile(t *testing.T) {
 	}
 }
 
+// queso/DevTrack issue #14: Claude Code's schema requires each matcher-group
+// entry in hooks[event] to nest its command(s) inside a "hooks" array —
+// e.g. {"matcher":"Bash","hooks":[{"type":"command","command":"..."}]} —
+// not a flat {"command":...,"type":...,"matcher":...} object. A flat shape
+// causes Claude Code to reject the entire settings.json, discarding
+// unrelated user config. This asserts the installer writes the nested shape
+// for every event, with matcher only present where devtrack sets one
+// (PostToolUse/Bash), and no top-level command/type keys on the group.
+func TestInstallClaudeCodeHooks_WritesNestednHooksShape(t *testing.T) {
+	dir := t.TempDir()
+	settingsPath := filepath.Join(dir, "settings.json")
+
+	if err := installClaudeCodeHooks(settingsPath, true); err != nil {
+		t.Fatalf("installClaudeCodeHooks: %v", err)
+	}
+
+	data, err := os.ReadFile(settingsPath)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+
+	var settings map[string]interface{}
+	if err := json.Unmarshal(data, &settings); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	hooks := settings["hooks"].(map[string]interface{})
+
+	for _, def := range claudeCodeHooks {
+		groups, ok := hooks[def.Event].([]interface{})
+		if !ok || len(groups) == 0 {
+			t.Fatalf("event %s: expected at least one matcher-group entry", def.Event)
+		}
+
+		var found bool
+		for _, g := range groups {
+			group, ok := g.(map[string]interface{})
+			if !ok {
+				t.Fatalf("event %s: group entry is not an object: %#v", def.Event, g)
+			}
+
+			// No top-level command/type keys on the group object itself.
+			if _, ok := group["command"]; ok {
+				t.Errorf("event %s: group has top-level 'command' key — should be nested under 'hooks': %#v", def.Event, group)
+			}
+			if _, ok := group["type"]; ok {
+				t.Errorf("event %s: group has top-level 'type' key — should be nested under 'hooks': %#v", def.Event, group)
+			}
+
+			innerHooks, ok := group["hooks"].([]interface{})
+			if !ok {
+				t.Fatalf("event %s: group missing 'hooks' array: %#v", def.Event, group)
+			}
+
+			for _, h := range innerHooks {
+				entry, ok := h.(map[string]interface{})
+				if !ok {
+					t.Fatalf("event %s: inner hooks entry is not an object: %#v", def.Event, h)
+				}
+				cmd, _ := entry["command"].(string)
+				if cmd != def.Command {
+					continue
+				}
+				found = true
+
+				if entry["type"] != "command" {
+					t.Errorf("event %s: expected type=command, got %#v", def.Event, entry["type"])
+				}
+
+				wantMatcher := def.Matcher
+				gotMatcher, hasMatcher := group["matcher"]
+				if wantMatcher == "" {
+					if hasMatcher {
+						t.Errorf("event %s: unexpected matcher on group (should have none): %v", def.Event, gotMatcher)
+					}
+				} else {
+					if gotMatcher != wantMatcher {
+						t.Errorf("event %s: expected matcher %q on group, got %v", def.Event, wantMatcher, gotMatcher)
+					}
+				}
+			}
+		}
+		if !found {
+			t.Errorf("event %s: devtrack command %q not found nested under any group's hooks array", def.Event, def.Command)
+		}
+	}
+}
+
 func TestInstallClaudeCodeHooks_MergesWithExisting(t *testing.T) {
 	dir := t.TempDir()
 	settingsPath := filepath.Join(dir, "settings.json")
@@ -404,7 +492,7 @@ func TestInstallClaudeCodeHooks_MergesWithExisting(t *testing.T) {
 	existing := `{
   "hooks": {
     "PostToolUse": [
-      {"type": "command", "matcher": "Write", "command": "other-tool check"}
+      {"matcher": "Write", "hooks": [{"type": "command", "command": "other-tool check"}]}
     ]
   },
   "permissions": {"allow": ["Read"]}
@@ -463,10 +551,20 @@ func TestInstallClaudeCodeHooks_Idempotent(t *testing.T) {
 	for _, event := range []string{"PostToolUse", "SessionStart", "Stop"} {
 		arr := hooks[event].([]interface{})
 		devtrackCount := 0
-		for _, entry := range arr {
-			if m, ok := entry.(map[string]interface{}); ok {
-				if cmd, ok := m["command"].(string); ok && strings.Contains(cmd, claudeCodeHookMarker) {
-					devtrackCount++
+		for _, group := range arr {
+			groupMap, ok := group.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			innerHooks, ok := groupMap["hooks"].([]interface{})
+			if !ok {
+				continue
+			}
+			for _, entry := range innerHooks {
+				if m, ok := entry.(map[string]interface{}); ok {
+					if cmd, ok := m["command"].(string); ok && strings.Contains(cmd, claudeCodeHookMarker) {
+						devtrackCount++
+					}
 				}
 			}
 		}
@@ -531,11 +629,11 @@ func TestUninstallClaudeCodeHooks_RemovesOnlyDevtrack(t *testing.T) {
 	existing := `{
   "hooks": {
     "PostToolUse": [
-      {"type": "command", "matcher": "Write", "command": "other-tool check"},
-      {"type": "command", "matcher": "Bash", "command": "devtrack event --type commit"}
+      {"matcher": "Write", "hooks": [{"type": "command", "command": "other-tool check"}]},
+      {"matcher": "Bash", "hooks": [{"type": "command", "command": "devtrack event --type commit"}]}
     ],
     "SessionStart": [
-      {"type": "command", "command": "devtrack event --type session-start"}
+      {"hooks": [{"type": "command", "command": "devtrack event --type session-start"}]}
     ]
   }
 }`
@@ -570,7 +668,7 @@ func TestUninstallClaudeCodeHooks_PreservesOtherHooks(t *testing.T) {
 	existing := `{
   "hooks": {
     "PostToolUse": [
-      {"type": "command", "matcher": "Write", "command": "lint-check"}
+      {"matcher": "Write", "hooks": [{"type": "command", "command": "lint-check"}]}
     ]
   }
 }`
@@ -606,7 +704,7 @@ func TestUninstallClaudeCodeHooks_CleansUpEmptyHooksKey(t *testing.T) {
 	existing := `{
   "hooks": {
     "PostToolUse": [
-      {"type": "command", "matcher": "Bash", "command": "devtrack event --type commit"}
+      {"matcher": "Bash", "hooks": [{"type": "command", "command": "devtrack event --type commit"}]}
     ]
   },
   "other": "value"
@@ -867,6 +965,96 @@ func TestBuildDevtrackBlock_NonBlocking(t *testing.T) {
 				t.Errorf("%s block is not non-blocking (missing '|| true')", hook)
 			}
 		})
+	}
+}
+
+// PR #13 review: a branch name containing a double quote (legal in git ref
+// names) must not break the JSON --metadata argument. This executes the
+// generated block for real, under sh, against a stub `devtrack` on PATH, in
+// a temp git repo checked out to such a branch, and asserts the exact
+// --metadata argument the stub received parses as valid JSON with the exact
+// branch name.
+func TestBuildDevtrackBlock_EscapesBranchNameContainingDoubleQuote(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("sh not available")
+	}
+
+	repoDir := t.TempDir()
+	runGit := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command("git", args...)
+		cmd.Dir = repoDir
+		cmd.Env = append(os.Environ(),
+			"GIT_AUTHOR_NAME=test", "GIT_AUTHOR_EMAIL=test@example.com",
+			"GIT_COMMITTER_NAME=test", "GIT_COMMITTER_EMAIL=test@example.com",
+		)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+
+	runGit("init", "-q")
+	runGit("commit", "--allow-empty", "-q", "-m", "init")
+
+	branchName := `fix-"bug"`
+	runGit("checkout", "-q", "-b", branchName)
+
+	// Stub `devtrack` binary on PATH that records the exact argv it receives,
+	// one per line, to the file named by DEVTRACK_STUB_OUT.
+	binDir := t.TempDir()
+	stubScript := "#!/bin/sh\nfor a in \"$@\"; do printf '%s\\n' \"$a\"; done > \"$DEVTRACK_STUB_OUT\"\n"
+	if err := os.WriteFile(filepath.Join(binDir, "devtrack"), []byte(stubScript), 0o755); err != nil {
+		t.Fatalf("write stub: %v", err)
+	}
+
+	block := buildDevtrackBlock("post-checkout")
+	script := "#!/bin/sh\n" + block + "\n"
+	scriptPath := filepath.Join(t.TempDir(), "hook.sh")
+	if err := os.WriteFile(scriptPath, []byte(script), 0o755); err != nil {
+		t.Fatalf("write script: %v", err)
+	}
+
+	capturedPath := filepath.Join(t.TempDir(), "captured.txt")
+	cmd := exec.Command("sh", scriptPath)
+	cmd.Dir = repoDir
+	cmd.Env = append(os.Environ(),
+		"PATH="+binDir+":"+os.Getenv("PATH"),
+		"DEVTRACK_STUB_OUT="+capturedPath,
+	)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("run generated hook script: %v\n%s\nscript:\n%s", err, out, script)
+	}
+
+	capturedData, err := os.ReadFile(capturedPath)
+	if err != nil {
+		t.Fatalf("stub devtrack did not run (or its output was swallowed): %v\nscript:\n%s", err, script)
+	}
+
+	args := strings.Split(strings.TrimRight(string(capturedData), "\n"), "\n")
+	var metadataValue string
+	found := false
+	for i, a := range args {
+		if a == "--metadata" && i+1 < len(args) {
+			metadataValue = args[i+1]
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("no --metadata argument captured; args: %v", args)
+	}
+
+	var parsed struct {
+		Branch string `json:"branch"`
+	}
+	if err := json.Unmarshal([]byte(metadataValue), &parsed); err != nil {
+		t.Fatalf("--metadata value is not valid JSON: %q, err: %v", metadataValue, err)
+	}
+	if parsed.Branch != branchName {
+		t.Errorf("branch mismatch in parsed metadata: got %q, want %q (raw metadata: %q)", parsed.Branch, branchName, metadataValue)
 	}
 }
 
