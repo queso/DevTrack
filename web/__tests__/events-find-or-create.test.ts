@@ -244,7 +244,7 @@ describe("event identity schema surface", () => {
 
   it("served openapi.json createEvent request body matches the yaml CreateEvent contract", async () => {
     const { GET } = await import("@/app/api/v1/openapi.json/route")
-    const res = await GET()
+    const res = await GET(new Request("http://localhost/api/v1/openapi.json"))
     const doc = await res.json()
 
     const createEvent = doc.components.schemas.CreateEvent
