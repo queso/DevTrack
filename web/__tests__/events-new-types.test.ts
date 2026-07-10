@@ -208,9 +208,11 @@ describe("OpenAPI spec is the CLI codegen source", () => {
 describe("generated Go CLI events createEvent surface", () => {
   const bin = join(tmpdir(), "devtrack-cli-events-new-types-test")
 
+  // Cold CI runners download Go modules before compiling — well past vitest's
+  // default 10s hook timeout (instant locally with a warm build cache).
   beforeAll(() => {
     execFileSync("go", ["build", "-o", bin, "."], { cwd: CLI_DIR })
-  })
+  }, 180_000)
 
   // Drives the built binary; enum validation runs before any network call, so a
   // rejected type fails fast with the enum error and an accepted type proceeds
