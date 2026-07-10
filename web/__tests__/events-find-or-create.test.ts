@@ -95,8 +95,8 @@ beforeEach(() => {
   mockPrisma.project.findFirst.mockImplementation(({ where }: { where: Record<string, unknown> }) =>
     Promise.resolve(lookup(where)),
   )
-  mockPrisma.project.findUnique.mockImplementation(({ where }: { where: Record<string, unknown> }) =>
-    Promise.resolve(lookup(where)),
+  mockPrisma.project.findUnique.mockImplementation(
+    ({ where }: { where: Record<string, unknown> }) => Promise.resolve(lookup(where)),
   )
   mockPrisma.project.create.mockImplementation(({ data }: { data: Record<string, unknown> }) =>
     Promise.resolve({
@@ -129,7 +129,13 @@ describe("POST /api/v1/events find-or-create by repo_url", () => {
 
     const { POST } = await import("@/app/api/v1/events/route")
     const response = await POST(
-      postRequest({ repo_url: REPO_URL, project_name: "widgets", type: "commit", occurred_at: TS, title: "x" }),
+      postRequest({
+        repo_url: REPO_URL,
+        project_name: "widgets",
+        type: "commit",
+        occurred_at: TS,
+        title: "x",
+      }),
     )
 
     expect(response.status).toBe(201)
@@ -143,7 +149,9 @@ describe("POST /api/v1/events find-or-create by repo_url", () => {
     // repo_url is identity metadata, not an Event column — it must not be
     // forwarded into the event row.
     expect(mockPrisma.event.create).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.not.objectContaining({ repo_url: expect.anything() }) }),
+      expect.objectContaining({
+        data: expect.not.objectContaining({ repo_url: expect.anything() }),
+      }),
     )
   })
 
@@ -269,11 +277,14 @@ describe("event identity schema surface", () => {
 // ---------------------------------------------------------------------------
 
 function p2002OnName(): Prisma.PrismaClientKnownRequestError {
-  return new Prisma.PrismaClientKnownRequestError("Unique constraint failed on the fields: (`name`)", {
-    code: "P2002",
-    clientVersion: "test",
-    meta: { target: ["name"] },
-  })
+  return new Prisma.PrismaClientKnownRequestError(
+    "Unique constraint failed on the fields: (`name`)",
+    {
+      code: "P2002",
+      clientVersion: "test",
+      meta: { target: ["name"] },
+    },
+  )
 }
 
 describe("POST /api/v1/events project-create conflict handling (P2002)", () => {
@@ -289,7 +300,12 @@ describe("POST /api/v1/events project-create conflict handling (P2002)", () => {
 
     const { POST } = await import("@/app/api/v1/events/route")
     const response = await POST(
-      postRequest({ repo_url: "https://github.com/acme/widgets", type: "commit", occurred_at: TS, title: "x" }),
+      postRequest({
+        repo_url: "https://github.com/acme/widgets",
+        type: "commit",
+        occurred_at: TS,
+        title: "x",
+      }),
     )
 
     expect(response.status).toBe(409)

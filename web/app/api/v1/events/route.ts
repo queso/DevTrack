@@ -80,8 +80,16 @@ export async function POST(request: Request) {
     return unprocessableEntity(fields)
   }
 
-  const { project_id, project_name, repo_url, prd_id, pull_request_id, title, occurred_at, ...rest } =
-    parsed.data
+  const {
+    project_id,
+    project_name,
+    repo_url,
+    prd_id,
+    pull_request_id,
+    title,
+    occurred_at,
+    ...rest
+  } = parsed.data
   const occurredAtDate = new Date(occurred_at)
   if (Number.isNaN(occurredAtDate.getTime())) {
     return badRequest("Invalid occurred_at timestamp")

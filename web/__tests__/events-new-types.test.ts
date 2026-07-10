@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process"
-import { existsSync, readFileSync, readdirSync } from "node:fs"
+import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
@@ -92,31 +92,28 @@ describe("POST /api/v1/events accepts new event types", () => {
     mockPrisma.project.updateMany.mockResolvedValue({ count: 1 })
   })
 
-  it.each([...NEW_TYPES])(
-    "returns 201 and persists an Event with type=%s",
-    async (type) => {
-      mockPrisma.event.create.mockResolvedValue({
-        id: "ev-1",
-        projectId: VALID_UUID,
-        type,
-        title: "test event",
-        metadata: {},
-        occurredAt: new Date("2026-07-09T00:00:00.000Z"),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      })
+  it.each([...NEW_TYPES])("returns 201 and persists an Event with type=%s", async (type) => {
+    mockPrisma.event.create.mockResolvedValue({
+      id: "ev-1",
+      projectId: VALID_UUID,
+      type,
+      title: "test event",
+      metadata: {},
+      occurredAt: new Date("2026-07-09T00:00:00.000Z"),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
 
-      const { POST } = await import("@/app/api/v1/events/route")
-      const response = await POST(postRequest(eventBody(type)))
+    const { POST } = await import("@/app/api/v1/events/route")
+    const response = await POST(postRequest(eventBody(type)))
 
-      expect(response.status).toBe(201)
-      expect(mockPrisma.event.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({ type, projectId: VALID_UUID }),
-        }),
-      )
-    },
-  )
+    expect(response.status).toBe(201)
+    expect(mockPrisma.event.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ type, projectId: VALID_UUID }),
+      }),
+    )
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -126,16 +123,17 @@ describe("POST /api/v1/events accepts new event types", () => {
 describe("POST /api/v1/events rejects unknown event types", () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it.each([["post-commit"], ["merged"], ["not_a_type"]])(
-    "returns 422 for type=%s and does not persist",
-    async (type) => {
-      const { POST } = await import("@/app/api/v1/events/route")
-      const response = await POST(postRequest(eventBody(type)))
+  it.each([
+    ["post-commit"],
+    ["merged"],
+    ["not_a_type"],
+  ])("returns 422 for type=%s and does not persist", async (type) => {
+    const { POST } = await import("@/app/api/v1/events/route")
+    const response = await POST(postRequest(eventBody(type)))
 
-      expect(response.status).toBe(422)
-      expect(mockPrisma.event.create).not.toHaveBeenCalled()
-    },
-  )
+    expect(response.status).toBe(422)
+    expect(mockPrisma.event.create).not.toHaveBeenCalled()
+  })
 })
 
 // ---------------------------------------------------------------------------

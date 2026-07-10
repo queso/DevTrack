@@ -388,7 +388,7 @@ design signal — worth making a standing instruction for security items.
 
 ### R19 (process) — Tawnia's final-commit sweep swallowed pre-existing dirty
 ### state
-The final commit (a9d520e) staged-and-committed .gitignore and
+The final commit (04e5ff0) staged-and-committed .gitignore and
 prd/005-unified-document-model.md — both dirty in the working tree BEFORE the
 mission started (session-start git status). "Bundle any uncommitted mission
 work" has no way to distinguish mission fallout from the operator's unrelated
