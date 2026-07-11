@@ -1,9 +1,19 @@
-import { badRequest, handlePrismaError, notFound, unprocessableEntity } from "@/lib/api"
+import { badRequest, handlePrismaError, unprocessableEntity } from "@/lib/api"
 import { apiSuccess, buildPagination, paginatedResponse, parsePagination } from "@/lib/api/response"
 import { authenticateRequest } from "@/lib/auth"
 import { prisma } from "@/lib/db"
 import type { EventType } from "@/lib/generated/prisma/client"
 import { createEventSchema } from "@/lib/schemas"
+
+// Derives a fallback project name from a repo URL's last path segment (e.g.
+// "https://github.com/acme/widgets" -> "widgets") when no project_name is
+// supplied alongside repo_url.
+function deriveNameFromRepoUrl(repoUrl: string | undefined): string {
+  if (!repoUrl) return "unknown-project"
+  const normalized = repoUrl.replace(/\/+$/, "").replace(/\.git$/, "")
+  const segments = normalized.split("/")
+  return segments.at(-1) || "unknown-project"
+}
 
 export async function GET(request: Request) {
   const auth = await authenticateRequest(request)
@@ -70,24 +80,60 @@ export async function POST(request: Request) {
     return unprocessableEntity(fields)
   }
 
-  const { project_id, project_name, prd_id, pull_request_id, title, occurred_at, ...rest } =
-    parsed.data
+  const {
+    project_id,
+    project_name,
+    repo_url,
+    prd_id,
+    pull_request_id,
+    title,
+    occurred_at,
+    ...rest
+  } = parsed.data
   const occurredAtDate = new Date(occurred_at)
   if (Number.isNaN(occurredAtDate.getTime())) {
     return badRequest("Invalid occurred_at timestamp")
   }
 
-  // Resolve the project by UUID or unique name (git hooks post by name).
+  // Resolve the project by UUID, repo_url, or name — finding or creating it
+  // as needed. repo_url takes precedence over name so a project's history
+  // never forks when its local name drifts from its registered name.
   let projectId = project_id
-  if (!projectId && project_name) {
-    const project = await prisma.project.findUnique({
-      where: { name: project_name },
-      select: { id: true },
-    })
-    if (!project) return notFound(`Project not found: ${project_name}`)
-    projectId = project.id
+  if (!projectId && repo_url) {
+    const project = await prisma.project.findFirst({ where: { repoUrl: repo_url } })
+    if (project) projectId = project.id
   }
-  if (!projectId) return badRequest("Either project_id or project_name is required")
+  if (!projectId && project_name) {
+    const project = await prisma.project.findFirst({ where: { name: project_name } })
+    if (project) projectId = project.id
+  }
+  if (!projectId) {
+    try {
+      const created = await prisma.project.create({
+        data: {
+          name: project_name ?? deriveNameFromRepoUrl(repo_url),
+          ...(repo_url ? { repoUrl: repo_url } : {}),
+        },
+      })
+      projectId = created.id
+    } catch (error) {
+      const handled = handlePrismaError(error)
+      if (!handled) throw error
+
+      // A concurrent request may have won the create race for the same
+      // identity — re-resolve by repo_url (or name) before giving up. Only
+      // attach when the winner matches our own identity; a name collision
+      // with a different repo must not be wrong-attached, so it returns the
+      // handled conflict response instead.
+      const winner = repo_url
+        ? await prisma.project.findFirst({ where: { repoUrl: repo_url } })
+        : project_name
+          ? await prisma.project.findFirst({ where: { name: project_name } })
+          : null
+      if (!winner) return handled
+      projectId = winner.id
+    }
+  }
 
   // Backfill a human-readable title from the event type when none is supplied
   // (e.g. session-start hooks record no message).

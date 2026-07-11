@@ -1,7 +1,7 @@
 package cmd
 
 // swagger-jack:custom:start status
-// This file implements the `devtrack status` command, which reads a project.yaml
+// This file implements the `devtrack status` command, which reads a devtrack.yaml
 // from the current directory and displays the project's current status including
 // active PRDs, open pull requests, and recent events.
 // swagger-jack:custom:end
@@ -224,7 +224,7 @@ func writeStatusQuiet(out io.Writer, activePRDs, openPRs int, events []StatusEve
 var statusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show the current status of the project",
-	Long:  "Reads project.yaml from the current directory and displays active PRDs, open pull requests, and recent events.",
+	Long:  "Reads devtrack.yaml from the current directory and displays active PRDs, open pull requests, and recent events.",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		manifestPath, err := internal.FindManifest()

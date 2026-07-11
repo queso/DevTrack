@@ -1,7 +1,7 @@
 package cmd
 
 // swagger-jack:custom:start register
-// This file implements the `devtrack register` command, which reads a project.yaml
+// This file implements the `devtrack register` command, which reads a devtrack.yaml
 // from the current directory and creates or updates the project via the API.
 // swagger-jack:custom:end
 
@@ -230,7 +230,7 @@ func writeProjectOutput(out io.Writer, id, action string, quiet bool) {
 var registerCmd = &cobra.Command{
 	Use:   "register",
 	Short: "Register the current project with DevTrack",
-	Long:  "Reads project.yaml from the current directory and creates or updates the project via the API.",
+	Long:  "Reads devtrack.yaml from the current directory and creates or updates the project via the API.",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		manifestPath, err := internal.FindManifest()

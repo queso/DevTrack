@@ -77,6 +77,14 @@ const spec = {
           "work_item_created",
           "work_item_completed",
           "commit",
+          "push",
+          "session_start",
+          "session_end",
+          "pr_reviewed",
+          "prd_synced",
+          "tool_use",
+          "checkout",
+          "merge",
         ],
       },
       Project: {
@@ -332,6 +340,21 @@ const spec = {
           occurredAt: { type: "string", format: "date-time" },
           createdAt: { type: "string", format: "date-time" },
           updatedAt: { type: "string", format: "date-time" },
+        },
+      },
+      CreateEvent: {
+        type: "object",
+        required: ["type", "occurred_at"],
+        properties: {
+          project_id: { type: "string", format: "uuid" },
+          project_name: { type: "string" },
+          repo_url: { type: "string", format: "uri" },
+          prd_id: { type: "string", format: "uuid", nullable: true },
+          pull_request_id: { type: "string", format: "uuid", nullable: true },
+          type: { $ref: "#/components/schemas/EventType" },
+          title: { type: "string", minLength: 1 },
+          metadata: { type: "object", default: {} },
+          occurred_at: { type: "string", format: "date-time" },
         },
       },
     },
@@ -929,7 +952,7 @@ const spec = {
         tags: ["Events"],
         requestBody: {
           required: true,
-          content: { "application/json": { schema: { $ref: "#/components/schemas/Event" } } },
+          content: { "application/json": { schema: { $ref: "#/components/schemas/CreateEvent" } } },
         },
         responses: {
           201: {

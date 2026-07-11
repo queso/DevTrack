@@ -61,7 +61,7 @@ func (a *apiIdeasClient) AddIdea(body map[string]interface{}) ([]byte, error) {
 }
 
 // runListIdeas is the testable core of `devtrack ideas`. When all is true the
-// project.yaml lookup is bypassed and all ideas are returned. When all is false
+// devtrack.yaml lookup is bypassed and all ideas are returned. When all is false
 // the manifest at manifestPath is read and the project is resolved before
 // fetching project-scoped ideas.
 func runListIdeas(manifestPath string, all bool, api IdeasAPI, jsonMode bool, quiet bool, out io.Writer) error {

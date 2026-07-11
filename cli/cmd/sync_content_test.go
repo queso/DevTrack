@@ -93,7 +93,7 @@ var contentSyncProject = internal.ProjectSummary{
 	RepoURL: "https://github.com/example/content-project",
 }
 
-// writeContentManifest creates a project.yaml with content_path and/or
+// writeContentManifest creates a devtrack.yaml with content_path and/or
 // draft_path fields set.
 func writeContentManifest(t *testing.T, dir, contentPath, draftPath string) string {
 	t.Helper()

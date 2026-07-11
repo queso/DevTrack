@@ -55,6 +55,9 @@ enum EventType {
   session_end
   pr_reviewed
   prd_synced
+  tool_use
+  checkout
+  merge
 }
 
 model Project {

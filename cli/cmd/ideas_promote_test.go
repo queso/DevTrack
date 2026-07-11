@@ -39,7 +39,7 @@ func (f *fakePromoteAPI) PromoteIdea(id string) ([]byte, error) {
 // Helpers
 // ---------------------------------------------------------------------------
 
-// writeDraftManifest creates a project.yaml with draft_path set.
+// writeDraftManifest creates a devtrack.yaml with draft_path set.
 func writeDraftManifest(t *testing.T, dir, draftPath string) string {
 	t.Helper()
 	content := "name: my-project\nworkflow: sdlc\n"
@@ -190,7 +190,7 @@ func TestPromoteIdea_SlugDerivedFromTitle(t *testing.T) {
 }
 
 // TestPromoteIdea_NoDraftPath_ReturnsError verifies that when draft_path is
-// not set in project.yaml, the command returns a clear error.
+// not set in devtrack.yaml, the command returns a clear error.
 func TestPromoteIdea_NoDraftPath_ReturnsError(t *testing.T) {
 	dir := t.TempDir()
 	manifestPath := writeDraftManifest(t, dir, "") // no draft_path

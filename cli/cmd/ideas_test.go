@@ -75,7 +75,7 @@ var ideasProject = internal.ProjectSummary{
 // ---------------------------------------------------------------------------
 
 // TestIdeas_ListForProject verifies that `devtrack ideas` resolves the project
-// via project.yaml and calls ListProjectIdeas with the correct project ID.
+// via devtrack.yaml and calls ListProjectIdeas with the correct project ID.
 func TestIdeas_ListForProject(t *testing.T) {
 	dir := t.TempDir()
 	manifestPath := writeManifest(t, dir, ideasProjectManifest)
@@ -101,7 +101,7 @@ func TestIdeas_ListForProject(t *testing.T) {
 }
 
 // TestIdeas_ListAllBypassesManifest verifies that `devtrack ideas --all`
-// calls ListAllIdeas directly without reading project.yaml.
+// calls ListAllIdeas directly without reading devtrack.yaml.
 func TestIdeas_ListAllBypassesManifest(t *testing.T) {
 	responseBody := []byte(`[{"id":"idea-1","title":"Cross-project idea"}]`)
 	api := &fakeIdeasAPI{
@@ -153,20 +153,20 @@ func TestIdeas_AddWithTagsAndSummary(t *testing.T) {
 	}
 }
 
-// TestIdeas_NoManifestWithoutAll verifies that when no project.yaml is found
+// TestIdeas_NoManifestWithoutAll verifies that when no devtrack.yaml is found
 // and --all is not set, runListIdeas returns a clear error message.
 func TestIdeas_NoManifestWithoutAll(t *testing.T) {
 	api := &fakeIdeasAPI{}
 
 	var out bytes.Buffer
-	err := runListIdeas("/nonexistent/path/project.yaml", false, api, false, false, &out)
+	err := runListIdeas("/nonexistent/path/devtrack.yaml", false, api, false, false, &out)
 	if err == nil {
-		t.Fatal("expected error when project.yaml missing and --all not set, got nil")
+		t.Fatal("expected error when devtrack.yaml missing and --all not set, got nil")
 	}
-	// Error message should guide the user (mention project.yaml or --all)
+	// Error message should guide the user (mention the manifest or --all)
 	msg := err.Error()
-	if !strings.Contains(strings.ToLower(msg), "project") && !strings.Contains(msg, "--all") {
-		t.Errorf("error message %q should reference project.yaml or --all flag", msg)
+	if !strings.Contains(strings.ToLower(msg), "devtrack") && !strings.Contains(msg, "--all") {
+		t.Errorf("error message %q should reference devtrack.yaml or the --all flag", msg)
 	}
 }
 

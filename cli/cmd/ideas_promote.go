@@ -55,7 +55,7 @@ func runPromoteIdea(ideaID string, manifestPath string, api PromoteIdeaAPI, json
 	}
 
 	if manifest.DraftPath == "" {
-		return fmt.Errorf("draft_path is not set in project.yaml — set draft_path to enable idea promotion")
+		return fmt.Errorf("draft_path is not set in devtrack.yaml — set draft_path to enable idea promotion")
 	}
 
 	resp, err := api.PromoteIdea(ideaID)

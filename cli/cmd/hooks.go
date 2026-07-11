@@ -71,11 +71,12 @@ func installSingleHook(hooksPath, hookName string, quiet bool) error {
 	if existingContent == "" {
 		finalContent = generateHookScript(hookName)
 	} else if strings.Contains(existingContent, devtrackBlockStart) {
-		// Already installed — skip to avoid duplicates.
-		if !quiet {
-			fmt.Printf("Hook already installed: %s\n", hookPath)
-		}
-		return nil
+		// Already installed — strip the old managed block and append a fresh
+		// one so re-running the installer upgrades the block in place
+		// (exactly one block, no duplication) instead of leaving a stale one
+		// behind. Non-devtrack content is preserved.
+		stripped := strings.TrimRight(removeDevtrackBlock(existingContent), "\n")
+		finalContent = stripped + "\n" + devtrackBlock + "\n"
 	} else {
 		// Append devtrack block without replacing existing content.
 		finalContent = strings.TrimRight(existingContent, "\n") + "\n" + devtrackBlock + "\n"
@@ -91,10 +92,51 @@ func installSingleHook(hooksPath, hookName string, quiet bool) error {
 	return nil
 }
 
-// buildDevtrackBlock returns the devtrack invocation wrapped in markers.
+// hookEventType maps a git hook name to the DevTrack API event type it
+// reports. The raw git-hook name (e.g. "post-commit") is never a valid API
+// event type and must never be forwarded as --type.
+func hookEventType(hookName string) string {
+	switch hookName {
+	case "post-commit":
+		return "commit"
+	case "pre-push":
+		return "push"
+	case "post-checkout":
+		return "checkout"
+	case "post-merge":
+		return "merge"
+	default:
+		return hookName
+	}
+}
+
+// buildDevtrackBlock returns the devtrack invocation wrapped in markers. It
+// maps hookName to a valid API event type and gathers the relevant git data
+// as metadata — the commit subject and hash for post-commit, the current
+// branch for the others. No --project-yaml is passed: sendEvent resolves
+// project identity from the working directory (WI-579/WI-581).
 func buildDevtrackBlock(hookName string) string {
-	return fmt.Sprintf("%s\ndevtrack event --type %s --message \"%s hook fired\" 2>/dev/null || true\n%s",
-		devtrackBlockStart, hookName, hookName, devtrackBlockEnd)
+	eventType := hookEventType(hookName)
+
+	if hookName == "post-commit" {
+		message := `$(git log -1 --pretty=%s)`
+		metadata := `{\"hash\":\"$(git rev-parse HEAD)\"}`
+		return devtrackBlockStart + "\n" +
+			`devtrack event --type ` + eventType + ` --message "` + message + `" --metadata "` + metadata + `" --quiet 2>/dev/null || true` + "\n" +
+			devtrackBlockEnd
+	}
+
+	// The branch name is attacker/user-controlled shell output: double quotes
+	// are legal in git ref names (backslashes and control chars are not), so
+	// it cannot be interpolated directly into the JSON string literal below.
+	// Capture it into a variable through a JSON-escaping sed pass first (POSIX
+	// sh safe — no bash ${var//} expansions, since git hooks may run under
+	// /bin/sh), then interpolate the escaped variable.
+	message := hookName + " hook fired"
+	return devtrackBlockStart + "\n" +
+		`_devtrack_branch=$(git rev-parse --abbrev-ref HEAD | sed 's/\\/\\\\/g; s/"/\\"/g')` + "\n" +
+		`devtrack event --type ` + eventType + ` --message "` + message + `" --metadata "{\"branch\":\"$_devtrack_branch\"}" --quiet 2>/dev/null || true` + "\n" +
+		devtrackBlockEnd
 }
 
 // readFileIfExists returns the file contents as a string, or an empty string
@@ -216,8 +258,9 @@ func isOnlyBoilerplate(content string) bool {
 // ---------------------------------------------------------------------------
 
 // claudeCodeHookMarker is the string we look for to identify devtrack-managed
-// hooks inside ~/.claude/settings.json.
-const claudeCodeHookMarker = "devtrack event"
+// hooks inside ~/.claude/settings.json. Matches both "devtrack event ..." and
+// "devtrack hooks tooluse ..." invocations.
+const claudeCodeHookMarker = "devtrack "
 
 // claudeCodeHookDef describes a single Claude Code hook entry.
 type claudeCodeHookDef struct {
@@ -231,17 +274,17 @@ var claudeCodeHooks = []claudeCodeHookDef{
 	{
 		Event:   "PostToolUse",
 		Matcher: "Bash",
-		Command: `devtrack event --type commit --project-yaml "$(git rev-parse --show-toplevel)/project.yaml" --quiet 2>/dev/null || true`,
+		Command: `devtrack hooks tooluse 2>/dev/null || true`,
 	},
 	{
 		Event:   "SessionStart",
 		Matcher: "",
-		Command: `devtrack event --type session-start --project-yaml "$(git rev-parse --show-toplevel)/project.yaml" --quiet 2>/dev/null || true`,
+		Command: `devtrack event --type session-start --quiet 2>/dev/null || true`,
 	},
 	{
 		Event:   "Stop",
 		Matcher: "",
-		Command: `devtrack event --type session-end --project-yaml "$(git rev-parse --show-toplevel)/project.yaml" --quiet 2>/dev/null || true`,
+		Command: `devtrack event --type session-end --quiet 2>/dev/null || true`,
 	},
 }
 
@@ -252,6 +295,31 @@ func defaultClaudeSettingsPath() string {
 		return filepath.Join("~", ".claude", "settings.json")
 	}
 	return filepath.Join(home, ".claude", "settings.json")
+}
+
+// isDevtrackManagedEntry reports whether a top-level hooks[event] array entry
+// was written by devtrack, in either the legacy flat shape (command directly
+// on the entry — the pre-issue-#14 bug) or the current nested shape (command
+// inside the entry's "hooks" array). Used to find-and-replace devtrack's own
+// entries on install/uninstall without touching other tools' entries.
+func isDevtrackManagedEntry(entry interface{}) bool {
+	entryMap, ok := entry.(map[string]interface{})
+	if !ok {
+		return false
+	}
+	if cmd, ok := entryMap["command"].(string); ok && strings.Contains(cmd, claudeCodeHookMarker) {
+		return true
+	}
+	if innerHooks, ok := entryMap["hooks"].([]interface{}); ok {
+		for _, h := range innerHooks {
+			if hMap, ok := h.(map[string]interface{}); ok {
+				if cmd, ok := hMap["command"].(string); ok && strings.Contains(cmd, claudeCodeHookMarker) {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 // installClaudeCodeHooks adds devtrack hooks to the Claude Code settings file.
@@ -287,36 +355,36 @@ func installClaudeCodeHooks(settingsPath string, quiet bool) error {
 			}
 		}
 
-		// Check if devtrack hook already exists
-		alreadyInstalled := false
+		// Strip any devtrack-managed entry for this event — whether left over
+		// from the pre-issue-#14 flat shape or a previous nested install — so
+		// re-running the installer upgrades the entry in place instead of
+		// duplicating it. Every devtrack-owned group is dedicated to devtrack
+		// alone, so whole-group removal here is safe; other tools' groups are
+		// left untouched.
+		var kept []interface{}
 		for _, entry := range existing {
-			if entryMap, ok := entry.(map[string]interface{}); ok {
-				if cmd, ok := entryMap["command"].(string); ok {
-					if strings.Contains(cmd, claudeCodeHookMarker) {
-						alreadyInstalled = true
-						break
-					}
-				}
+			if isDevtrackManagedEntry(entry) {
+				continue
 			}
+			kept = append(kept, entry)
 		}
 
-		if alreadyInstalled {
-			if !quiet {
-				fmt.Printf("Claude Code hook already installed: %s\n", eventKey)
-			}
-			continue
-		}
-
-		newEntry := map[string]interface{}{
-			"type":    "command",
-			"command": def.Command,
+		// Claude Code requires each matcher-group entry to nest its command(s)
+		// inside a "hooks" array; a flat {"command":...} object on the group
+		// itself is rejected (issue #14), taking the whole settings.json with it.
+		newGroup := map[string]interface{}{
+			"hooks": []interface{}{
+				map[string]interface{}{
+					"type":    "command",
+					"command": def.Command,
+				},
+			},
 		}
 		if def.Matcher != "" {
-			newEntry["matcher"] = def.Matcher
+			newGroup["matcher"] = def.Matcher
 		}
 
-		existing = append(existing, newEntry)
-		hooks[eventKey] = existing
+		hooks[eventKey] = append(kept, newGroup)
 
 		if !quiet {
 			fmt.Printf("Installed Claude Code hook: %s\n", eventKey)
@@ -378,22 +446,50 @@ func uninstallClaudeCodeHooks(settingsPath string, quiet bool) error {
 			continue
 		}
 
-		var filtered []interface{}
+		var filteredGroups []interface{}
 		for _, entry := range typedArr {
-			if entryMap, ok := entry.(map[string]interface{}); ok {
-				if cmd, ok := entryMap["command"].(string); ok {
-					if strings.Contains(cmd, claudeCodeHookMarker) {
+			entryMap, ok := entry.(map[string]interface{})
+			if !ok {
+				// Not an object we understand — leave it untouched.
+				filteredGroups = append(filteredGroups, entry)
+				continue
+			}
+
+			innerHooks, ok := entryMap["hooks"].([]interface{})
+			if !ok {
+				// Legacy flat shape: the whole entry is devtrack's own command,
+				// or an object we don't recognize — drop only if it's ours.
+				if isDevtrackManagedEntry(entry) {
+					continue
+				}
+				filteredGroups = append(filteredGroups, entry)
+				continue
+			}
+
+			// Nested shape: filter devtrack's command(s) out of this group's
+			// inner hooks array, preserving any other tools' entries in the
+			// same group. Drop the whole group only once it's left empty.
+			var filteredInner []interface{}
+			for _, h := range innerHooks {
+				if hMap, ok := h.(map[string]interface{}); ok {
+					if cmd, ok := hMap["command"].(string); ok && strings.Contains(cmd, claudeCodeHookMarker) {
 						continue
 					}
 				}
+				filteredInner = append(filteredInner, h)
 			}
-			filtered = append(filtered, entry)
+
+			if len(filteredInner) == 0 {
+				continue // group was entirely devtrack's — drop it
+			}
+			entryMap["hooks"] = filteredInner
+			filteredGroups = append(filteredGroups, entryMap)
 		}
 
-		if len(filtered) == 0 {
+		if len(filteredGroups) == 0 {
 			delete(hooks, eventKey)
 		} else {
-			hooks[eventKey] = filtered
+			hooks[eventKey] = filteredGroups
 		}
 
 		if !quiet {
@@ -488,11 +584,25 @@ func countClaudeHooks(settingsPath string) int {
 	}
 	count := 0
 	for _, arr := range hooks {
-		if typedArr, ok := arr.([]interface{}); ok {
-			for _, entry := range typedArr {
-				if entryMap, ok := entry.(map[string]interface{}); ok {
-					if cmd, ok := entryMap["command"].(string); ok {
-						if strings.Contains(cmd, claudeCodeHookMarker) {
+		typedArr, ok := arr.([]interface{})
+		if !ok {
+			continue
+		}
+		for _, entry := range typedArr {
+			entryMap, ok := entry.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			// Legacy flat shape: command directly on the group entry.
+			if cmd, ok := entryMap["command"].(string); ok && strings.Contains(cmd, claudeCodeHookMarker) {
+				count++
+				continue
+			}
+			// Current nested shape: command(s) inside the group's "hooks" array.
+			if innerHooks, ok := entryMap["hooks"].([]interface{}); ok {
+				for _, h := range innerHooks {
+					if hMap, ok := h.(map[string]interface{}); ok {
+						if cmd, ok := hMap["command"].(string); ok && strings.Contains(cmd, claudeCodeHookMarker) {
 							count++
 						}
 					}

@@ -59,7 +59,7 @@ func (f *fakeStatusAPI) ListProjectEvents(projectID string, limit int) ([]Status
 // Helpers
 // ---------------------------------------------------------------------------
 
-// validManifestForStatus is a minimal valid project.yaml for status tests.
+// validManifestForStatus is a minimal valid devtrack.yaml for status tests.
 const validManifestForStatus = `
 name: my-project
 workflow: sdlc
@@ -167,14 +167,14 @@ func TestStatus_NoData(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // TestStatus_MissingManifest verifies that a clear error is returned when no
-// project.yaml file exists at the given path.
+// devtrack.yaml file exists at the given path.
 func TestStatus_MissingManifest(t *testing.T) {
 	api := &fakeStatusAPI{}
 	var out bytes.Buffer
 
-	err := runStatus("/nonexistent/path/project.yaml", api, false, &out)
+	err := runStatus("/nonexistent/path/devtrack.yaml", api, false, &out)
 	if err == nil {
-		t.Fatal("expected error for missing project.yaml, got nil")
+		t.Fatal("expected error for missing devtrack.yaml, got nil")
 	}
 
 	// No API calls should be made when the manifest cannot be read.
