@@ -109,7 +109,7 @@ type Identity struct {
 // It never returns an error: a malformed devtrack.yaml (bad YAML, empty name,
 // invalid fields) is treated as absent and falls through to the git remote and
 // then the folder name, so the identity chain degrades gracefully and an event
-// is never dropped for the very file the silent bootstrap invites users to edit
+// is never dropped for the very file `devtrack init` invites users to edit
 // (RetroLearning #15). The error return is retained for API compatibility with
 // existing callers; it is always nil. Write-once bootstrap protection does not
 // depend on this error — BootstrapManifest independently refuses to overwrite an
@@ -132,17 +132,14 @@ func ResolveIdentity(dir string, getGitURL func() (string, error)) (Identity, er
 	return Identity{Name: strings.ToLower(filepath.Base(dir)), RepoURL: ""}, nil
 }
 
-// BootstrapManifest silently writes dir/devtrack.yaml with the resolved
-// identity so future runs (and other tools) resolve the same name/repo_url
-// without re-deriving it. It is write-once — an existing manifest is never
-// overwritten — and can be disabled entirely by setting
-// DEVTRACK_NO_BOOTSTRAP=1. Any write error is returned for the caller to
-// swallow; bootstrapping must never block the operation that triggered it.
+// BootstrapManifest writes dir/devtrack.yaml with the resolved identity so
+// future runs (and other tools) resolve the same name/repo_url without
+// re-deriving it. It is write-once — an existing manifest is never
+// overwritten. Per ADR 0001 (telemetry is read-only), this is only ever
+// invoked by the explicit `devtrack init` command, never from the read-only
+// event path, so a write error is returned for the caller to surface rather
+// than swallow.
 func BootstrapManifest(dir string, identity Identity) error {
-	if os.Getenv("DEVTRACK_NO_BOOTSTRAP") == "1" {
-		return nil
-	}
-
 	manifestPath := filepath.Join(dir, ManifestFilename)
 	if _, err := os.Stat(manifestPath); err == nil {
 		return nil

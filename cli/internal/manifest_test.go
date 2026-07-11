@@ -773,19 +773,20 @@ func TestResolveIdentity_EmptyNameManifestFallsThroughToGit(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// WI-582: BootstrapManifest — silent, write-once devtrack.yaml writer.
-// Contract:
+// issue #16 / ADR 0001: BootstrapManifest — the write-once devtrack.yaml
+// writer backing the explicit `devtrack init` command. Contract:
 //
 //	func BootstrapManifest(dir string, identity Identity) error
 //
-// Writes dir/devtrack.yaml (name + repo_url) when absent, unless
-// DEVTRACK_NO_BOOTSTRAP=1 is set; never overwrites an existing manifest; and
-// returns any write error for the caller to swallow (the send flow ignores it).
+// Writes dir/devtrack.yaml (name + repo_url) when absent; never overwrites an
+// existing manifest; and returns any write error for the caller to surface.
+// There is no env-var opt-out — since BootstrapManifest is only ever invoked
+// by the explicit `init` command now (never from the read-only event path),
+// there is no silent write to opt out of.
 // ---------------------------------------------------------------------------
 
 // AC1: a manifest-less repo gets a devtrack.yaml with the derived name + repo URL.
 func TestBootstrapManifest_WritesNameAndRepoURL(t *testing.T) {
-	t.Setenv("DEVTRACK_NO_BOOTSTRAP", "")
 	dir := t.TempDir()
 
 	if err := BootstrapManifest(dir, Identity{Name: "my-proj", RepoURL: "https://github.com/acme/my-proj"}); err != nil {
@@ -806,7 +807,6 @@ func TestBootstrapManifest_WritesNameAndRepoURL(t *testing.T) {
 
 // AC2: write-once — an existing manifest is never overwritten.
 func TestBootstrapManifest_WriteOncePreservesExisting(t *testing.T) {
-	t.Setenv("DEVTRACK_NO_BOOTSTRAP", "")
 	dir := t.TempDir()
 	existing := "name: original-name\nrepo_url: https://github.com/orig/repo\n# hand-edited, keep me\n"
 	if err := os.WriteFile(filepath.Join(dir, ManifestFilename), []byte(existing), 0o644); err != nil {
@@ -826,24 +826,9 @@ func TestBootstrapManifest_WriteOncePreservesExisting(t *testing.T) {
 	}
 }
 
-// AC3: DEVTRACK_NO_BOOTSTRAP=1 skips the write entirely (no error).
-func TestBootstrapManifest_SkipsWhenEnvOptOut(t *testing.T) {
-	t.Setenv("DEVTRACK_NO_BOOTSTRAP", "1")
-	dir := t.TempDir()
-
-	if err := BootstrapManifest(dir, Identity{Name: "x", RepoURL: "https://github.com/x/y"}); err != nil {
-		t.Fatalf("BootstrapManifest should not error when opted out: %v", err)
-	}
-
-	if _, err := os.Stat(filepath.Join(dir, ManifestFilename)); !os.IsNotExist(err) {
-		t.Errorf("expected no manifest written when DEVTRACK_NO_BOOTSTRAP=1, but the file exists")
-	}
-}
-
-// AC4: a failed write returns an error (for the caller to swallow) without
+// AC4: a failed write returns an error (for the caller to surface) without
 // panicking, and leaves no partial file behind.
 func TestBootstrapManifest_WriteFailureReturnsErrorGracefully(t *testing.T) {
-	t.Setenv("DEVTRACK_NO_BOOTSTRAP", "")
 	// Target a directory that does not exist so the write cannot succeed.
 	missingDir := filepath.Join(t.TempDir(), "does-not-exist")
 
@@ -859,7 +844,6 @@ func TestBootstrapManifest_WriteFailureReturnsErrorGracefully(t *testing.T) {
 // AC5: the written manifest is valid input to the resolver — a subsequent
 // resolve reads it instead of re-deriving from the folder name.
 func TestBootstrapManifest_OutputResolvesBackToIdentity(t *testing.T) {
-	t.Setenv("DEVTRACK_NO_BOOTSTRAP", "")
 	base := t.TempDir()
 	dir := filepath.Join(base, "Some-Repo") // folder fallback would be "some-repo"
 	if err := os.Mkdir(dir, 0o755); err != nil {

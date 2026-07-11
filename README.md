@@ -250,7 +250,7 @@ test_pattern: "**/*.test.ts"
 
 The manifest defines the project's configuration, structure, and integration points. The `content_path` and `draft_path` fields enable automatic discovery and syncing of published and draft content items.
 
-**Note:** The legacy `project.yaml` is no longer used. If you have an existing project with `project.yaml`, DevTrack will auto-detect your project identity using the git remote URL or folder name on first event send, then bootstrap `devtrack.yaml` silently. To opt out of auto-bootstrap, set `DEVTRACK_NO_BOOTSTRAP=1` before sending events.
+**Note:** The legacy `project.yaml` is no longer used. If you have an existing project with `project.yaml`, DevTrack will auto-detect your project identity using the git remote URL or folder name — no `devtrack.yaml` is required to send events. `devtrack event` (and every hook built on it) performs zero filesystem writes, so it's safe to run inside CI, sandboxes, or read-only checkouts. Run `devtrack init` to explicitly write a `devtrack.yaml` at the repo root and pin the project's identity; it's write-once (an existing manifest is left untouched) and fails loudly if the write doesn't succeed.
 
 ### Claude Code Hooks
 

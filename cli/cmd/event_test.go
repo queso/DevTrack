@@ -366,7 +366,6 @@ func TestEventCommand_HonorsExplicitProjectYAML(t *testing.T) {
 // losing every event from the repo. The chain must fall through to the folder
 // name, so the body still carries a project_name.
 func TestSendEvent_CorruptManifestStillPostsWithFallbackIdentity(t *testing.T) {
-	t.Setenv("DEVTRACK_NO_BOOTSTRAP", "1") // don't rewrite the (corrupt) manifest
 	cap := setupEventCapture(t, "name: [bad yaml\n  - unclosed bracket\nworkflow: :::\n")
 
 	if err := sendEvent("commit", "did a thing", nil); err != nil {
@@ -392,26 +391,43 @@ func TestSendEvent_CorruptManifestStillPostsWithFallbackIdentity(t *testing.T) {
 	}
 }
 
-// WI-582 (trigger wiring): sending an event from a manifest-less repo writes a
-// devtrack.yaml at the repo root (bootstrap), and the event is still sent.
-func TestSendEvent_BootstrapsManifestWhenAbsent(t *testing.T) {
-	t.Setenv("DEVTRACK_NO_BOOTSTRAP", "")
+// issue #16 / ADR 0001: telemetry is read-only. Sending an event from a
+// manifest-less repo must resolve identity (folder-name fallback) and POST
+// successfully WITHOUT writing devtrack.yaml, or any other file, into the cwd.
+// A confined harness (kernel containment with an owned-paths integrity gate)
+// halted runs on the old silent-bootstrap write; manifest creation is now the
+// explicit, separate `devtrack init` command (see init_test.go).
+func TestSendEvent_DoesNotWriteManifest(t *testing.T) {
 	cap := setupEventCapture(t, "") // no devtrack.yaml in cwd
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd: %v", err)
+	}
+	before, err := os.ReadDir(cwd)
+	if err != nil {
+		t.Fatalf("ReadDir (before): %v", err)
+	}
 
 	if err := sendEvent("commit", "did a thing", nil); err != nil {
 		t.Fatalf("sendEvent: %v", err)
 	}
 
-	// The event was sent...
+	// The event was still sent...
 	if len(cap.body) == 0 {
 		t.Fatal("expected the event to be POSTed")
 	}
-	// ...and a devtrack.yaml was bootstrapped into the (previously manifest-less) cwd.
-	cwd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Getwd: %v", err)
+
+	// ...but the event path performed zero filesystem writes: no devtrack.yaml,
+	// no other new file, in the previously manifest-less cwd.
+	if _, err := os.Stat(filepath.Join(cwd, "devtrack.yaml")); !os.IsNotExist(err) {
+		t.Errorf("expected no devtrack.yaml to be written by the event path, stat err: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(cwd, "devtrack.yaml")); err != nil {
-		t.Errorf("expected a bootstrapped devtrack.yaml in the manifest-less repo, stat err: %v", err)
+	after, err := os.ReadDir(cwd)
+	if err != nil {
+		t.Fatalf("ReadDir (after): %v", err)
+	}
+	if len(after) != len(before) {
+		t.Errorf("expected no new files in cwd after sendEvent; before: %v, after: %v", before, after)
 	}
 }

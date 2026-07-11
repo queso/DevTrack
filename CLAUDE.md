@@ -112,12 +112,10 @@ claude plugin install devtrack
 |---|---|
 | `DEVTRACK_API_URL` | Base URL of the DevTrack API (e.g. `https://devtrack.example.com`) |
 | `DEVTRACK_API_KEY` | API key for authenticating requests to the DevTrack API |
-| `DEVTRACK_NO_BOOTSTRAP` | Set to `1` to skip silent `devtrack.yaml` bootstrap on first event send (defaults to off) |
 
 Set these in your shell profile or `.env.local`:
 
 ```bash
 export DEVTRACK_API_URL="https://devtrack.example.com"
 export DEVTRACK_API_KEY="your-secure-api-key-here"
-export DEVTRACK_NO_BOOTSTRAP=0  # Or 1 to disable auto-bootstrap
 ```

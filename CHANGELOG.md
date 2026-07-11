@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Zero-setup project identity: `devtrack.yaml` → git remote → folder-name chain resolution; hard cutover from `project.yaml` (#WI-579)
 - Events API find-or-create with `repo_url`-before-name matching; P2002 race handled (race loser attaches to winner) (#WI-580)
 - Single enforcement point for `sendEvent` (identity + redaction + POST) in `cli/cmd/event.go`; new types accepted; `--project-yaml` optional (#WI-581)
-- Silent `devtrack.yaml` bootstrap on first send; write-once semantics; `DEVTRACK_NO_BOOTSTRAP=1` opt-out; never blocks the event (#WI-582)
+- `devtrack init`: explicit, write-once `devtrack.yaml` provisioning command; writes to the git repo root, leaves an existing manifest untouched (exit 0), and fails loudly (non-zero exit) on write failure (#WI-582, revised per issue #16 / ADR 0001)
 - Git hooks emit valid types with real git data (commit subject+hash, branch names); installer upgrades managed in-place (#WI-583)
 - `PostToolUse` hook reads stdin JSON and records `tool_use` events (never phantom commits); SessionStart/Stop entries no longer reference `project.yaml` (#WI-584)
 
@@ -23,8 +23,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Manifest migration: `project.yaml` → `devtrack.yaml` (hard cutover). Projects auto-detect via git remote or folder name on first send if `devtrack.yaml` missing (#WI-579)
 - Event type acceptance expanded to include `tool_use`, `checkout`, `merge` alongside existing types (#WI-577)
 
+### Fixed
+- `devtrack event` (and every hook routed through `sendEvent`) now performs zero filesystem writes — the silent `devtrack.yaml` bootstrap it used to trigger halted runs under kernel-contained harnesses with an owned-paths integrity gate. Manifest creation is now the explicit `devtrack init` command (#16, ADR 0001)
+
 ### Removed
 - Deleted dead TypeScript hook installer (`web/lib/hook-installer.ts` + test + `web/types/hooks.ts`) (#WI-585)
+- `DEVTRACK_NO_BOOTSTRAP` env var — moot now that the event path never writes files (#16)
 
 ### Deferred (Adjudicated During Mission)
 - Value-shape secret detection (entropy/known prefixes) — deferred for future phases
@@ -34,9 +38,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Stale `eventCmd` help text — cosmetic, deferred
 - Pre-existing broken e2e harness (`flowspec` script path missing; only scaffold flow exists) — left as-is
 - Environment variable leak in test isolation (`hooks.test.ts` / `config_test.go` assert on env without stubbing) — deferred
-
-### Environment Variables
-- **New:** `DEVTRACK_NO_BOOTSTRAP` - Set to `1` to skip silent `devtrack.yaml` bootstrap (defaults to off)
 
 #### CLI Content Management
 - `devtrack ideas` command for listing and managing content ideas (#WI-043)

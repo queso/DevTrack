@@ -73,7 +73,8 @@ var (
 // the event), redacts secret-shaped text out of the title, and POSTs the
 // event. Both the `event` command and the tool_use hook (WI-584) route
 // through this helper so the redaction/identity guarantee has one place to
-// hold, per PRD FR-11.
+// hold, per PRD FR-11. Per ADR 0001, this path is read-only: identity
+// resolution never writes devtrack.yaml. Use `devtrack init` to provision one.
 func sendEvent(eventType, title string, metadata map[string]interface{}) error {
 	if err := validateEventType(eventType); err != nil {
 		return err
@@ -90,12 +91,6 @@ func sendEvent(eventType, title string, metadata map[string]interface{}) error {
 	} else {
 		dir, _ := os.Getwd()
 		identity, _ = internal.ResolveIdentity(dir, defaultGetGitURL)
-		// Silently bootstrap a devtrack.yaml so future runs (and other
-		// tools) resolve the same identity without re-deriving it. Fire-
-		// and-forget: write-once and the opt-out are handled inside the
-		// writer, and any failure (read-only checkout, racing write) must
-		// never block the event itself.
-		_ = internal.BootstrapManifest(dir, identity)
 	}
 
 	bodyMap := map[string]interface{}{

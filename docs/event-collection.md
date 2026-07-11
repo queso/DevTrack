@@ -11,19 +11,17 @@ When an event is sent to DevTrack, the client determines the project identity us
 3. **Git remote origin** - Extract repo URL from `.git/config` and match against known projects in the API
 4. **Folder name** - Fall back to using the folder name as a project identifier
 
-This design enables zero-setup bootstrapping: a repository doesn't need a manifest file to start sending events. On the first send, DevTrack auto-detects identity via git remote or folder name, then silently writes `devtrack.yaml` for future sends.
+This design enables zero-setup usage: a repository doesn't need a manifest file to start sending events. `devtrack event` auto-detects identity via the git remote or folder name on every send, so events flow from unregistered repos with no setup step.
 
-### Silent Bootstrap
+### `devtrack event` performs no filesystem writes
 
-When events are sent to a project without a `devtrack.yaml`, DevTrack automatically:
+Per [ADR 0001](../adr/0001-telemetry-is-read-only.md), the event path is read-only: `devtrack event` (and every hook that routes through `sendEvent`) resolves identity through the chain above and POSTs the event, but never creates, modifies, or deletes any file — including `devtrack.yaml`. This makes it safe to run inside CI, kernel-contained harnesses, read-only checkouts, or any sandbox with an owned-paths integrity gate.
 
-1. Resolves the project identity using steps 3-4 above
-2. Writes `devtrack.yaml` with the detected configuration to the repo root
-3. Creates a git commit with the new manifest
+### `devtrack init`
 
-This bootstrap happens silently and never blocks the event send. To disable auto-bootstrap, set the `DEVTRACK_NO_BOOTSTRAP=1` environment variable before sending events.
+To pin a project's identity to a `devtrack.yaml` file instead of re-deriving it from git/folder name on every send, run `devtrack init` explicitly. It resolves identity the same way and writes `devtrack.yaml` to the git repository root.
 
-**Important:** Bootstrap is write-once per session; subsequent sends in the same session reuse the bootstrapped config even if `devtrack.yaml` is deleted.
+`init` is write-once: if a manifest already exists, it prints that and exits 0 without touching the file. Unlike the old silent bootstrap, a failed write is returned as a loud, non-zero-exit error — you asked for the write, so you need to know if it didn't happen.
 
 ## Secret Redaction
 
