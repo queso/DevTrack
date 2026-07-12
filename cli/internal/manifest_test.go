@@ -865,3 +865,26 @@ func TestBootstrapManifest_OutputResolvesBackToIdentity(t *testing.T) {
 		t.Errorf("RepoURL: got %q, want %q", got.RepoURL, "https://github.com/acme/canonical")
 	}
 }
+
+// normalizeRepoURL must rewrite SSH-form remotes to https: the API validates
+// repo_url as a URL, so an scp-like remote would 422 and silently drop every
+// event from a manifest-less repo cloned over SSH.
+func TestNormalizeRepoURL_SSHFormsRewriteToHTTPS(t *testing.T) {
+	cases := []struct{ name, in, want string }{
+		{"scp-like github", "git@github.com:queso/DevTrack.git", "https://github.com/queso/DevTrack"},
+		{"scp-like no .git", "git@gitlab.com:group/sub/repo", "https://gitlab.com/group/sub/repo"},
+		{"ssh scheme", "ssh://git@github.com/queso/DevTrack.git", "https://github.com/queso/DevTrack"},
+		{"ssh scheme with port", "ssh://git@git.internal:2222/team/repo.git", "https://git.internal/team/repo"},
+		{"https unchanged", "https://github.com/queso/DevTrack.git", "https://github.com/queso/DevTrack"},
+		{"https trailing slash", "https://github.com/queso/DevTrack/", "https://github.com/queso/DevTrack"},
+		{"http unchanged", "http://example.com/a/b", "http://example.com/a/b"},
+		{"bare name untouched", "not-a-remote", "not-a-remote"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := normalizeRepoURL(tc.in); got != tc.want {
+				t.Errorf("normalizeRepoURL(%q) = %q, want %q", tc.in, got, tc.want)
+			}
+		})
+	}
+}
