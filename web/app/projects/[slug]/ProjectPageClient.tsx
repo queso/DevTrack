@@ -413,7 +413,9 @@ export function ProjectPageClient({ slug }: ProjectPageClientProps) {
                 <span className="text-xs font-mono text-muted-foreground uppercase shrink-0">
                   {event.type}
                 </span>
-                <span>{event.description}</span>
+                <span className="line-clamp-2 min-w-0 [overflow-wrap:anywhere]">
+                  {event.description}
+                </span>
               </li>
             ))}
           </ul>

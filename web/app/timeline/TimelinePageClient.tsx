@@ -423,7 +423,7 @@ export default function TimelinePageClient() {
                           </span>
                           <span className="text-[11px] text-muted-foreground/40">{timeStr}</span>
                         </div>
-                        <p className="text-sm text-foreground/90 leading-relaxed">
+                        <p className="text-sm text-foreground/90 leading-relaxed line-clamp-2 [overflow-wrap:anywhere]">
                           {event.description}
                         </p>
                       </div>
