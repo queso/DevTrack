@@ -62,6 +62,8 @@ var configListCmd = &cobra.Command{
 		w := cmd.OutOrStdout()
 		fmt.Fprintf(w, "api_url=%s\n", cfg.APIUrl)
 		fmt.Fprintf(w, "token=%s\n", cfg.Token)
+		fmt.Fprintf(w, "access_client_id=%s\n", cfg.AccessClientID)
+		fmt.Fprintf(w, "access_client_secret=%s\n", cfg.AccessClientSecret)
 		return nil
 	},
 }
