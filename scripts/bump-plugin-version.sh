@@ -38,10 +38,13 @@ update_version() {
   if command -v jq &>/dev/null; then
     local tmp
     tmp="$(mktemp)"
-    jq --arg v "$VERSION" '.version = $v' "$file" > "$tmp"
+    # Top-level .version always; marketplace.json also carries per-plugin
+    # versions in .plugins[] that must stay in sync.
+    jq --arg v "$VERSION" '.version = $v
+      | if .plugins then .plugins |= map(.version = $v) else . end' "$file" > "$tmp"
     mv "$tmp" "$file"
   else
-    sed -i.bak -E "s/(\"version\"[[:space:]]*:[[:space:]]*\")[^\"]+(\"/\1${VERSION}\2/" "$file"
+    sed -i.bak -E "s/(\"version\"[[:space:]]*:[[:space:]]*\")[^\"]+(\")/\1${VERSION}\2/g" "$file"
     rm -f "${file}.bak"
   fi
 }
