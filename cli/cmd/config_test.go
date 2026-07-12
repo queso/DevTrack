@@ -145,6 +145,11 @@ func TestPersistentPreRunE_SetsBaseURLFromConfig(t *testing.T) {
 		t.Fatalf("SaveConfig: %v", err)
 	}
 
+	// Clear DEVTRACK_API_URL so the config value is what resolves — env wins
+	// over config by design, and a developer machine may export it.
+	t.Setenv("DEVTRACK_API_URL", "")
+	os.Unsetenv("DEVTRACK_API_URL")
+
 	// Reset base-url to default so it's not "Changed"
 	f := rootCmd.PersistentFlags().Lookup("base-url")
 	f.Value.Set("/api/v1")
@@ -240,5 +245,64 @@ func TestPersistentPreRunE_APIKeyPopulatesToken(t *testing.T) {
 		t.Errorf("DEVTRACK_TOKEN = %q, want %q (DEVTRACK_API_KEY should win)", got, "canonical-key-abc")
 	}
 	os.Unsetenv("DEVTRACK_TOKEN") // cleanup
+	rootCmd.SetOut(nil)
+}
+
+// TestPersistentPreRunE_SetsAccessCredsFromConfig verifies that Cloudflare
+// Access service-token creds resolve from the config file into the env vars
+// client.NewClient reads, with existing env values taking precedence.
+func TestPersistentPreRunE_SetsAccessCredsFromConfig(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.yaml")
+
+	cfg := internal.Config{AccessClientID: "cfg-id", AccessClientSecret: "cfg-secret"}
+	if err := internal.SaveConfig(cfgPath, cfg); err != nil {
+		t.Fatalf("SaveConfig: %v", err)
+	}
+
+	origID := os.Getenv("ACCESS_CLIENT_ID")
+	origSecret := os.Getenv("ACCESS_CLIENT_SECRET")
+	defer func() {
+		os.Unsetenv("ACCESS_CLIENT_ID")
+		os.Unsetenv("ACCESS_CLIENT_SECRET")
+		if origID != "" {
+			os.Setenv("ACCESS_CLIENT_ID", origID)
+		}
+		if origSecret != "" {
+			os.Setenv("ACCESS_CLIENT_SECRET", origSecret)
+		}
+	}()
+
+	// Case 1: env unset -> config fills both.
+	os.Unsetenv("ACCESS_CLIENT_ID")
+	os.Unsetenv("ACCESS_CLIENT_SECRET")
+
+	var buf bytes.Buffer
+	rootCmd.SetOut(&buf)
+	rootCmd.SetArgs([]string{"config", "list", "--config", cfgPath})
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := os.Getenv("ACCESS_CLIENT_ID"); got != "cfg-id" {
+		t.Errorf("ACCESS_CLIENT_ID = %q, want cfg-id", got)
+	}
+	if got := os.Getenv("ACCESS_CLIENT_SECRET"); got != "cfg-secret" {
+		t.Errorf("ACCESS_CLIENT_SECRET = %q, want cfg-secret", got)
+	}
+
+	// Case 2: env set -> env wins over config.
+	os.Setenv("ACCESS_CLIENT_ID", "env-id")
+	os.Setenv("ACCESS_CLIENT_SECRET", "env-secret")
+
+	rootCmd.SetArgs([]string{"config", "list", "--config", cfgPath})
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := os.Getenv("ACCESS_CLIENT_ID"); got != "env-id" {
+		t.Errorf("ACCESS_CLIENT_ID = %q, want env-id (env should win)", got)
+	}
+	if got := os.Getenv("ACCESS_CLIENT_SECRET"); got != "env-secret" {
+		t.Errorf("ACCESS_CLIENT_SECRET = %q, want env-secret (env should win)", got)
+	}
 	rootCmd.SetOut(nil)
 }

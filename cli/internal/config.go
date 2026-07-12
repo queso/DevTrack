@@ -9,8 +9,10 @@ import (
 )
 
 type Config struct {
-	APIUrl string `yaml:"api_url"`
-	Token  string `yaml:"token"`
+	APIUrl             string `yaml:"api_url"`
+	Token              string `yaml:"token"`
+	AccessClientID     string `yaml:"access_client_id,omitempty"`
+	AccessClientSecret string `yaml:"access_client_secret,omitempty"`
 }
 
 func DefaultConfigPath() string {
@@ -51,33 +53,45 @@ func SaveConfig(path string, cfg Config) error {
 	return nil
 }
 
+const validConfigKeyList = "api_url, token, access_client_id, access_client_secret"
+
 var validConfigKeys = map[string]bool{
-	"api_url": true,
-	"token":   true,
+	"api_url":              true,
+	"token":                true,
+	"access_client_id":     true,
+	"access_client_secret": true,
 }
 
 func GetConfigValue(cfg Config, key string) (string, error) {
 	if !validConfigKeys[key] {
-		return "", fmt.Errorf("unknown config key: %q (valid keys: api_url, token)", key)
+		return "", fmt.Errorf("unknown config key: %q (valid keys: %s)", key, validConfigKeyList)
 	}
 	switch key {
 	case "api_url":
 		return cfg.APIUrl, nil
 	case "token":
 		return cfg.Token, nil
+	case "access_client_id":
+		return cfg.AccessClientID, nil
+	case "access_client_secret":
+		return cfg.AccessClientSecret, nil
 	}
 	return "", nil
 }
 
 func SetConfigValue(cfg *Config, key, value string) error {
 	if !validConfigKeys[key] {
-		return fmt.Errorf("unknown config key: %q (valid keys: api_url, token)", key)
+		return fmt.Errorf("unknown config key: %q (valid keys: %s)", key, validConfigKeyList)
 	}
 	switch key {
 	case "api_url":
 		cfg.APIUrl = value
 	case "token":
 		cfg.Token = value
+	case "access_client_id":
+		cfg.AccessClientID = value
+	case "access_client_secret":
+		cfg.AccessClientSecret = value
 	}
 	return nil
 }
