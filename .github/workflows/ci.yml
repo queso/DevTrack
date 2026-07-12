@@ -72,3 +72,43 @@ jobs:
           tags: |
             ghcr.io/queso/devtrack:main
             ghcr.io/queso/devtrack:${{ github.sha }}
+
+  # GitOps CD: after the image lands in GHCR, pin arcane-k8s's devtrack
+  # deployment to this commit's SHA tag. ArgoCD auto-sync picks up the manifest
+  # change and rolls the deployment (the migrate initContainer runs on each
+  # rollout). Rollback = git revert in arcane-k8s.
+  deploy:
+    name: Bump Image in arcane-k8s
+    needs: build-and-push
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out arcane-k8s
+        uses: actions/checkout@v6
+        with:
+          repository: queso/arcane-k8s
+          ssh-key: ${{ secrets.ARCANE_K8S_DEPLOY_KEY }}
+          ref: main
+
+      - name: Pin devtrack image to ${{ github.sha }}
+        run: |
+          sed -i -E 's|(ghcr\.io/queso/devtrack):[A-Za-z0-9._-]+|\1:${{ github.sha }}|g' \
+            kubernetes/apps/devtrack/deployment.yaml
+          git diff --stat
+
+      - name: Commit and push
+        run: |
+          git config user.name "devtrack-ci"
+          git config user.email "devtrack-ci@theaiteam.dev"
+          if git diff --quiet; then
+            echo "Image already pinned to ${{ github.sha }} — nothing to do."
+            exit 0
+          fi
+          git add kubernetes/apps/devtrack/deployment.yaml
+          git commit -m "chore(devtrack): deploy ghcr.io/queso/devtrack:${{ github.sha }}"
+          for i in 1 2 3; do
+            git push && exit 0
+            git pull --rebase && continue
+          done
+          echo "push failed after retries" >&2
+          exit 1
