@@ -13,10 +13,6 @@
       },
       "description": "Mission control for multi-repo development. Track SDLC state, content pipelines, and PR queues across all your projects from one dashboard.",
       "version": "2.0.0",
-      "author": {
-        "name": "Josh / Arcane Ops"
-      },
-      "repository": "https://github.com/queso/DevTrack",
       "keywords": [
         "devtrack",
         "sdlc",

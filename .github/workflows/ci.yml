@@ -14,6 +14,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      # Guards the release pipeline: bump-plugin-version.sh runs as
+      # semantic-release's prepareCmd and must keep plugin.json and
+      # marketplace.json version fields in sync.
+      - name: Test plugin version bump script
+        run: ./scripts/bump-plugin-version.test.sh
+
       - uses: pnpm/action-setup@v4
         with:
           package_json_file: "web/package.json"
