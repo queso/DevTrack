@@ -64,6 +64,12 @@ func ReadManifest(path string) (*Manifest, error) {
 		return nil, fmt.Errorf("manifest %q: workflow must be \"sdlc\", got %q", path, m.Workflow)
 	}
 
+	// Normalize at read time so every consumer (events, register, project
+	// matching) sees the https form: manifests bootstrapped by `devtrack init`
+	// before SSH-remote normalization carry scp-like repo_urls the API
+	// rejects, and users hand-edit this file too.
+	m.RepoURL = normalizeRepoURL(m.RepoURL)
+
 	return &m, nil
 }
 

@@ -888,3 +888,43 @@ func TestNormalizeRepoURL_SSHFormsRewriteToHTTPS(t *testing.T) {
 		})
 	}
 }
+
+// Manifests bootstrapped by `devtrack init` before SSH-remote normalization
+// (or hand-edited) can carry scp-like repo_urls the API rejects with a 422,
+// silently dropping every event from that repo. ReadManifest normalizes at
+// read time so every consumer sees the https form without touching the file.
+func TestReadManifest_NormalizesSSHRepoURL(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, ManifestFilename)
+	content := "name: decker\nrepo_url: git@github.com:queso/decker\n"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	m, err := ReadManifest(path)
+	if err != nil {
+		t.Fatalf("ReadManifest: %v", err)
+	}
+	if m.RepoURL != "https://github.com/queso/decker" {
+		t.Errorf("RepoURL = %q, want https://github.com/queso/decker", m.RepoURL)
+	}
+}
+
+func TestResolveIdentity_ManifestSSHRepoURLNormalized(t *testing.T) {
+	dir := t.TempDir()
+	content := "name: decker\nrepo_url: git@github.com:queso/decker.git\n"
+	if err := os.WriteFile(filepath.Join(dir, ManifestFilename), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	id, err := ResolveIdentity(dir, func() (string, error) { return "", nil })
+	if err != nil {
+		t.Fatalf("ResolveIdentity: %v", err)
+	}
+	if id.RepoURL != "https://github.com/queso/decker" {
+		t.Errorf("RepoURL = %q, want https://github.com/queso/decker", id.RepoURL)
+	}
+	if id.Name != "decker" {
+		t.Errorf("Name = %q, want decker", id.Name)
+	}
+}
