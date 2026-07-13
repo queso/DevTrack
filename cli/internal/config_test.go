@@ -100,6 +100,44 @@ func TestSetConfigValue_InvalidKey(t *testing.T) {
 	}
 }
 
+// Cloudflare Access service-token creds are config keys too, so hooks can run
+// in env-less contexts (cron, stale shells) with only ~/.devtrack/config.yaml.
+func TestConfigValue_AccessCredKeys(t *testing.T) {
+	var cfg Config
+
+	if err := SetConfigValue(&cfg, "access_client_id", "id-123"); err != nil {
+		t.Fatalf("set access_client_id: %v", err)
+	}
+	if err := SetConfigValue(&cfg, "access_client_secret", "sec-456"); err != nil {
+		t.Fatalf("set access_client_secret: %v", err)
+	}
+
+	id, err := GetConfigValue(cfg, "access_client_id")
+	if err != nil || id != "id-123" {
+		t.Errorf("get access_client_id = %q, %v; want id-123, nil", id, err)
+	}
+	secret, err := GetConfigValue(cfg, "access_client_secret")
+	if err != nil || secret != "sec-456" {
+		t.Errorf("get access_client_secret = %q, %v; want sec-456, nil", secret, err)
+	}
+}
+
+func TestSaveAndLoadConfig_AccessCredsRoundTrip(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	cfg := Config{AccessClientID: "id.access", AccessClientSecret: "deadbeef"}
+
+	if err := SaveConfig(path, cfg); err != nil {
+		t.Fatalf("SaveConfig: %v", err)
+	}
+	loaded, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if loaded.AccessClientID != cfg.AccessClientID || loaded.AccessClientSecret != cfg.AccessClientSecret {
+		t.Errorf("access creds did not round-trip: %+v", loaded)
+	}
+}
+
 func TestLoadConfig_InvalidYAML(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "bad.yaml")
 	if err := os.WriteFile(path, []byte(":::not yaml"), 0o644); err != nil {

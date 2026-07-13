@@ -64,6 +64,12 @@ func ReadManifest(path string) (*Manifest, error) {
 		return nil, fmt.Errorf("manifest %q: workflow must be \"sdlc\", got %q", path, m.Workflow)
 	}
 
+	// Normalize at read time so every consumer (events, register, project
+	// matching) sees the https form: manifests bootstrapped by `devtrack init`
+	// before SSH-remote normalization carry scp-like repo_urls the API
+	// rejects, and users hand-edit this file too.
+	m.RepoURL = normalizeRepoURL(m.RepoURL)
+
 	return &m, nil
 }
 
@@ -156,10 +162,38 @@ func BootstrapManifest(dir string, identity Identity) error {
 	return os.WriteFile(manifestPath, []byte(b.String()), 0o644)
 }
 
-// normalizeRepoURL strips trailing slashes and .git suffix for comparison.
+// normalizeRepoURL strips trailing slashes and the .git suffix, and rewrites
+// SSH-form git remotes (scp-like "git@host:owner/repo" and "ssh://" URLs) to
+// their https equivalent. The API validates repo_url as a URL, so an
+// un-rewritten SSH remote would 422 and silently drop every event from a
+// manifest-less repo cloned over SSH. The https form is also what registered
+// projects store, so find-or-create by repo_url converges on one project
+// regardless of clone protocol.
 func normalizeRepoURL(u string) string {
 	u = strings.TrimRight(u, "/")
 	u = strings.TrimSuffix(u, ".git")
+
+	// ssh://[user@]host[:port]/owner/repo -> https://host/owner/repo
+	if rest, ok := strings.CutPrefix(u, "ssh://"); ok {
+		if at := strings.Index(rest, "@"); at != -1 {
+			rest = rest[at+1:]
+		}
+		if slash := strings.Index(rest, "/"); slash != -1 {
+			host, _, _ := strings.Cut(rest[:slash], ":")
+			return "https://" + host + rest[slash:]
+		}
+		return "https://" + rest
+	}
+
+	// scp-like user@host:owner/repo -> https://host/owner/repo
+	if !strings.Contains(u, "://") {
+		if at := strings.Index(u, "@"); at != -1 {
+			if host, path, ok := strings.Cut(u[at+1:], ":"); ok && host != "" && path != "" {
+				return "https://" + host + "/" + path
+			}
+		}
+	}
+
 	return u
 }
 

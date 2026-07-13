@@ -71,10 +71,87 @@ func TestConfigList_PrintsAll(t *testing.T) {
 	if !strings.Contains(out, "api_url=http://test.com") {
 		t.Error("list output missing api_url")
 	}
-	if !strings.Contains(out, "token=secret") {
-		t.Error("list output missing token")
+	// The token key is present but its value is masked (see
+	// TestConfigList_MasksSecretValues).
+	if !strings.Contains(out, "token=") {
+		t.Error("list output missing token key")
 	}
 	rootCmd.SetOut(nil) // reset
+}
+
+// config list must never echo secret values to stdout — they would persist in
+// terminal scrollback, CI logs, or redirected files. token and
+// access_client_secret are masked; api_url and access_client_id (a non-secret
+// identifier) stay visible. Regression test for the PR #19 security review.
+func TestConfigList_MasksSecretValues(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.yaml")
+
+	cfg := internal.Config{
+		APIUrl:             "http://test.com",
+		Token:              "super-secret-token",
+		AccessClientID:     "client-id-not-secret",
+		AccessClientSecret: "super-secret-value",
+	}
+	if err := internal.SaveConfig(cfgPath, cfg); err != nil {
+		t.Fatalf("SaveConfig: %v", err)
+	}
+
+	var buf bytes.Buffer
+	rootCmd.SetOut(&buf)
+	rootCmd.SetArgs([]string{"config", "list", "--config", cfgPath})
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("config list: %v", err)
+	}
+	rootCmd.SetOut(nil)
+
+	out := buf.String()
+
+	// Secret values must not appear in plaintext.
+	if strings.Contains(out, "super-secret-token") {
+		t.Errorf("token value leaked in list output:\n%s", out)
+	}
+	if strings.Contains(out, "super-secret-value") {
+		t.Errorf("access_client_secret value leaked in list output:\n%s", out)
+	}
+	// Masked keys still show presence.
+	if !strings.Contains(out, "token=[hidden]") {
+		t.Errorf("token not masked as [hidden]:\n%s", out)
+	}
+	if !strings.Contains(out, "access_client_secret=[hidden]") {
+		t.Errorf("access_client_secret not masked as [hidden]:\n%s", out)
+	}
+	// Non-secret values stay visible for debuggability.
+	if !strings.Contains(out, "api_url=http://test.com") {
+		t.Errorf("api_url should be visible:\n%s", out)
+	}
+	if !strings.Contains(out, "access_client_id=client-id-not-secret") {
+		t.Errorf("access_client_id should be visible:\n%s", out)
+	}
+}
+
+// An unset secret masks to empty (not "[hidden]"), so `config list` accurately
+// distinguishes configured from unconfigured keys.
+func TestConfigList_UnsetSecretMasksToEmpty(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.yaml")
+
+	cfg := internal.Config{APIUrl: "http://test.com"}
+	if err := internal.SaveConfig(cfgPath, cfg); err != nil {
+		t.Fatalf("SaveConfig: %v", err)
+	}
+
+	var buf bytes.Buffer
+	rootCmd.SetOut(&buf)
+	rootCmd.SetArgs([]string{"config", "list", "--config", cfgPath})
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("config list: %v", err)
+	}
+	rootCmd.SetOut(nil)
+
+	if out := buf.String(); !strings.Contains(out, "token=\n") {
+		t.Errorf("unset token should mask to empty, got:\n%s", out)
+	}
 }
 
 func TestConfigSet_InvalidKey(t *testing.T) {
@@ -144,6 +221,11 @@ func TestPersistentPreRunE_SetsBaseURLFromConfig(t *testing.T) {
 	if err := internal.SaveConfig(cfgPath, cfg); err != nil {
 		t.Fatalf("SaveConfig: %v", err)
 	}
+
+	// Clear DEVTRACK_API_URL so the config value is what resolves — env wins
+	// over config by design, and a developer machine may export it.
+	t.Setenv("DEVTRACK_API_URL", "")
+	os.Unsetenv("DEVTRACK_API_URL")
 
 	// Reset base-url to default so it's not "Changed"
 	f := rootCmd.PersistentFlags().Lookup("base-url")
@@ -240,5 +322,64 @@ func TestPersistentPreRunE_APIKeyPopulatesToken(t *testing.T) {
 		t.Errorf("DEVTRACK_TOKEN = %q, want %q (DEVTRACK_API_KEY should win)", got, "canonical-key-abc")
 	}
 	os.Unsetenv("DEVTRACK_TOKEN") // cleanup
+	rootCmd.SetOut(nil)
+}
+
+// TestPersistentPreRunE_SetsAccessCredsFromConfig verifies that Cloudflare
+// Access service-token creds resolve from the config file into the env vars
+// client.NewClient reads, with existing env values taking precedence.
+func TestPersistentPreRunE_SetsAccessCredsFromConfig(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.yaml")
+
+	cfg := internal.Config{AccessClientID: "cfg-id", AccessClientSecret: "cfg-secret"}
+	if err := internal.SaveConfig(cfgPath, cfg); err != nil {
+		t.Fatalf("SaveConfig: %v", err)
+	}
+
+	origID := os.Getenv("ACCESS_CLIENT_ID")
+	origSecret := os.Getenv("ACCESS_CLIENT_SECRET")
+	defer func() {
+		os.Unsetenv("ACCESS_CLIENT_ID")
+		os.Unsetenv("ACCESS_CLIENT_SECRET")
+		if origID != "" {
+			os.Setenv("ACCESS_CLIENT_ID", origID)
+		}
+		if origSecret != "" {
+			os.Setenv("ACCESS_CLIENT_SECRET", origSecret)
+		}
+	}()
+
+	// Case 1: env unset -> config fills both.
+	os.Unsetenv("ACCESS_CLIENT_ID")
+	os.Unsetenv("ACCESS_CLIENT_SECRET")
+
+	var buf bytes.Buffer
+	rootCmd.SetOut(&buf)
+	rootCmd.SetArgs([]string{"config", "list", "--config", cfgPath})
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := os.Getenv("ACCESS_CLIENT_ID"); got != "cfg-id" {
+		t.Errorf("ACCESS_CLIENT_ID = %q, want cfg-id", got)
+	}
+	if got := os.Getenv("ACCESS_CLIENT_SECRET"); got != "cfg-secret" {
+		t.Errorf("ACCESS_CLIENT_SECRET = %q, want cfg-secret", got)
+	}
+
+	// Case 2: env set -> env wins over config.
+	os.Setenv("ACCESS_CLIENT_ID", "env-id")
+	os.Setenv("ACCESS_CLIENT_SECRET", "env-secret")
+
+	rootCmd.SetArgs([]string{"config", "list", "--config", cfgPath})
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := os.Getenv("ACCESS_CLIENT_ID"); got != "env-id" {
+		t.Errorf("ACCESS_CLIENT_ID = %q, want env-id (env should win)", got)
+	}
+	if got := os.Getenv("ACCESS_CLIENT_SECRET"); got != "env-secret" {
+		t.Errorf("ACCESS_CLIENT_SECRET = %q, want env-secret (env should win)", got)
+	}
 	rootCmd.SetOut(nil)
 }

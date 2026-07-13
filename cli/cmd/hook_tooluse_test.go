@@ -17,9 +17,11 @@ import (
 //	func runToolUseHook(stdin io.Reader) error
 //
 // Reads {tool_input:{command}, session_id, cwd}; sends one tool_use event whose
-// title is the (redacted) command and whose metadata carries session_id + cwd.
-// Absent/malformed stdin exits quietly with no event. Uses the shared
-// setupEventCapture / acmeManifest helpers from event_test.go.
+// title is a single-line summary of the (redacted) command — whitespace
+// collapsed, capped at titleMaxLength — and whose metadata carries session_id,
+// cwd, and the full redacted command. Absent/malformed stdin exits quietly
+// with no event. Uses the shared setupEventCapture / acmeManifest helpers
+// from event_test.go.
 // ---------------------------------------------------------------------------
 
 func findClaudeHookDef(t *testing.T, event string) claudeCodeHookDef {
@@ -75,9 +77,10 @@ func TestRunToolUseHook_SendsToolUseEventViaSendEvent(t *testing.T) {
 	}
 }
 
-// AC5: because the command is read from stdin JSON (not an argv flag), quotes,
-// newlines, and shell metacharacters survive intact (redact preserves them).
-func TestRunToolUseHook_PreservesCommandMetacharacters(t *testing.T) {
+// AC5: because the command is read from stdin JSON (not an argv flag), quotes
+// and shell metacharacters survive intact in metadata.command; the title is
+// the same command collapsed to one line for dashboard display.
+func TestRunToolUseHook_PreservesCommandInMetadataAndSummarizesTitle(t *testing.T) {
 	cap := setupEventCapture(t, acmeManifest)
 	command := "echo \"hi there\" | grep foo && cat f\nsecond-line > /dev/null"
 	payload, err := json.Marshal(map[string]interface{}{
@@ -92,8 +95,99 @@ func TestRunToolUseHook_PreservesCommandMetacharacters(t *testing.T) {
 	if err := runToolUseHook(strings.NewReader(string(payload))); err != nil {
 		t.Fatalf("runToolUseHook: %v", err)
 	}
-	if got, _ := cap.decode(t)["title"].(string); got != command {
-		t.Errorf("command metacharacters not transmitted intact:\n got %q\nwant %q", got, command)
+	body := cap.decode(t)
+
+	meta, ok := body["metadata"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("metadata missing or not an object: %v", body["metadata"])
+	}
+	if meta["command"] != command {
+		t.Errorf("command metacharacters not preserved in metadata:\n got %q\nwant %q", meta["command"], command)
+	}
+
+	title, _ := body["title"].(string)
+	want := "echo \"hi there\" | grep foo && cat f second-line > /dev/null"
+	if title != want {
+		t.Errorf("title not collapsed to one line:\n got %q\nwant %q", title, want)
+	}
+}
+
+// The title is capped at titleMaxLength runes with a trailing ellipsis so
+// long commands stay one consumable dashboard row; the full command is still
+// carried in metadata.command.
+func TestRunToolUseHook_TruncatesLongTitles(t *testing.T) {
+	cap := setupEventCapture(t, acmeManifest)
+	command := "curl -s https://example.com/very/long/path " + strings.Repeat("--arg value ", 30)
+	payload, err := json.Marshal(map[string]interface{}{
+		"session_id": "s1",
+		"cwd":        "/x",
+		"tool_input": map[string]interface{}{"command": command},
+	})
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+
+	if err := runToolUseHook(strings.NewReader(string(payload))); err != nil {
+		t.Fatalf("runToolUseHook: %v", err)
+	}
+	body := cap.decode(t)
+
+	title, _ := body["title"].(string)
+	if got := len([]rune(title)); got > titleMaxLength {
+		t.Errorf("title length %d exceeds cap %d: %q", got, titleMaxLength, title)
+	}
+	if !strings.HasSuffix(title, "…") {
+		t.Errorf("truncated title missing ellipsis: %q", title)
+	}
+	if !strings.HasPrefix(title, "curl -s https://example.com/very/long/path") {
+		t.Errorf("title lost the command head: %q", title)
+	}
+	meta, _ := body["metadata"].(map[string]interface{})
+	if meta["command"] != command {
+		t.Errorf("full command not preserved in metadata for long command")
+	}
+}
+
+// metadata.command bypasses sendEvent's title redaction, so the hook must
+// redact it itself before attaching it.
+func TestRunToolUseHook_RedactsMetadataCommand(t *testing.T) {
+	cap := setupEventCapture(t, acmeManifest)
+	payload := `{"session_id":"s1","cwd":"/x","tool_input":{"command":"export API_KEY=abc123def456 && npm test"}}`
+
+	if err := runToolUseHook(strings.NewReader(payload)); err != nil {
+		t.Fatalf("runToolUseHook: %v", err)
+	}
+	meta, _ := cap.decode(t)["metadata"].(map[string]interface{})
+	cmd, _ := meta["command"].(string)
+	if strings.Contains(cmd, "abc123def456") {
+		t.Errorf("secret not redacted in metadata.command: %q", cmd)
+	}
+	if !strings.Contains(cmd, redact.Placeholder) {
+		t.Errorf("expected redaction placeholder in metadata.command: %q", cmd)
+	}
+}
+
+func TestSummarizeCommand(t *testing.T) {
+	cases := []struct{ name, in, want string }{
+		{"short single line", "ls -la", "ls -la"},
+		{"multiline collapsed", "curl -s url \\\n  -H 'a: b' \\\n  -H 'c: d'", "curl -s url \\ -H 'a: b' \\ -H 'c: d'"},
+		{"tabs and runs of spaces", "git  status\t&& git   log", "git status && git log"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := summarizeCommand(tc.in); got != tc.want {
+				t.Errorf("summarizeCommand(%q) = %q, want %q", tc.in, got, tc.want)
+			}
+		})
+	}
+
+	long := strings.Repeat("x", 300)
+	got := summarizeCommand(long)
+	if len([]rune(got)) != titleMaxLength {
+		t.Errorf("truncated length = %d, want %d", len([]rune(got)), titleMaxLength)
+	}
+	if !strings.HasSuffix(got, "…") {
+		t.Errorf("truncated summary missing ellipsis: %q", got)
 	}
 }
 

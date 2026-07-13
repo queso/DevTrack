@@ -39,6 +39,18 @@ var rootCmd = &cobra.Command{
 			os.Setenv("DEVTRACK_TOKEN", cfg.Token)
 		}
 
+		// Resolve the Cloudflare Access service-token creds the same way:
+		// env wins, config file fills the gap. client.NewClient reads these
+		// env vars, so normalizing here keeps that single construction point
+		// unchanged while letting hooks run in env-less contexts (cron,
+		// stale shells, launchers) with only ~/.devtrack/config.yaml.
+		if os.Getenv("ACCESS_CLIENT_ID") == "" && cfg.AccessClientID != "" {
+			os.Setenv("ACCESS_CLIENT_ID", cfg.AccessClientID)
+		}
+		if os.Getenv("ACCESS_CLIENT_SECRET") == "" && cfg.AccessClientSecret != "" {
+			os.Setenv("ACCESS_CLIENT_SECRET", cfg.AccessClientSecret)
+		}
+
 		return nil
 	},
 }

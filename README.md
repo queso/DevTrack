@@ -115,6 +115,19 @@ All commands run from `web/`.
 >   token** via `CF-Access-Client-Id` / `CF-Access-Client-Secret`. The Go CLI
 >   sets these automatically when `ACCESS_CLIENT_ID` and `ACCESS_CLIENT_SECRET`
 >   are both present in the environment; local dev (localhost) needs neither.
+>
+> **Env-less setup (recommended for hooks):** every credential can live in
+> `~/.devtrack/config.yaml` instead of the environment, so hooks fired from
+> contexts without your shell profile (Claude Code sessions launched from
+> stale shells, cron, GUI launchers) still report. Environment variables win
+> when both are set:
+>
+> ```bash
+> devtrack config set api_url  https://devtrack.example.com/api/v1
+> devtrack config set token    "$DEVTRACK_API_KEY"
+> devtrack config set access_client_id     "$ACCESS_CLIENT_ID"
+> devtrack config set access_client_secret "$ACCESS_CLIENT_SECRET"
+> ```
 
 ### Agent / brief integration
 

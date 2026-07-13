@@ -865,3 +865,66 @@ func TestBootstrapManifest_OutputResolvesBackToIdentity(t *testing.T) {
 		t.Errorf("RepoURL: got %q, want %q", got.RepoURL, "https://github.com/acme/canonical")
 	}
 }
+
+// normalizeRepoURL must rewrite SSH-form remotes to https: the API validates
+// repo_url as a URL, so an scp-like remote would 422 and silently drop every
+// event from a manifest-less repo cloned over SSH.
+func TestNormalizeRepoURL_SSHFormsRewriteToHTTPS(t *testing.T) {
+	cases := []struct{ name, in, want string }{
+		{"scp-like github", "git@github.com:queso/DevTrack.git", "https://github.com/queso/DevTrack"},
+		{"scp-like no .git", "git@gitlab.com:group/sub/repo", "https://gitlab.com/group/sub/repo"},
+		{"ssh scheme", "ssh://git@github.com/queso/DevTrack.git", "https://github.com/queso/DevTrack"},
+		{"ssh scheme with port", "ssh://git@git.internal:2222/team/repo.git", "https://git.internal/team/repo"},
+		{"https unchanged", "https://github.com/queso/DevTrack.git", "https://github.com/queso/DevTrack"},
+		{"https trailing slash", "https://github.com/queso/DevTrack/", "https://github.com/queso/DevTrack"},
+		{"http unchanged", "http://example.com/a/b", "http://example.com/a/b"},
+		{"bare name untouched", "not-a-remote", "not-a-remote"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := normalizeRepoURL(tc.in); got != tc.want {
+				t.Errorf("normalizeRepoURL(%q) = %q, want %q", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
+// Manifests bootstrapped by `devtrack init` before SSH-remote normalization
+// (or hand-edited) can carry scp-like repo_urls the API rejects with a 422,
+// silently dropping every event from that repo. ReadManifest normalizes at
+// read time so every consumer sees the https form without touching the file.
+func TestReadManifest_NormalizesSSHRepoURL(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, ManifestFilename)
+	content := "name: decker\nrepo_url: git@github.com:queso/decker\n"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	m, err := ReadManifest(path)
+	if err != nil {
+		t.Fatalf("ReadManifest: %v", err)
+	}
+	if m.RepoURL != "https://github.com/queso/decker" {
+		t.Errorf("RepoURL = %q, want https://github.com/queso/decker", m.RepoURL)
+	}
+}
+
+func TestResolveIdentity_ManifestSSHRepoURLNormalized(t *testing.T) {
+	dir := t.TempDir()
+	content := "name: decker\nrepo_url: git@github.com:queso/decker.git\n"
+	if err := os.WriteFile(filepath.Join(dir, ManifestFilename), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	id, err := ResolveIdentity(dir, func() (string, error) { return "", nil })
+	if err != nil {
+		t.Fatalf("ResolveIdentity: %v", err)
+	}
+	if id.RepoURL != "https://github.com/queso/decker" {
+		t.Errorf("RepoURL = %q, want https://github.com/queso/decker", id.RepoURL)
+	}
+	if id.Name != "decker" {
+		t.Errorf("Name = %q, want decker", id.Name)
+	}
+}
