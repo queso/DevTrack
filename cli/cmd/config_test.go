@@ -71,10 +71,87 @@ func TestConfigList_PrintsAll(t *testing.T) {
 	if !strings.Contains(out, "api_url=http://test.com") {
 		t.Error("list output missing api_url")
 	}
-	if !strings.Contains(out, "token=secret") {
-		t.Error("list output missing token")
+	// The token key is present but its value is masked (see
+	// TestConfigList_MasksSecretValues).
+	if !strings.Contains(out, "token=") {
+		t.Error("list output missing token key")
 	}
 	rootCmd.SetOut(nil) // reset
+}
+
+// config list must never echo secret values to stdout — they would persist in
+// terminal scrollback, CI logs, or redirected files. token and
+// access_client_secret are masked; api_url and access_client_id (a non-secret
+// identifier) stay visible. Regression test for the PR #19 security review.
+func TestConfigList_MasksSecretValues(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.yaml")
+
+	cfg := internal.Config{
+		APIUrl:             "http://test.com",
+		Token:              "super-secret-token",
+		AccessClientID:     "client-id-not-secret",
+		AccessClientSecret: "super-secret-value",
+	}
+	if err := internal.SaveConfig(cfgPath, cfg); err != nil {
+		t.Fatalf("SaveConfig: %v", err)
+	}
+
+	var buf bytes.Buffer
+	rootCmd.SetOut(&buf)
+	rootCmd.SetArgs([]string{"config", "list", "--config", cfgPath})
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("config list: %v", err)
+	}
+	rootCmd.SetOut(nil)
+
+	out := buf.String()
+
+	// Secret values must not appear in plaintext.
+	if strings.Contains(out, "super-secret-token") {
+		t.Errorf("token value leaked in list output:\n%s", out)
+	}
+	if strings.Contains(out, "super-secret-value") {
+		t.Errorf("access_client_secret value leaked in list output:\n%s", out)
+	}
+	// Masked keys still show presence.
+	if !strings.Contains(out, "token=[hidden]") {
+		t.Errorf("token not masked as [hidden]:\n%s", out)
+	}
+	if !strings.Contains(out, "access_client_secret=[hidden]") {
+		t.Errorf("access_client_secret not masked as [hidden]:\n%s", out)
+	}
+	// Non-secret values stay visible for debuggability.
+	if !strings.Contains(out, "api_url=http://test.com") {
+		t.Errorf("api_url should be visible:\n%s", out)
+	}
+	if !strings.Contains(out, "access_client_id=client-id-not-secret") {
+		t.Errorf("access_client_id should be visible:\n%s", out)
+	}
+}
+
+// An unset secret masks to empty (not "[hidden]"), so `config list` accurately
+// distinguishes configured from unconfigured keys.
+func TestConfigList_UnsetSecretMasksToEmpty(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.yaml")
+
+	cfg := internal.Config{APIUrl: "http://test.com"}
+	if err := internal.SaveConfig(cfgPath, cfg); err != nil {
+		t.Fatalf("SaveConfig: %v", err)
+	}
+
+	var buf bytes.Buffer
+	rootCmd.SetOut(&buf)
+	rootCmd.SetArgs([]string{"config", "list", "--config", cfgPath})
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("config list: %v", err)
+	}
+	rootCmd.SetOut(nil)
+
+	if out := buf.String(); !strings.Contains(out, "token=\n") {
+		t.Errorf("unset token should mask to empty, got:\n%s", out)
+	}
 }
 
 func TestConfigSet_InvalidKey(t *testing.T) {
