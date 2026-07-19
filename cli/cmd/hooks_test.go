@@ -390,8 +390,8 @@ func TestInstallClaudeCodeHooks_CreatesSettingsFile(t *testing.T) {
 		t.Fatal("settings.json missing hooks key")
 	}
 
-	// Should have all 3 event types
-	for _, event := range []string{"PostToolUse", "SessionStart", "Stop"} {
+	// Should have all 4 event types (SessionEnd added for true session ends).
+	for _, event := range []string{"PostToolUse", "SessionStart", "SessionEnd", "Stop"} {
 		if _, ok := hooks[event]; !ok {
 			t.Errorf("missing hook event: %s", event)
 		}
@@ -1092,5 +1092,55 @@ func TestInstallSingleHook_UpgradesStaleBlockInPlace(t *testing.T) {
 	}
 	if !strings.Contains(got, "my custom hook body") {
 		t.Errorf("re-install destroyed non-devtrack content:\n%s", got)
+	}
+}
+
+// The `hooks install` command defaults to git-only: the plugin ships the
+// Claude Code hooks, so installing them again into ~/.claude/settings.json
+// would double-record every session/tool-use event. This pins that default.
+func TestHooksInstallCmd_DefaultsToGitOnly(t *testing.T) {
+	repo := makeGitRepo(t)
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd: %v", err)
+	}
+	if err := os.Chdir(repo); err != nil {
+		t.Fatalf("Chdir: %v", err)
+	}
+	defer os.Chdir(orig)
+
+	rootCmd.SetArgs([]string{"hooks", "install", "--quiet"})
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("hooks install: %v", err)
+	}
+	rootCmd.SetArgs(nil)
+
+	// Git hooks were installed.
+	if _, err := os.Stat(filepath.Join(hooksDir(repo), "post-commit")); err != nil {
+		t.Errorf("git post-commit hook not installed by default: %v", err)
+	}
+	// Claude Code settings were NOT touched (plugin owns those hooks).
+	if _, err := os.Stat(filepath.Join(home, ".claude", "settings.json")); !os.IsNotExist(err) {
+		t.Errorf("default install wrote Claude settings.json (should be plugin-owned); stat err=%v", err)
+	}
+}
+
+// --claude-code opts back into writing Claude Code hooks (CLI-only setups
+// without the plugin).
+func TestHooksInstallCmd_ClaudeCodeFlagWritesSettings(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	rootCmd.SetArgs([]string{"hooks", "install", "--claude-code", "--quiet"})
+	if err := rootCmd.Execute(); err != nil {
+		t.Fatalf("hooks install --claude-code: %v", err)
+	}
+	rootCmd.SetArgs(nil)
+
+	if _, err := os.Stat(filepath.Join(home, ".claude", "settings.json")); err != nil {
+		t.Errorf("--claude-code did not write settings.json: %v", err)
 	}
 }

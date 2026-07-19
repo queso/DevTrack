@@ -28,6 +28,7 @@ var validEventTypes = []string{
 	"tool_use",
 	"checkout",
 	"merge",
+	"turn-end",
 }
 
 // mapEventType converts a hyphenated user-facing event type name (e.g.

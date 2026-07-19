@@ -282,9 +282,17 @@ var claudeCodeHooks = []claudeCodeHookDef{
 		Command: `devtrack event --type session-start --quiet 2>/dev/null || true`,
 	},
 	{
-		Event:   "Stop",
+		Event:   "SessionEnd",
 		Matcher: "",
 		Command: `devtrack event --type session-end --quiet 2>/dev/null || true`,
+	},
+	{
+		// Claude Code's Stop hook fires once per response turn, not once per
+		// session, so it records turn_end. Real session ends come from the
+		// SessionEnd hook above.
+		Event:   "Stop",
+		Matcher: "",
+		Command: `devtrack event --type turn-end --quiet 2>/dev/null || true`,
 	},
 }
 
@@ -648,22 +656,24 @@ var hooksCmd = &cobra.Command{
 var hooksInstallCmd = &cobra.Command{
 	Use:   "install",
 	Short: "Install devtrack hooks",
-	Long:  "Install devtrack hooks. By default installs both git hooks and Claude Code hooks. Use --git or --claude-code to install only one type.",
-	Args:  cobra.NoArgs,
+	Long: "Install devtrack git hooks into the current repository.\n\n" +
+		"By default only git hooks are installed: the DevTrack Claude Code plugin " +
+		"ships its own session/tool-use hooks (SessionStart, SessionEnd, Stop, " +
+		"PostToolUse), so installing them again here would double-record every " +
+		"event. Pass --claude-code to also write Claude Code hooks into " +
+		"~/.claude/settings.json (for CLI-only setups without the plugin).",
+	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		quiet, _ := cmd.Root().PersistentFlags().GetBool("quiet")
 		gitOnly, _ := cmd.Flags().GetBool("git")
 		claudeOnly, _ := cmd.Flags().GetBool("claude-code")
 
-		// Default: install both
-		installGit := !claudeOnly || gitOnly
-		installClaude := !gitOnly || claudeOnly
-
-		// If both flags set, install both
-		if gitOnly && claudeOnly {
-			installGit = true
-			installClaude = true
-		}
+		// Git hooks install by default. Claude Code hooks are opt-in via
+		// --claude-code, because the plugin already provides them; --git is
+		// retained for explicitness/back-compat and means the same as the
+		// default. Passing both flags installs both.
+		installGit := gitOnly || !claudeOnly
+		installClaude := claudeOnly
 
 		if installGit {
 			repoRoot, err := findGitRoot()

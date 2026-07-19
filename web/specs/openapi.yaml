@@ -119,6 +119,7 @@ components:
         - tool_use
         - checkout
         - merge
+        - turn_end
 
     # -------------------------------------------------------------------------
     # Project

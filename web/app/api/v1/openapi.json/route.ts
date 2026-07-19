@@ -85,6 +85,7 @@ const spec = {
           "tool_use",
           "checkout",
           "merge",
+          "turn_end",
         ],
       },
       Project: {
