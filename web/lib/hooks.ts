@@ -57,6 +57,10 @@ interface PaginationOpts {
 interface FilterOpts extends PaginationOpts {
   projectId?: string
   eventType?: string
+  excludeType?: string
+  from?: string
+  to?: string
+  domain?: string
 }
 
 function buildQueryString(params: Record<string, string | number | undefined>): string {
@@ -87,7 +91,18 @@ export function getPRsKey(opts?: FilterOpts): string {
 export function getTimelineKey(opts?: FilterOpts): string {
   const base = "/api/v1/events"
   if (!opts) return base
-  return `${base}${buildQueryString({ project_id: opts.projectId, type: opts.eventType, page: opts.page, limit: opts.limit })}`
+  return `${base}${buildQueryString({
+    project_id: opts.projectId,
+    type: opts.eventType,
+    exclude_type: opts.excludeType,
+    from: opts.from,
+    to: opts.to,
+    domain: opts.domain,
+    page: opts.page,
+    // The API paginates on `per_page`; map limit onto it so a caller-set page
+    // size is actually honored (it was previously sent as `limit` and ignored).
+    per_page: opts.limit,
+  })}`
 }
 
 export function getActivityKey(opts?: { projectId?: string }): string {

@@ -737,7 +737,9 @@ describe("useTimeline", () => {
     await waitFor(() => expect(fetch).toHaveBeenCalled())
     const calledUrl = (fetch as ReturnType<typeof vi.fn>).mock.calls[0][0] as string
     expect(calledUrl).toContain("page=2")
-    expect(calledUrl).toContain("limit=50")
+    // limit maps onto the API's `per_page` param (previously sent as `limit`
+    // and silently ignored by the server).
+    expect(calledUrl).toContain("per_page=50")
   })
 
   it("exposes pagination meta", async () => {
