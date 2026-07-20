@@ -25,6 +25,17 @@ export async function GET(request: Request) {
 
   const projectId = url.searchParams.get("project_id") ?? undefined
   const type = url.searchParams.get("type") ?? undefined
+  // exclude_type is a comma-separated list of event types to omit. It lets the
+  // timeline hide the high-frequency tool_use firehose by default so genuine
+  // SDLC activity (commits, pushes, PRs, sessions) is visible. Ignored when an
+  // explicit `type` filter is set (that's already a single-type query).
+  const excludeTypeParam = url.searchParams.get("exclude_type") ?? undefined
+  const excludeTypes = excludeTypeParam
+    ? excludeTypeParam
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean)
+    : []
   const fromParam = url.searchParams.get("from") ?? undefined
   const toParam = url.searchParams.get("to") ?? undefined
   const domain = url.searchParams.get("domain") ?? undefined
@@ -43,7 +54,11 @@ export async function GET(request: Request) {
 
   const where = {
     ...(projectId ? { projectId } : {}),
-    ...(type ? { type: type as EventType } : {}),
+    ...(type
+      ? { type: type as EventType }
+      : excludeTypes.length
+        ? { type: { notIn: excludeTypes as EventType[] } }
+        : {}),
     ...(domain ? { project: { domain } } : {}),
     ...(from || to
       ? {

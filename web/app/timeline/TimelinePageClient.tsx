@@ -7,7 +7,6 @@ import type { Domain } from "@/lib/constants"
 import { DOMAIN_LABELS, DOMAIN_ORDER } from "@/lib/constants"
 import { useProjects, useTimeline } from "@/lib/hooks"
 import { mapTimelineEvent } from "@/lib/mappers"
-import type { EventType } from "@/lib/ui-types"
 import { cn } from "@/lib/utils"
 
 // ---------------------------------------------------------------------------
@@ -98,22 +97,46 @@ function buildUrl(
 
 const DOMAINS: Domain[] = [...DOMAIN_ORDER]
 
-const ALL_EVENT_TYPES: EventType[] = [
-  "commit",
-  "pr-opened",
-  "pr-reviewed",
-  "pr-merged",
-  "prd-update",
-  "deploy",
+// Event-type filter options use the raw API event-type values so the selection
+// can be pushed to the server (`?type=`) instead of filtering a single fetched
+// page client-side. "All types" omits tool_use (see DEFAULT_EXCLUDED_TYPES).
+const EVENT_TYPE_OPTIONS: { value: string; label: string }[] = [
+  { value: "commit", label: "Commits" },
+  { value: "push", label: "Pushes" },
+  { value: "merge", label: "Merges" },
+  { value: "pr_opened", label: "PRs opened" },
+  { value: "pr_merged", label: "PRs merged" },
+  { value: "prd_updated", label: "PRD updates" },
+  { value: "session_start", label: "Session starts" },
+  { value: "session_end", label: "Session ends" },
+  { value: "turn_end", label: "Turns" },
+  { value: "tool_use", label: "Tool use" },
 ]
 
-const EVENT_TYPE_LABELS: Record<string, string> = {
-  commit: "Commits",
-  "pr-opened": "PR Opened",
-  "pr-reviewed": "PR Reviewed",
-  "pr-merged": "PR Merged",
-  "prd-update": "PRD Update",
-  deploy: "Deploy",
+// The tool_use firehose (one event per Bash command, box-wide) drowns out real
+// SDLC activity, so the default "All types" view excludes it. Selecting "Tool
+// use" explicitly still shows it.
+const DEFAULT_EXCLUDED_TYPES = "tool_use"
+
+// Timeline page size. Large enough that a week of real (non-tool_use) activity
+// lands in one fetch for most projects.
+const TIMELINE_PAGE_SIZE = 100
+
+// rangeToBounds converts a quick-range selection into ISO `from`/`to` bounds
+// (UTC day boundaries) for the server query. "all" returns no bounds.
+function rangeToBounds(range: QuickRange): { from?: string; to?: string } {
+  if (range === "all") return {}
+  const now = new Date()
+  const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+  const dayMs = 86400000
+  if (range === "today") return { from: todayStart.toISOString() }
+  if (range === "yesterday") {
+    return {
+      from: new Date(todayStart.getTime() - dayMs).toISOString(),
+      to: todayStart.toISOString(),
+    }
+  }
+  return { from: new Date(todayStart.getTime() - 7 * dayMs).toISOString() }
 }
 
 // ---------------------------------------------------------------------------
@@ -129,27 +152,48 @@ export default function TimelinePageClient() {
   const rangeParam = (searchParams.get("range") ?? "week") as QuickRange
   const projectParam = searchParams.get("project") ?? "all"
   const domainParam = (searchParams.get("domain") ?? "all") as Domain | "all"
-  const typeParam = (searchParams.get("type") ?? "all") as EventType | "all"
+  const typeParam = searchParams.get("type") ?? "all"
   const pageParam = Number(searchParams.get("page") ?? "1")
 
   // Local filter state (mirrors URL)
   const [quickRange, setQuickRange] = useState<QuickRange>(rangeParam)
   const [projectFilter, setProjectFilter] = useState<string>(projectParam)
   const [domainFilter, setDomainFilter] = useState<Domain | "all">(domainParam)
-  const [eventTypeFilter, setEventTypeFilter] = useState<EventType | "all">(typeParam)
+  const [eventTypeFilter, setEventTypeFilter] = useState<string>(typeParam)
   const [page, setPage] = useState<number>(pageParam)
 
-  // Fetch data
-  const { data: rawEvents, meta, isLoading, error, mutate } = useTimeline()
   const { data: rawProjects } = useProjects()
 
-  // Map projects
-  const projects = useMemo(() => {
-    if (!rawProjects) return []
-    return rawProjects
-  }, [rawProjects])
+  const projects = useMemo(() => rawProjects ?? [], [rawProjects])
 
-  // Map events using mapTimelineEvent
+  // Resolve the project name in the filter to its id for the server query.
+  const projectId = useMemo(() => {
+    if (projectFilter === "all") return undefined
+    return projects.find((p) => p.name === projectFilter)?.id
+  }, [projectFilter, projects])
+
+  // All filtering happens server-side so the query sees the whole dataset, not
+  // just one fetched page — the previous client-side filtering could only ever
+  // match within the ~20 most recent events, which the tool_use firehose filled.
+  const bounds = rangeToBounds(quickRange)
+  const {
+    data: rawEvents,
+    meta,
+    isLoading,
+    error,
+    mutate,
+  } = useTimeline({
+    projectId,
+    domain: domainFilter === "all" ? undefined : domainFilter,
+    eventType: eventTypeFilter === "all" ? undefined : eventTypeFilter,
+    excludeType: eventTypeFilter === "all" ? DEFAULT_EXCLUDED_TYPES : undefined,
+    from: bounds.from,
+    to: bounds.to,
+    page,
+    limit: TIMELINE_PAGE_SIZE,
+  })
+
+  // Map events (already server-filtered) for rendering.
   const events = useMemo(() => {
     if (!rawEvents) return []
     return rawEvents.map((e) => {
@@ -158,54 +202,16 @@ export default function TimelinePageClient() {
     })
   }, [rawEvents, projects])
 
-  // Apply client-side filters
-  const filteredEvents = useMemo(() => {
-    let result = events
-
-    if (projectFilter !== "all") {
-      result = result.filter((e) => e.projectSlug === projectFilter)
-    }
-
-    if (domainFilter !== "all") {
-      const domainProjects = projects.filter((p) => p.domain === domainFilter).map((p) => p.name)
-      result = result.filter((e) => domainProjects.includes(e.projectSlug))
-    }
-
-    if (eventTypeFilter !== "all") {
-      result = result.filter((e) => e.type === eventTypeFilter)
-    }
-
-    if (quickRange !== "all") {
-      const now = new Date()
-      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-      const yesterdayStart = new Date(todayStart.getTime() - 86400000)
-
-      if (quickRange === "today") {
-        result = result.filter((e) => new Date(e.timestamp).getTime() >= todayStart.getTime())
-      } else if (quickRange === "yesterday") {
-        result = result.filter((e) => {
-          const t = new Date(e.timestamp).getTime()
-          return t >= yesterdayStart.getTime() && t < todayStart.getTime()
-        })
-      } else if (quickRange === "week") {
-        const weekAgo = todayStart.getTime() - 7 * 86400000
-        result = result.filter((e) => new Date(e.timestamp).getTime() >= weekAgo)
-      }
-    }
-
-    return result
-  }, [events, projectFilter, domainFilter, eventTypeFilter, quickRange, projects])
-
   // Group by day
   const grouped = useMemo(() => {
-    const map = new Map<string, typeof filteredEvents>()
-    for (const e of filteredEvents) {
+    const map = new Map<string, typeof events>()
+    for (const e of events) {
       const key = getDayLabel(e.timestamp)
       if (!map.has(key)) map.set(key, [])
       map.get(key)?.push(e)
     }
     return map
-  }, [filteredEvents])
+  }, [events])
 
   // Navigation helpers
   function navigate(overrides: Record<string, string | null>) {
@@ -231,10 +237,10 @@ export default function TimelinePageClient() {
     navigate({ domain: value === "all" ? null : value, page: null })
   }
 
-  function handleEventTypeFilter(value: EventType | "all") {
+  function handleEventTypeFilter(value: string) {
     setEventTypeFilter(value)
     setPage(1)
-    navigate({ type: value === "all" ? null : String(value), page: null })
+    navigate({ type: value === "all" ? null : value, page: null })
   }
 
   function handleLoadMore() {
@@ -372,13 +378,13 @@ export default function TimelinePageClient() {
           <select
             aria-label="event type"
             value={eventTypeFilter}
-            onChange={(e) => handleEventTypeFilter(e.target.value as EventType | "all")}
+            onChange={(e) => handleEventTypeFilter(e.target.value)}
             className="bg-secondary border border-border rounded px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           >
-            <option value="all">All Types</option>
-            {ALL_EVENT_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {EVENT_TYPE_LABELS[t] ?? t}
+            <option value="all">All (excl. tool use)</option>
+            {EVENT_TYPE_OPTIONS.map((t) => (
+              <option key={t.value} value={t.value}>
+                {t.label}
               </option>
             ))}
           </select>
@@ -386,7 +392,7 @@ export default function TimelinePageClient() {
       </div>
 
       {/* Timeline content */}
-      {filteredEvents.length === 0 ? (
+      {events.length === 0 ? (
         <EmptyState message="No events match your filters." />
       ) : (
         <div className="flex flex-col gap-6">

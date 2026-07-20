@@ -59,10 +59,25 @@ const mockUseProjectsReturn: {
   error: undefined,
 }
 
+// Capture the opts the component passes to useTimeline so tests can assert that
+// filtering happens server-side (the previous client-side filtering over a
+// single fetched page was the bug that hid activity under the tool_use firehose).
+const { timelineCalls } = vi.hoisted(() => ({
+  timelineCalls: [] as Array<Record<string, unknown> | undefined>,
+}))
+
 vi.mock("@/lib/hooks", () => ({
-  useTimeline: () => mockUseTimelineReturn,
+  useTimeline: (opts?: Record<string, unknown>) => {
+    timelineCalls.push(opts)
+    return mockUseTimelineReturn
+  },
   useProjects: () => mockUseProjectsReturn,
 }))
+
+/** The most recent opts object the component passed to useTimeline. */
+function lastTimelineOpts(): Record<string, unknown> {
+  return (timelineCalls[timelineCalls.length - 1] ?? {}) as Record<string, unknown>
+}
 
 // ---------------------------------------------------------------------------
 // Fixture helpers
@@ -228,6 +243,7 @@ beforeEach(() => {
   mockUseProjectsReturn.data = undefined
   mockUseProjectsReturn.isLoading = false
   mockUseProjectsReturn.error = undefined
+  timelineCalls.length = 0
   vi.clearAllMocks()
 })
 
@@ -784,12 +800,12 @@ describe("AC4: Filters — event type", () => {
     })
   })
 
-  it("passing a PR event type filter shows only PR events", async () => {
-    // URL filter uses UI event type format (hyphenated), not API format (underscored)
-    mockSearchParams = new URLSearchParams("type=pr-opened")
-    // Include both a pr_opened event and a commit event so the filter is meaningful
-    mockUseTimelineReturn.data = [todayEvent1, todayEvent2]
-    mockUseTimelineReturn.meta = { total: 2, page: 1, per_page: 20 }
+  it("pushes a URL event-type filter to the server query (not client-side)", async () => {
+    // The type param is the raw API event type and is forwarded to the server so
+    // the query matches across the whole dataset, not just the fetched page.
+    mockSearchParams = new URLSearchParams("type=pr_opened")
+    mockUseTimelineReturn.data = [todayEvent2]
+    mockUseTimelineReturn.meta = { total: 1, page: 1, per_page: 100 }
     mockUseProjectsReturn.data = [projectAlpha, projectBeta]
 
     const TimelinePage = await importTimelinePage()
@@ -802,8 +818,10 @@ describe("AC4: Filters — event type", () => {
     await waitFor(() => {
       expect(screen.getByText(/opened pr #47/i)).toBeInTheDocument()
     })
-    // commit event should not appear when filtered to PR type
-    expect(screen.queryByText(/add multi-barcode batch scan mode/i)).not.toBeInTheDocument()
+    // The server received the type filter, and did NOT get an exclude_type (a
+    // specific type takes precedence over the default tool_use exclusion).
+    expect(lastTimelineOpts().eventType).toBe("pr_opened")
+    expect(lastTimelineOpts().excludeType).toBeUndefined()
   })
 })
 
@@ -1424,24 +1442,28 @@ describe("UTC timezone: getDayLabel handles UTC timestamps correctly", () => {
 // Bug regression: client-side filters actually hide non-matching events
 // ---------------------------------------------------------------------------
 
-describe("Bug regression: client-side filters hide non-matching events", () => {
-  it("event type filter hides events that don't match the selected type", async () => {
-    // Both events today, different types
-    const commitEvent = makeEvent({
-      id: "ev-commit",
-      type: "commit",
-      title: "commit event title",
-      projectId: "proj-1",
-    })
-    const prOpenEvent = makeEvent({
-      id: "ev-pr",
-      type: "pr_opened",
-      title: "pr opened event title",
-      projectId: "proj-1",
-    })
+describe("Filters are applied server-side (fixes tool_use firehose burying activity)", () => {
+  it("defaults to excluding tool_use so genuine activity is visible", async () => {
+    mockUseTimelineReturn.data = [todayEvent1]
+    mockUseTimelineReturn.meta = { total: 1, page: 1, per_page: 100 }
+    mockUseProjectsReturn.data = [projectAlpha]
 
-    mockUseTimelineReturn.data = [commitEvent, prOpenEvent]
-    mockUseTimelineReturn.meta = { total: 2, page: 1, per_page: 20 }
+    const TimelinePage = await importTimelinePage()
+    render(
+      <SWRWrapper>
+        <TimelinePage />
+      </SWRWrapper>,
+    )
+
+    await waitFor(() => screen.getByText(/add multi-barcode batch scan mode/i))
+    // With no explicit type filter, the query omits tool_use.
+    expect(lastTimelineOpts().excludeType).toBe("tool_use")
+    expect(lastTimelineOpts().eventType).toBeUndefined()
+  })
+
+  it("selecting an event type pushes it to the server query", async () => {
+    mockUseTimelineReturn.data = [todayEvent1]
+    mockUseTimelineReturn.meta = { total: 1, page: 1, per_page: 100 }
     mockUseProjectsReturn.data = [projectAlpha]
 
     const user = userEvent.setup()
@@ -1452,34 +1474,21 @@ describe("Bug regression: client-side filters hide non-matching events", () => {
       </SWRWrapper>,
     )
 
-    // Both events visible initially (type filter = "all")
-    await waitFor(() => {
-      expect(screen.getByText(/commit event title/i)).toBeInTheDocument()
-      expect(screen.getByText(/pr opened event title/i)).toBeInTheDocument()
-    })
+    await waitFor(() => screen.getByText(/add multi-barcode batch scan mode/i))
 
-    // Select "pr-opened" event type filter — mapped from pr_opened
     const typeSelect = screen.getByRole("combobox", { name: /event type/i })
-    await user.selectOptions(typeSelect, "pr-opened")
+    await user.selectOptions(typeSelect, "commit")
 
     await waitFor(() => {
-      // pr-opened event should remain
-      expect(screen.getByText(/pr opened event title/i)).toBeInTheDocument()
-      // commit event should be hidden
-      expect(screen.queryByText(/commit event title/i)).not.toBeInTheDocument()
+      expect(lastTimelineOpts().eventType).toBe("commit")
+      // A specific type wins over the default exclusion.
+      expect(lastTimelineOpts().excludeType).toBeUndefined()
     })
   })
 
-  it("project filter hides events from other projects", async () => {
-    const eventForAlpha = makeEvent({
-      id: "ev-a",
-      title: "alpha project event",
-      projectId: "proj-1",
-    })
-    const eventForBeta = makeEvent({ id: "ev-b", title: "beta project event", projectId: "proj-2" })
-
-    mockUseTimelineReturn.data = [eventForAlpha, eventForBeta]
-    mockUseTimelineReturn.meta = { total: 2, page: 1, per_page: 20 }
+  it("selecting a project pushes its id to the server query", async () => {
+    mockUseTimelineReturn.data = [todayEvent1]
+    mockUseTimelineReturn.meta = { total: 1, page: 1, per_page: 100 }
     mockUseProjectsReturn.data = [projectAlpha, projectBeta]
 
     const user = userEvent.setup()
@@ -1490,35 +1499,20 @@ describe("Bug regression: client-side filters hide non-matching events", () => {
       </SWRWrapper>,
     )
 
-    await waitFor(() => {
-      expect(screen.getByText(/alpha project event/i)).toBeInTheDocument()
-      expect(screen.getByText(/beta project event/i)).toBeInTheDocument()
-    })
+    await waitFor(() => screen.getByText(/add multi-barcode batch scan mode/i))
 
-    // Filter by project alpha (name = "picking-app")
     const projectSelect = screen.getByRole("combobox", { name: /project/i })
     await user.selectOptions(projectSelect, "picking-app")
 
     await waitFor(() => {
-      expect(screen.getByText(/alpha project event/i)).toBeInTheDocument()
-      expect(screen.queryByText(/beta project event/i)).not.toBeInTheDocument()
+      // The name is resolved to the project's id for the server query.
+      expect(lastTimelineOpts().projectId).toBe("proj-1")
     })
   })
 
-  it("domain filter hides events from projects in other domains", async () => {
-    const eventForAlpha = makeEvent({
-      id: "ev-domain-a",
-      title: "arcanelayer event",
-      projectId: "proj-1",
-    })
-    const eventForBeta = makeEvent({
-      id: "ev-domain-b",
-      title: "aiteam event",
-      projectId: "proj-2",
-    })
-
-    mockUseTimelineReturn.data = [eventForAlpha, eventForBeta]
-    mockUseTimelineReturn.meta = { total: 2, page: 1, per_page: 20 }
+  it("selecting a domain pushes it to the server query", async () => {
+    mockUseTimelineReturn.data = [todayEvent1]
+    mockUseTimelineReturn.meta = { total: 1, page: 1, per_page: 100 }
     mockUseProjectsReturn.data = [projectAlpha, projectBeta]
 
     const user = userEvent.setup()
@@ -1529,51 +1523,13 @@ describe("Bug regression: client-side filters hide non-matching events", () => {
       </SWRWrapper>,
     )
 
-    await waitFor(() => {
-      expect(screen.getByText(/arcanelayer event/i)).toBeInTheDocument()
-      expect(screen.getByText(/aiteam event/i)).toBeInTheDocument()
-    })
+    await waitFor(() => screen.getByText(/add multi-barcode batch scan mode/i))
 
-    // Filter by arcanelayer domain
     const domainSelect = screen.getByRole("combobox", { name: /domain/i })
     await user.selectOptions(domainSelect, "arcanelayer")
 
     await waitFor(() => {
-      expect(screen.getByText(/arcanelayer event/i)).toBeInTheDocument()
-      expect(screen.queryByText(/aiteam event/i)).not.toBeInTheDocument()
-    })
-  })
-
-  it("empty state shown when event type filter matches no events", async () => {
-    // Only has a commit event; selecting deploy type should show empty state
-    const commitEvent = makeEvent({
-      id: "ev-no-deploy",
-      type: "commit",
-      title: "just a commit",
-      projectId: "proj-1",
-    })
-    mockUseTimelineReturn.data = [commitEvent]
-    mockUseTimelineReturn.meta = { total: 1, page: 1, per_page: 20 }
-    mockUseProjectsReturn.data = [projectAlpha]
-
-    const user = userEvent.setup()
-    const TimelinePage = await importTimelinePage()
-    render(
-      <SWRWrapper>
-        <TimelinePage />
-      </SWRWrapper>,
-    )
-
-    await waitFor(() => {
-      expect(screen.getByText(/just a commit/i)).toBeInTheDocument()
-    })
-
-    const typeSelect = screen.getByRole("combobox", { name: /event type/i })
-    await user.selectOptions(typeSelect, "deploy")
-
-    await waitFor(() => {
-      expect(screen.queryByText(/just a commit/i)).not.toBeInTheDocument()
-      expect(screen.getByText(/no events match/i)).toBeInTheDocument()
+      expect(lastTimelineOpts().domain).toBe("arcanelayer")
     })
   })
 })
