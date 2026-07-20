@@ -282,9 +282,17 @@ var claudeCodeHooks = []claudeCodeHookDef{
 		Command: `devtrack event --type session-start --quiet 2>/dev/null || true`,
 	},
 	{
-		Event:   "Stop",
+		Event:   "SessionEnd",
 		Matcher: "",
 		Command: `devtrack event --type session-end --quiet 2>/dev/null || true`,
+	},
+	{
+		// Claude Code's Stop hook fires once per response turn, not once per
+		// session, so it records turn_end. Real session ends come from the
+		// SessionEnd hook above.
+		Event:   "Stop",
+		Matcher: "",
+		Command: `devtrack event --type turn-end --quiet 2>/dev/null || true`,
 	},
 }
 
@@ -648,22 +656,38 @@ var hooksCmd = &cobra.Command{
 var hooksInstallCmd = &cobra.Command{
 	Use:   "install",
 	Short: "Install devtrack hooks",
-	Long:  "Install devtrack hooks. By default installs both git hooks and Claude Code hooks. Use --git or --claude-code to install only one type.",
-	Args:  cobra.NoArgs,
+	Long: "Install devtrack git hooks into the current repository.\n\n" +
+		"By default only git hooks are installed: the DevTrack Claude Code plugin " +
+		"ships its own session/tool-use hooks (SessionStart, SessionEnd, Stop, " +
+		"PostToolUse), so installing them again here would double-record every " +
+		"event. Pass --claude-code to also write Claude Code hooks into " +
+		"~/.claude/settings.json (for CLI-only setups without the plugin).\n\n" +
+		"Pass --global to install hooks box-wide via git's core.hooksPath instead " +
+		"of into one repository: commits, pushes, and merges are tracked across " +
+		"all repos, and each repo's own hooks still run (they are chained).",
+	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		quiet, _ := cmd.Root().PersistentFlags().GetBool("quiet")
 		gitOnly, _ := cmd.Flags().GetBool("git")
 		claudeOnly, _ := cmd.Flags().GetBool("claude-code")
+		global, _ := cmd.Flags().GetBool("global")
+		force, _ := cmd.Flags().GetBool("force")
 
-		// Default: install both
-		installGit := !claudeOnly || gitOnly
-		installClaude := !gitOnly || claudeOnly
-
-		// If both flags set, install both
-		if gitOnly && claudeOnly {
-			installGit = true
-			installClaude = true
+		// --global is a distinct, machine-wide target (no repository needed).
+		if global {
+			home, err := os.UserHomeDir()
+			if err != nil {
+				return fmt.Errorf("resolve home directory: %w", err)
+			}
+			return installGlobalHooks(globalHooksDir(home), resolveDevtrackPath(), force, quiet)
 		}
+
+		// Git hooks install by default. Claude Code hooks are opt-in via
+		// --claude-code, because the plugin already provides them; --git is
+		// retained for explicitness/back-compat and means the same as the
+		// default. Passing both flags installs both.
+		installGit := gitOnly || !claudeOnly
+		installClaude := claudeOnly
 
 		if installGit {
 			repoRoot, err := findGitRoot()
@@ -695,6 +719,15 @@ var hooksUninstallCmd = &cobra.Command{
 		quiet, _ := cmd.Root().PersistentFlags().GetBool("quiet")
 		gitOnly, _ := cmd.Flags().GetBool("git")
 		claudeOnly, _ := cmd.Flags().GetBool("claude-code")
+		global, _ := cmd.Flags().GetBool("global")
+
+		if global {
+			home, err := os.UserHomeDir()
+			if err != nil {
+				return fmt.Errorf("resolve home directory: %w", err)
+			}
+			return uninstallGlobalHooks(globalHooksDir(home), quiet)
+		}
 
 		// Default: uninstall both
 		uninstallGit := !claudeOnly || gitOnly
@@ -770,6 +803,9 @@ func init() {
 	hooksCmd.AddCommand(hooksTestCmd)
 	hooksInstallCmd.Flags().Bool("git", false, "Install git hooks only")
 	hooksInstallCmd.Flags().Bool("claude-code", false, "Install Claude Code hooks only")
+	hooksInstallCmd.Flags().Bool("global", false, "Install git hooks box-wide via core.hooksPath")
+	hooksInstallCmd.Flags().Bool("force", false, "With --global, overwrite an existing core.hooksPath")
+	hooksUninstallCmd.Flags().Bool("global", false, "Remove globally-installed hooks and unset core.hooksPath")
 	hooksUninstallCmd.Flags().Bool("git", false, "Uninstall git hooks only")
 	hooksUninstallCmd.Flags().Bool("claude-code", false, "Uninstall Claude Code hooks only")
 	rootCmd.PersistentFlags().Bool("quiet", false, "Suppress non-error output")

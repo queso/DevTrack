@@ -58,6 +58,7 @@ enum EventType {
   tool_use
   checkout
   merge
+  turn_end
 }
 
 model Project {

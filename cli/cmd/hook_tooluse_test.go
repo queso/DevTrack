@@ -241,9 +241,19 @@ func TestClaudeCodeHooks_PostToolUseIsToolUseAndNoProjectYaml(t *testing.T) {
 	if !strings.Contains(start.Command, "session-start") {
 		t.Errorf("SessionStart entry lost its type: %q", start.Command)
 	}
+	// The Stop hook fires per response turn, so it must record turn-end, NOT
+	// session-end (which would inflate session counts ~6x — the bug this fixes).
 	stop := findClaudeHookDef(t, "Stop")
-	if !strings.Contains(stop.Command, "session-end") {
-		t.Errorf("Stop entry lost its type: %q", stop.Command)
+	if !strings.Contains(stop.Command, "turn-end") {
+		t.Errorf("Stop entry should record turn-end: %q", stop.Command)
+	}
+	if strings.Contains(stop.Command, "session-end") {
+		t.Errorf("Stop entry must not record session-end (fires per-turn): %q", stop.Command)
+	}
+	// A real session end comes from the SessionEnd hook.
+	end := findClaudeHookDef(t, "SessionEnd")
+	if !strings.Contains(end.Command, "session-end") {
+		t.Errorf("SessionEnd entry should record session-end: %q", end.Command)
 	}
 }
 
@@ -287,5 +297,20 @@ func TestHooksJSONBundle_PostToolUseIsToolUseAndNoProjectYaml(t *testing.T) {
 	}
 	if post[0].Matcher != "Bash" {
 		t.Errorf("hooks.json PostToolUse matcher: got %q, want Bash", post[0].Matcher)
+	}
+
+	// The Stop hook fires per response turn -> turn-end; SessionEnd -> session-end.
+	firstCmd := func(event string) string {
+		entries, ok := bundle.Hooks[event]
+		if !ok || len(entries) == 0 || len(entries[0].Hooks) == 0 {
+			t.Fatalf("hooks.json has no %s hook command", event)
+		}
+		return entries[0].Hooks[0].Command
+	}
+	if stop := firstCmd("Stop"); !strings.Contains(stop, "turn-end") || strings.Contains(stop, "session-end") {
+		t.Errorf("hooks.json Stop should record turn-end, not session-end: %q", stop)
+	}
+	if end := firstCmd("SessionEnd"); !strings.Contains(end, "session-end") {
+		t.Errorf("hooks.json SessionEnd should record session-end: %q", end)
 	}
 }

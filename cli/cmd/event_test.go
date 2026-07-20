@@ -63,6 +63,7 @@ func TestValidateEventType_AllValidTypesAccepted(t *testing.T) {
 		"session-start",
 		"session-end",
 		"prd-updated",
+		"turn-end",
 	}
 	for _, et := range validTypes {
 		t.Run(et, func(t *testing.T) {
