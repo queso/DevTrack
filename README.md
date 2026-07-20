@@ -228,8 +228,9 @@ devtrack dashboard
 
 **Activity Tracking:**
 - `devtrack event` — Record an event with type validation
-- `devtrack hooks install` — Install git hooks for automatic tracking
-- `devtrack hooks uninstall` — Remove installed hooks
+- `devtrack hooks install` — Install git hooks for automatic tracking (this repo)
+- `devtrack hooks install --global` — Track commits/pushes/merges across **all** repos via git's `core.hooksPath`; each repo's own hooks still run (they're chained), and repos with their own `core.hooksPath` (e.g. husky) are skipped
+- `devtrack hooks uninstall [--global]` — Remove installed hooks (add `--global` to also unset `core.hooksPath`)
 
 **Content Sync:**
 - `devtrack sync` — Sync PRDs, pull requests, and content items (published & drafts)

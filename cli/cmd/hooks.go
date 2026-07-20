@@ -661,12 +661,26 @@ var hooksInstallCmd = &cobra.Command{
 		"ships its own session/tool-use hooks (SessionStart, SessionEnd, Stop, " +
 		"PostToolUse), so installing them again here would double-record every " +
 		"event. Pass --claude-code to also write Claude Code hooks into " +
-		"~/.claude/settings.json (for CLI-only setups without the plugin).",
+		"~/.claude/settings.json (for CLI-only setups without the plugin).\n\n" +
+		"Pass --global to install hooks box-wide via git's core.hooksPath instead " +
+		"of into one repository: commits, pushes, and merges are tracked across " +
+		"all repos, and each repo's own hooks still run (they are chained).",
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		quiet, _ := cmd.Root().PersistentFlags().GetBool("quiet")
 		gitOnly, _ := cmd.Flags().GetBool("git")
 		claudeOnly, _ := cmd.Flags().GetBool("claude-code")
+		global, _ := cmd.Flags().GetBool("global")
+		force, _ := cmd.Flags().GetBool("force")
+
+		// --global is a distinct, machine-wide target (no repository needed).
+		if global {
+			home, err := os.UserHomeDir()
+			if err != nil {
+				return fmt.Errorf("resolve home directory: %w", err)
+			}
+			return installGlobalHooks(globalHooksDir(home), resolveDevtrackPath(), force, quiet)
+		}
 
 		// Git hooks install by default. Claude Code hooks are opt-in via
 		// --claude-code, because the plugin already provides them; --git is
@@ -705,6 +719,15 @@ var hooksUninstallCmd = &cobra.Command{
 		quiet, _ := cmd.Root().PersistentFlags().GetBool("quiet")
 		gitOnly, _ := cmd.Flags().GetBool("git")
 		claudeOnly, _ := cmd.Flags().GetBool("claude-code")
+		global, _ := cmd.Flags().GetBool("global")
+
+		if global {
+			home, err := os.UserHomeDir()
+			if err != nil {
+				return fmt.Errorf("resolve home directory: %w", err)
+			}
+			return uninstallGlobalHooks(globalHooksDir(home), quiet)
+		}
 
 		// Default: uninstall both
 		uninstallGit := !claudeOnly || gitOnly
@@ -780,6 +803,9 @@ func init() {
 	hooksCmd.AddCommand(hooksTestCmd)
 	hooksInstallCmd.Flags().Bool("git", false, "Install git hooks only")
 	hooksInstallCmd.Flags().Bool("claude-code", false, "Install Claude Code hooks only")
+	hooksInstallCmd.Flags().Bool("global", false, "Install git hooks box-wide via core.hooksPath")
+	hooksInstallCmd.Flags().Bool("force", false, "With --global, overwrite an existing core.hooksPath")
+	hooksUninstallCmd.Flags().Bool("global", false, "Remove globally-installed hooks and unset core.hooksPath")
 	hooksUninstallCmd.Flags().Bool("git", false, "Uninstall git hooks only")
 	hooksUninstallCmd.Flags().Bool("claude-code", false, "Uninstall Claude Code hooks only")
 	rootCmd.PersistentFlags().Bool("quiet", false, "Suppress non-error output")
