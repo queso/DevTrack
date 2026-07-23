@@ -5,6 +5,16 @@ import type {
   PrismaQueryPagination,
 } from "@/types/api"
 
+// JSON.stringify throws on a bigint, and PullRequest.githubId is a BigInt column
+// (GitHub PR ids exceed 32-bit range). Teach JSON to emit bigints as numbers so
+// every response — including PRs nested inside a project's `pullRequests` — can
+// serialize. Every data route imports this module, so the patch is always in
+// effect (in production and under test). Converting to Number is safe: GitHub
+// ids are far below Number.MAX_SAFE_INTEGER.
+;(BigInt.prototype as unknown as { toJSON: () => number }).toJSON = function (this: bigint) {
+  return Number(this)
+}
+
 const DEFAULT_PAGE = 1
 const DEFAULT_PER_PAGE = 20
 const MAX_PER_PAGE = 100

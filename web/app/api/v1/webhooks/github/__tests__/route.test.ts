@@ -459,7 +459,7 @@ describe("POST /api/v1/webhooks/github — pull_request events", () => {
 
     expect(mockPrisma.pullRequest.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        create: expect.objectContaining({ status: "open", githubId: 9001, number: 42 }),
+        create: expect.objectContaining({ status: "open", githubId: BigInt(9001), number: 42 }),
         update: expect.objectContaining({ status: "open" }),
       }),
     )
@@ -640,7 +640,7 @@ describe("POST /api/v1/webhooks/github — pull_request events", () => {
     expect(mockPrisma.pullRequest.upsert).toHaveBeenCalledTimes(2)
     expect(mockPrisma.pullRequest.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { projectId_githubId: { projectId: "proj-1", githubId: 9001 } },
+        where: { projectId_githubId: { projectId: "proj-1", githubId: BigInt(9001) } },
       }),
     )
   })

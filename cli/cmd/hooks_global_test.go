@@ -49,8 +49,13 @@ func TestBuildGlobalHookScript_TrackedFiresEventAndChains(t *testing.T) {
 }
 
 func TestBuildGlobalHookScript_PushAndMergeTracked(t *testing.T) {
-	if s := buildGlobalHookScript("pre-push", "/x"); !strings.Contains(s, "event --type push") {
-		t.Errorf("pre-push should fire a push event:\n%s", s)
+	prePush := buildGlobalHookScript("pre-push", "/x")
+	if !strings.Contains(prePush, "event --type push") {
+		t.Errorf("pre-push should fire a push event:\n%s", prePush)
+	}
+	// A push also triggers a PR sync for the repo.
+	if !strings.Contains(prePush, "pr-sync") {
+		t.Errorf("pre-push should also run pr-sync:\n%s", prePush)
 	}
 	if s := buildGlobalHookScript("post-merge", "/x"); !strings.Contains(s, "event --type merge") {
 		t.Errorf("post-merge should fire a merge event:\n%s", s)

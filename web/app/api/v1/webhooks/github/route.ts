@@ -109,7 +109,9 @@ async function handlePullRequest(payload: Record<string, unknown>, projectId: st
   const pr = payload.pull_request as Record<string, unknown>
   const action = payload.action as string
   const merged = !!pr.merged_at
+  // GitHub PR ids exceed 32-bit range, so githubId is a BigInt column.
   const githubId = pr.id as number
+  const githubIdBig = BigInt(githubId)
   const status = mapPrStatus(pr.state as string, merged)
 
   let mergedAt: Date | null = null
@@ -120,10 +122,10 @@ async function handlePullRequest(payload: Record<string, unknown>, projectId: st
 
   try {
     await prisma.pullRequest.upsert({
-      where: { projectId_githubId: { projectId, githubId } },
+      where: { projectId_githubId: { projectId, githubId: githubIdBig } },
       create: {
         projectId,
-        githubId,
+        githubId: githubIdBig,
         number: pr.number as number,
         title: pr.title as string,
         status: status as PullRequestStatus,
@@ -256,7 +258,7 @@ async function handlePullRequestReview(payload: Record<string, unknown>, project
   const githubId = pr.id as number
 
   const existingPr = await prisma.pullRequest.findFirst({
-    where: { projectId, githubId },
+    where: { projectId, githubId: BigInt(githubId) },
   })
 
   if (!existingPr) return
