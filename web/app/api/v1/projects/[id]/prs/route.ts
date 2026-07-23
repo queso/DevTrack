@@ -51,19 +51,30 @@ export async function POST(request: Request, { params }: RouteContext) {
   const { project_id, branch_id, prd_id, github_id, check_status, opened_at, merged_at, ...rest } =
     parsed.data
   try {
-    const pr = await prisma.pullRequest.create({
-      data: {
+    // Upsert on the (projectId, githubId) unique key so `devtrack pr-sync` is
+    // re-runnable: an existing PR is updated in place rather than colliding.
+    const pr = await prisma.pullRequest.upsert({
+      where: { projectId_githubId: { projectId: project_id, githubId: BigInt(github_id) } },
+      create: {
         ...rest,
         projectId: project_id,
         branchId: branch_id ?? null,
         prdId: prd_id ?? null,
-        githubId: github_id,
+        githubId: BigInt(github_id),
+        checkStatus: check_status ?? null,
+        openedAt: new Date(opened_at),
+        mergedAt: merged_at ? new Date(merged_at) : null,
+      },
+      update: {
+        ...rest,
+        branchId: branch_id ?? null,
+        prdId: prd_id ?? null,
         checkStatus: check_status ?? null,
         openedAt: new Date(opened_at),
         mergedAt: merged_at ? new Date(merged_at) : null,
       },
     })
-    return Response.json(apiSuccess(pr), { status: 201 })
+    return Response.json(apiSuccess(pr), { status: 200 })
   } catch (error) {
     const handled = handlePrismaError(error)
     if (handled) return handled

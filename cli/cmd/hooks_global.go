@@ -102,7 +102,11 @@ func globalFireBlock(hookName string) string {
 			`  nohup "$_dt" event --type commit --message "$_dt_msg" --metadata "$_dt_meta" --quiet >/dev/null 2>&1 &`,
 		}, "\n")
 	case "pre-push":
-		return branchBlock("push", "pre-push hook fired")
+		// A push is when PR state is most likely to have changed, so also sync
+		// this repo's pull requests (detached, best-effort — needs gh + a
+		// registered project; no-ops otherwise).
+		return branchBlock("push", "pre-push hook fired") + "\n" +
+			`  nohup "$_dt" pr-sync --quiet >/dev/null 2>&1 &`
 	case "post-merge":
 		return branchBlock("merge", "post-merge hook fired")
 	}

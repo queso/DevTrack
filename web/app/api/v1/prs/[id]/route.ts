@@ -48,7 +48,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
         ...(project_id !== undefined ? { projectId: project_id } : {}),
         ...(branch_id !== undefined ? { branchId: branch_id } : {}),
         ...(prd_id !== undefined ? { prdId: prd_id } : {}),
-        ...(github_id !== undefined ? { githubId: github_id } : {}),
+        ...(github_id !== undefined ? { githubId: BigInt(github_id) } : {}),
         ...(check_status !== undefined ? { checkStatus: check_status } : {}),
         ...(opened_at !== undefined ? { openedAt: new Date(opened_at) } : {}),
         ...(merged_at !== undefined ? { mergedAt: merged_at ? new Date(merged_at) : null } : {}),

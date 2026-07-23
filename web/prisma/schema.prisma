@@ -137,7 +137,7 @@ model PullRequest {
   projectId   String
   branchId    String?
   prdId       String?
-  githubId    Int
+  githubId    BigInt
   number      Int
   title       String
   status      PullRequestStatus @default(open)
