@@ -58,7 +58,9 @@ export default function PRQueuePage() {
     () => (searchParams.get("domain") as Domain) ?? "all",
   )
 
-  const { data: rawData, isLoading, error, mutate } = usePRs()
+  // A PR *queue* is for active PRs — exclude terminal states server-side so the
+  // list isn't buried under merged/closed PRs (and so paging works correctly).
+  const { data: rawData, isLoading, error, mutate } = usePRs({ excludeStatus: "merged,closed" })
   const { data: rawProjects } = useProjects()
 
   // Build a set of project names (slugs) that belong to the selected domain

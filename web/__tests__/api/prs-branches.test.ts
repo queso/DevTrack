@@ -88,6 +88,33 @@ describe("GET /api/v1/prs", () => {
       expect.objectContaining({ where: expect.objectContaining({ status: "open" }) }),
     )
   })
+
+  it("excludes terminal statuses via exclude_status (queue shows active PRs)", async () => {
+    mockPrisma.pullRequest.findMany.mockResolvedValue([])
+    mockPrisma.pullRequest.count.mockResolvedValue(0)
+
+    const { GET } = await import("@/app/api/v1/prs/route")
+    const request = new Request("http://localhost/api/v1/prs?exclude_status=merged,closed")
+    const response = await GET(request)
+
+    expect(response.status).toBe(200)
+    expect(mockPrisma.pullRequest.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { status: { notIn: ["merged", "closed"] } } }),
+    )
+  })
+
+  it("lets an explicit status win over exclude_status", async () => {
+    mockPrisma.pullRequest.findMany.mockResolvedValue([])
+    mockPrisma.pullRequest.count.mockResolvedValue(0)
+
+    const { GET } = await import("@/app/api/v1/prs/route")
+    const request = new Request("http://localhost/api/v1/prs?status=open&exclude_status=merged")
+    await GET(request)
+
+    expect(mockPrisma.pullRequest.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { status: "open" } }),
+    )
+  })
 })
 
 describe("GET /api/v1/projects/:id/branches", () => {

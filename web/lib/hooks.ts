@@ -58,6 +58,7 @@ interface FilterOpts extends PaginationOpts {
   projectId?: string
   eventType?: string
   excludeType?: string
+  excludeStatus?: string
   from?: string
   to?: string
   domain?: string
@@ -85,7 +86,12 @@ export function getProjectKey(slug: string | null | undefined): string | null {
 export function getPRsKey(opts?: FilterOpts): string {
   const base = "/api/v1/prs"
   if (!opts) return base
-  return `${base}${buildQueryString({ project_id: opts.projectId, page: opts.page, limit: opts.limit })}`
+  return `${base}${buildQueryString({
+    project_id: opts.projectId,
+    exclude_status: opts.excludeStatus,
+    page: opts.page,
+    per_page: opts.limit,
+  })}`
 }
 
 export function getTimelineKey(opts?: FilterOpts): string {
