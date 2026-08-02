@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useMemo, useState } from "react"
 import { DomainBadge } from "@/components/features/dashboard/domain-badge"
 import { ErrorState, ProjectCardSkeleton } from "@/components/features/dashboard/loading-states"
-import { useProjects } from "@/lib/hooks"
+import { useActivePRCount, useProjects } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 import type { ApiProject } from "@/types/api-responses"
 
@@ -165,7 +165,11 @@ export default function DashboardPage() {
     return result
   }, [projects, search, domainFilter, sort])
 
-  const totalPRs = projects?.reduce((sum, p) => sum + getOpenPRCount(p), 0) ?? 0
+  // "PRs open" comes from the /prs active total (issue #26) — the single source
+  // of truth shared with the sidebar badge and PR Queue. Summing embedded
+  // project.pullRequests undercounted here, because the PR-bearing projects get
+  // pushed off the paginated projects list by ghost projects.
+  const totalPRs = useActivePRCount()
   const needsAttention =
     projects?.filter((p) => getOpenPRCount(p) > 0 || getActivityLevel(p.lastActivityAt) === "stale")
       .length ?? 0

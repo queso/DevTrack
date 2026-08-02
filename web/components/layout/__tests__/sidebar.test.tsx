@@ -30,10 +30,13 @@ vi.mock("next/navigation", () => ({
 
 const mockUseProjects = vi.fn()
 const mockUsePRs = vi.fn()
+const mockUseActivePRCount = vi.fn()
 
 vi.mock("@/lib/hooks", () => ({
   useProjects: (...args: unknown[]) => mockUseProjects(...args),
   usePRs: (...args: unknown[]) => mockUsePRs(...args),
+  useActivePRCount: (...args: unknown[]) => mockUseActivePRCount(...args),
+  ACTIVE_PR_FILTER: {},
 }))
 
 // ---------------------------------------------------------------------------
@@ -133,6 +136,9 @@ function setupHooks({
     error: undefined,
     meta: undefined,
   })
+  // The badge now reads the active-PR total from useActivePRCount (issue #26).
+  // The fixtures are all open PRs, so the active count is the fixture length.
+  mockUseActivePRCount.mockReturnValue((prsData ?? []).length)
 }
 
 // ---------------------------------------------------------------------------
@@ -240,10 +246,10 @@ describe("Sidebar — PR Queue live count badge", () => {
     clearLocalStorage()
   })
 
-  it("calls usePRs hook to fetch live PR data", () => {
+  it("reads the live open-PR count from useActivePRCount", () => {
     setupHooks()
     render(<SidebarModule.default />)
-    expect(mockUsePRs).toHaveBeenCalled()
+    expect(mockUseActivePRCount).toHaveBeenCalled()
   })
 
   it("shows the open PR count badge on the PR Queue nav item", () => {
@@ -733,8 +739,7 @@ describe("Sidebar — PR badge zero count", () => {
   })
 
   it("shows badge when PR count transitions from zero to one", async () => {
-    const _user = userEvent.setup()
-    mockUsePRs.mockReturnValue({ data: [], isLoading: false, error: undefined, meta: undefined })
+    mockUseActivePRCount.mockReturnValue(0)
     mockUseProjects.mockReturnValue({
       data: [PROJECT_ARCANELAYER],
       isLoading: false,
@@ -747,13 +752,8 @@ describe("Sidebar — PR badge zero count", () => {
     // No badge at zero
     expect(screen.queryByText("1")).not.toBeInTheDocument()
 
-    // Now one PR arrives
-    mockUsePRs.mockReturnValue({
-      data: [OPEN_PR],
-      isLoading: false,
-      error: undefined,
-      meta: undefined,
-    })
+    // Now the active-PR count becomes one
+    mockUseActivePRCount.mockReturnValue(1)
     rerender(<SidebarModule.default />)
 
     await waitFor(() => {

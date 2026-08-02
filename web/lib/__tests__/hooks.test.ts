@@ -633,6 +633,20 @@ describe("usePRs", () => {
     expect(calledUrl).toContain("exclude_status=merged%2Cclosed")
   })
 
+  it("useActivePRCount returns the /prs active total and excludes terminal states", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => makePaginatedEnvelope([], 7, 1, 20),
+    })
+
+    const { useActivePRCount } = await importHooks()
+    const { result } = renderHook(() => useActivePRCount(), { wrapper })
+
+    await waitFor(() => expect(result.current).toBe(7))
+    const calledUrl = (fetch as ReturnType<typeof vi.fn>).mock.calls[0][0] as string
+    expect(calledUrl).toContain("exclude_status=merged%2Cclosed")
+  })
+
   it("exposes pagination meta", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,

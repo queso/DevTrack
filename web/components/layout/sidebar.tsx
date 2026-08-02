@@ -12,7 +12,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useEffect, useState } from "react"
 import { ProjectCardSkeleton } from "@/components/features/dashboard/loading-states"
-import { usePRs, useProjects } from "@/lib/hooks"
+import { useActivePRCount, useProjects } from "@/lib/hooks"
 import type { Project } from "@/lib/ui-types"
 import { cn } from "@/lib/utils"
 
@@ -39,12 +39,11 @@ export default function Sidebar() {
   const pathname = usePathname()
 
   const { data: projectsRaw, isLoading: projectsLoading } = useProjects()
-  const { data: prsRaw } = usePRs()
 
   const projects = (projectsRaw ?? []) as unknown as Project[]
-  const openPRCount = (prsRaw ?? []).filter(
-    (pr) => pr.status === "open" || pr.status === "draft",
-  ).length
+  // Single source of truth for the open-PR count (issue #26): the /prs active
+  // total, shared with the dashboard header and PR Queue.
+  const openPRCount = useActivePRCount()
 
   // Default to expanded; apply localStorage/viewport preference after mount to avoid hydration mismatch
   const [collapsed, setCollapsed] = useState<boolean>(false)

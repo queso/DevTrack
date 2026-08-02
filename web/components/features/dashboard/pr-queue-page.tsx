@@ -27,7 +27,7 @@ import {
 } from "@/components/features/dashboard/loading-states"
 import { CheckStatusBadge, PRStatusBadge } from "@/components/features/dashboard/status-badges"
 import { DOMAIN_LABELS, DOMAIN_ORDER } from "@/lib/constants"
-import { usePRs, useProjects } from "@/lib/hooks"
+import { ACTIVE_PR_FILTER, usePRs, useProjects } from "@/lib/hooks"
 import { mapPR } from "@/lib/mappers"
 import { cn } from "@/lib/utils"
 
@@ -60,7 +60,9 @@ export default function PRQueuePage() {
 
   // A PR *queue* is for active PRs — exclude terminal states server-side so the
   // list isn't buried under merged/closed PRs (and so paging works correctly).
-  const { data: rawData, isLoading, error, mutate } = usePRs({ excludeStatus: "merged,closed" })
+  // ACTIVE_PR_FILTER is the shared definition used by the sidebar badge and the
+  // dashboard "PRs open" count (issue #26), so the three agree.
+  const { data: rawData, meta, isLoading, error, mutate } = usePRs(ACTIVE_PR_FILTER)
   const { data: rawProjects } = useProjects()
 
   // Build a set of project names (slugs) that belong to the selected domain
@@ -117,7 +119,9 @@ export default function PRQueuePage() {
     return prs
   }, [mappedPRs, domainFilter, domainProjectSlugs, sortKey, sortAsc])
 
-  const prCount = sorted.length
+  // Across all domains, show the true active total (meta) so this agrees with the
+  // sidebar/dashboard; when a domain filter narrows the rows, show that subset.
+  const prCount = domainFilter === "all" ? (meta?.total ?? sorted.length) : sorted.length
 
   return (
     <div className="flex flex-col gap-6 p-6">

@@ -75,6 +75,7 @@ const mockUseProjectsReturn: {
 vi.mock("@/lib/hooks", () => ({
   usePRs: () => mockUsePRsReturn,
   useProjects: () => mockUseProjectsReturn,
+  ACTIVE_PR_FILTER: {},
 }))
 
 // ---------------------------------------------------------------------------
