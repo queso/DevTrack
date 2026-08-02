@@ -1,5 +1,18 @@
 name: AI PR Review
 
+# Nitpick — multi-station PR review on the Conduit kernel (queso/nitpick-flow).
+#
+# Replaces the previous queso/gh-workflows PR-Agent-style reviewer. Nitpick classifies the
+# diff, fans out parallel domain reviewers (security / correctness / performance / conventions
+# / tests) over coupling-aware shards, then a frontier coordinator dedups, assigns severity,
+# and posts ONE batched review with inline anchors.
+#
+# Repo context: the flow reads CLAUDE.md (and any AGENTS.md) from the checkout, so the
+# conventions reviewer judges against what this repo actually documents.
+#
+# To revert to the old reviewer, restore this file's previous revision — it called
+# queso/gh-workflows/.github/workflows/pr-review.yml@main with the same FIREWORKS_AI_API_KEY.
+
 on:
   pull_request:
     types: [opened, reopened, ready_for_review, synchronize]
@@ -7,9 +20,24 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  packages: read
 
 jobs:
-  review:
-    uses: queso/gh-workflows/.github/workflows/pr-review.yml@main
+  nitpick:
+    # DevTrack is a PUBLIC repo: pull_request runs from forks get no repo secrets, so the
+    # gateway key would be empty and every fork PR would red-X on a config problem the
+    # contributor can't fix. Skip those instead — same-repo PRs (all our own work) still run.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    uses: queso/nitpick-flow/.github/workflows/nitpick.yml@main
+    permissions:
+      contents: read
+      pull-requests: write
+      packages: read
     secrets:
-      llm_api_key: ${{ secrets.FIREWORKS_AI_API_KEY }}
+      # Both default models (reviewers + coordinator) live on Fireworks serverless, which is
+      # also the flow's default conduit_base_url — so this one key is the whole model config.
+      conduit_api_key: ${{ secrets.FIREWORKS_AI_API_KEY }}
+      # ghcr.io/queso/nitpick-flow is a PRIVATE package. This repo's GITHUB_TOKEN can only pull
+      # it if the package grants queso/DevTrack read under "Manage Actions access". If that
+      # grant is unavailable, add a read:packages PAT as GHCR_READ_PAT and uncomment:
+      # registry_token: ${{ secrets.GHCR_READ_PAT }}
