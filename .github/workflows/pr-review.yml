@@ -1,11 +1,16 @@
 name: AI PR Review
 
-# Nitpick — multi-station PR review on the Conduit kernel (queso/nitpick-flow).
+# Nitpick — multi-station PR review on the Conduit kernel.
 #
 # Replaces the previous queso/gh-workflows PR-Agent-style reviewer. Nitpick classifies the
 # diff, fans out parallel domain reviewers (security / correctness / performance / conventions
 # / tests) over coupling-aware shards, then a frontier coordinator dedups, assigns severity,
 # and posts ONE batched review with inline anchors.
+#
+# The reusable workflow is hosted in queso/gh-workflows (public) rather than beside the flow's
+# own private source: GitHub does not let a workflow in a PUBLIC repo — which DevTrack is —
+# call a reusable workflow stored in a private one. Pointing at the private repo fails before
+# any job is created, with only a bare "workflow file issue" and no check to click into.
 #
 # Repo context: the flow reads CLAUDE.md (and any AGENTS.md) from the checkout, so the
 # conventions reviewer judges against what this repo actually documents.
@@ -28,7 +33,7 @@ jobs:
     # gateway key would be empty and every fork PR would red-X on a config problem the
     # contributor can't fix. Skip those instead — same-repo PRs (all our own work) still run.
     if: github.event.pull_request.head.repo.full_name == github.repository
-    uses: queso/nitpick-flow/.github/workflows/nitpick.yml@main
+    uses: queso/gh-workflows/.github/workflows/nitpick.yml@main
     permissions:
       contents: read
       pull-requests: write
@@ -37,7 +42,7 @@ jobs:
       # Both default models (reviewers + coordinator) live on Fireworks serverless, which is
       # also the flow's default conduit_base_url — so this one key is the whole model config.
       conduit_api_key: ${{ secrets.FIREWORKS_AI_API_KEY }}
-      # ghcr.io/queso/nitpick-flow is a PRIVATE package. This repo's GITHUB_TOKEN can only pull
-      # it if the package grants queso/DevTrack read under "Manage Actions access". If that
-      # grant is unavailable, add a read:packages PAT as GHCR_READ_PAT and uncomment:
-      # registry_token: ${{ secrets.GHCR_READ_PAT }}
+      # ghcr.io/queso/nitpick-flow is a PRIVATE package. A package-level Actions access grant
+      # would cover a private repo, but not a public one — so this public repo needs its own
+      # read:packages PAT. Fork PRs never see it (guarded above).
+      registry_token: ${{ secrets.GHCR_READ_PAT }}
