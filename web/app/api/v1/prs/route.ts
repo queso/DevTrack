@@ -10,19 +10,32 @@ export async function GET(request: Request) {
   const { page, per_page } = parsePagination(url.searchParams)
   const { skip, take } = buildPagination(page, per_page)
 
+  type PrStatus =
+    | "open"
+    | "closed"
+    | "merged"
+    | "draft"
+    | "review_requested"
+    | "changes_requested"
+    | "approved"
+
   const status = url.searchParams.get("status") ?? undefined
+  // exclude_status (comma-separated) omits terminal states so the PR *queue*
+  // shows active PRs, not a pile of merged/closed ones. An explicit `status`
+  // filter takes precedence.
+  const excludeStatusParam = url.searchParams.get("exclude_status") ?? undefined
+  const excludeStatuses = excludeStatusParam
+    ? excludeStatusParam
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : []
+
   const where = status
-    ? {
-        status: status as
-          | "open"
-          | "closed"
-          | "merged"
-          | "draft"
-          | "review_requested"
-          | "changes_requested"
-          | "approved",
-      }
-    : {}
+    ? { status: status as PrStatus }
+    : excludeStatuses.length
+      ? { status: { notIn: excludeStatuses as PrStatus[] } }
+      : {}
 
   const [prs, total] = await Promise.all([
     prisma.pullRequest.findMany({

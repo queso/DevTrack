@@ -52,8 +52,14 @@ const mockUseProjectsReturn: {
   mutate: vi.fn(),
 }
 
+// The dashboard "PRs open" count comes from useActivePRCount (the /prs active
+// total), not from summing project.pullRequests (issue #26). Controllable here.
+let mockActivePRCount = 0
+
 vi.mock("@/lib/hooks", () => ({
   useProjects: () => mockUseProjectsReturn,
+  useActivePRCount: () => mockActivePRCount,
+  ACTIVE_PR_FILTER: {},
 }))
 
 // ---------------------------------------------------------------------------
@@ -197,6 +203,7 @@ beforeEach(() => {
   mockUseProjectsReturn.isLoading = false
   mockUseProjectsReturn.error = undefined
   mockUseProjectsReturn.mutate = vi.fn()
+  mockActivePRCount = 0
   vi.clearAllMocks()
 })
 
@@ -640,35 +647,14 @@ describe("AC6: Count summary from actual data", () => {
     })
   })
 
-  it("computes open PR count from actual project data", async () => {
+  it("shows the open PR count from useActivePRCount (the /prs active total)", async () => {
+    // Issue #26: "PRs open" is the single active-PR total from /prs, NOT summed
+    // from embedded project.pullRequests (which undercounts when ghost projects
+    // push the real projects off the paginated list). project.pullRequests here
+    // is intentionally empty to prove the count no longer derives from it.
+    mockActivePRCount = 2
     mockUseProjectsReturn.data = [
-      makeApiProject({
-        name: "proj-with-pr",
-        pullRequests: [
-          {
-            id: "pr-a",
-            number: 1,
-            title: "PR 1",
-            status: "open",
-            check_status: "passing",
-            branch_id: "feat/a",
-            url: "https://github.com/org/repo/pull/1",
-            author: "dev",
-            opened_at: new Date(),
-          },
-          {
-            id: "pr-b",
-            number: 2,
-            title: "PR 2",
-            status: "review_requested",
-            check_status: "pending",
-            branch_id: "feat/b",
-            url: "https://github.com/org/repo/pull/2",
-            author: "dev",
-            opened_at: new Date(),
-          },
-        ],
-      }),
+      makeApiProject({ name: "proj-with-pr", pullRequests: [] }),
       makeApiProject({ id: "proj-2", name: "proj-without-pr", pullRequests: [] }),
     ]
 
@@ -680,7 +666,6 @@ describe("AC6: Count summary from actual data", () => {
     )
 
     await waitFor(() => {
-      // 2 open PRs total from first project
       expect(screen.getByText(/2 prs? open/i)).toBeInTheDocument()
     })
   })

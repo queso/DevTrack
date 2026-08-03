@@ -58,6 +58,7 @@ interface FilterOpts extends PaginationOpts {
   projectId?: string
   eventType?: string
   excludeType?: string
+  excludeStatus?: string
   from?: string
   to?: string
   domain?: string
@@ -85,7 +86,12 @@ export function getProjectKey(slug: string | null | undefined): string | null {
 export function getPRsKey(opts?: FilterOpts): string {
   const base = "/api/v1/prs"
   if (!opts) return base
-  return `${base}${buildQueryString({ project_id: opts.projectId, page: opts.page, limit: opts.limit })}`
+  return `${base}${buildQueryString({
+    project_id: opts.projectId,
+    exclude_status: opts.excludeStatus,
+    page: opts.page,
+    per_page: opts.limit,
+  })}`
 }
 
 export function getTimelineKey(opts?: FilterOpts): string {
@@ -209,6 +215,21 @@ export function usePRs(
 
 export function useTimeline(opts?: FilterOpts, swrOpts?: SWRConfiguration): HookResult<ApiEvent[]> {
   return useEnvelopeSWR<ApiEvent[]>(getTimelineKey(opts), swrOpts)
+}
+
+// ACTIVE_PR_FILTER is the single definition of an "open" PR for the counts shown
+// on the dashboard header, the sidebar badge, and the PR Queue — a PR that isn't
+// merged or closed. Keeping it here (one query, one SWR key) is the single
+// source of truth the three surfaces previously disagreed on (issue #26).
+export const ACTIVE_PR_FILTER: FilterOpts = { excludeStatus: "merged,closed" }
+
+// useActivePRCount returns the total number of open PRs across all projects,
+// from the /prs endpoint's pagination meta (the true total, not a page count).
+// It shares an SWR key with the PR Queue's usePRs(ACTIVE_PR_FILTER) call, so
+// the count and the list come from one request.
+export function useActivePRCount(): number {
+  const { meta } = usePRs(ACTIVE_PR_FILTER)
+  return meta?.total ?? 0
 }
 
 export function useActivity(opts?: { projectId?: string } & SWRConfiguration): HookResult<unknown> {

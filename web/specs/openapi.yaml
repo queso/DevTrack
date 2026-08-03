@@ -936,6 +936,15 @@ paths:
           in: query
           schema:
             $ref: '#/components/schemas/PullRequestStatus'
+        - name: exclude_status
+          in: query
+          description: >-
+            Comma-separated list of PullRequestStatus values to exclude. Ignored
+            when `status` is set. The PR queue uses `merged,closed` to show only
+            active pull requests.
+          schema:
+            type: string
+            example: merged,closed
         - name: project_id
           in: query
           schema:

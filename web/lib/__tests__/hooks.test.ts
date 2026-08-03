@@ -615,7 +615,36 @@ describe("usePRs", () => {
     await waitFor(() => expect(fetch).toHaveBeenCalled())
     const calledUrl = (fetch as ReturnType<typeof vi.fn>).mock.calls[0][0] as string
     expect(calledUrl).toContain("page=2")
-    expect(calledUrl).toContain("limit=25")
+    // limit maps onto the API's `per_page` param (was sent as `limit` and ignored).
+    expect(calledUrl).toContain("per_page=25")
+  })
+
+  it("passes exclude_status so the queue shows only active PRs", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => makePaginatedEnvelope([]),
+    })
+
+    const { usePRs } = await importHooks()
+    renderHook(() => usePRs({ excludeStatus: "merged,closed" }), { wrapper })
+
+    await waitFor(() => expect(fetch).toHaveBeenCalled())
+    const calledUrl = (fetch as ReturnType<typeof vi.fn>).mock.calls[0][0] as string
+    expect(calledUrl).toContain("exclude_status=merged%2Cclosed")
+  })
+
+  it("useActivePRCount returns the /prs active total and excludes terminal states", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => makePaginatedEnvelope([], 7, 1, 20),
+    })
+
+    const { useActivePRCount } = await importHooks()
+    const { result } = renderHook(() => useActivePRCount(), { wrapper })
+
+    await waitFor(() => expect(result.current).toBe(7))
+    const calledUrl = (fetch as ReturnType<typeof vi.fn>).mock.calls[0][0] as string
+    expect(calledUrl).toContain("exclude_status=merged%2Cclosed")
   })
 
   it("exposes pagination meta", async () => {
