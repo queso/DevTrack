@@ -40,6 +40,16 @@ describe("GET /api/v1/openapi.json", () => {
     }
   })
 
+  it("documents the exclude_status query param on GET /prs (CLI codegen source)", async () => {
+    const { GET } = await import("@/app/api/v1/openapi.json/route")
+    const response = await GET(new Request("http://localhost/api/v1/openapi.json"))
+    const spec = await response.json()
+
+    const params = spec.paths?.["/api/v1/prs"]?.get?.parameters ?? []
+    const names = params.map((p: { name: string }) => p.name)
+    expect(names, "GET /prs must document exclude_status").toContain("exclude_status")
+  })
+
   it("should define Bearer security scheme and envelope/error schemas", async () => {
     const { GET } = await import("@/app/api/v1/openapi.json/route")
     const response = await GET(new Request("http://localhost/api/v1/openapi.json"))

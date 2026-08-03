@@ -739,6 +739,13 @@ const spec = {
             in: "query",
             schema: { $ref: "#/components/schemas/PullRequestStatus" },
           },
+          {
+            name: "exclude_status",
+            in: "query",
+            description:
+              "Comma-separated PullRequestStatus values to exclude (ignored when status is set). The PR queue uses merged,closed to show only active PRs.",
+            schema: { type: "string", example: "merged,closed" },
+          },
           { name: "page", in: "query", schema: { type: "integer", default: 1 } },
           { name: "per_page", in: "query", schema: { type: "integer", default: 20 } },
         ],
