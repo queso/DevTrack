@@ -9,7 +9,7 @@
 #
 # Debian slim (not alpine) so the Prisma migration engine's OpenSSL 3 linkage
 # resolves without musl workarounds.
-FROM node:22-slim AS base
+FROM node:22.23.4-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d AS base
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
 RUN corepack enable && apt-get update \
